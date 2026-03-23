@@ -1,0 +1,7 @@
+# Arquivo com chaves e senhas (não versionar)
+.env
+.env.example
+
+# Storage e cache
+storage/logs/*
+!storage/.gitkeep

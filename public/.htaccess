@@ -1,0 +1,9 @@
+RewriteEngine On
+RewriteBase /plataform_stores/public/
+
+# Se a requisição for para um arquivo ou pasta que existe, usa direto
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Caso contrário, envia tudo para o index.php
+RewriteRule ^ index.php [QSA,L]
