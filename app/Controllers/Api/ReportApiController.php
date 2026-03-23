@@ -13,9 +13,8 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
-        $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
-        $to = $_GET['to'] ?? date('Y-m-d');
+        $this->requireStorePanelAccess($storeId);
+        [$from, $to] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
         $service = new ReportService();
         $data = $service->salesByPeriod($storeId, $from, $to);
         $this->json(['data' => $data]);
@@ -27,9 +26,8 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
-        $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
-        $to = $_GET['to'] ?? date('Y-m-d');
+        $this->requireStorePanelAccess($storeId);
+        [$from, $to] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
         $limit = (int) ($_GET['limit'] ?? 10);
         $service = new ReportService();
         $data = $service->topProducts($storeId, $from, $to, $limit);
@@ -42,7 +40,7 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
+        $this->requireStorePanelAccess($storeId);
         $service = new ReportService();
         $data = $service->lowStockProducts($storeId);
         $this->json(['data' => $data]);
@@ -54,9 +52,8 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
-        $from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
-        $to = $_GET['to'] ?? date('Y-m-d');
+        $this->requireStorePanelAccess($storeId);
+        [$from, $to] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
         $service = new ReportService();
         $data = $service->employeePerformance($storeId, $from, $to);
         $this->json(['data' => $data]);
@@ -68,9 +65,8 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
-        $from = $_GET['from'] ?? null;
-        $to = $_GET['to'] ?? null;
+        $this->requireStorePanelAccess($storeId);
+        [$from, $to] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
         $service = new ReportService();
         $data = $service->storeRevenueByType($storeId, $from, $to);
         $this->json([
@@ -86,7 +82,7 @@ class ReportApiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireGerenteOfStore($storeId);
+        $this->requireStorePanelAccess($storeId);
         $service = new ReportService();
         $data = $service->customersWithStats($storeId);
         $this->json(['customers' => $data]);

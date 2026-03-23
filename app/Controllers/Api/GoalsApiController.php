@@ -27,9 +27,9 @@ class GoalsApiController extends Controller
         $storeGoalAmount = $storeGoal ? (float) $storeGoal['goal_amount'] : 0.0;
 
         $employeeGoals = $empGoalRepo->getByStoreAndPeriod($storeId, $period);
-        $dateFrom = $period . '-01';
-        $dateTo = date('Y-m-t', strtotime($dateFrom));
-        $performance = $reportService->employeePerformance($storeId, $dateFrom, $dateTo);
+        // Vendas: mesmo intervalo De/Até do dashboard (parseReportDateRange). Meta em R$ continua do mês "period".
+        [$salesFrom, $salesTo] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
+        $performance = $reportService->employeePerformance($storeId, $salesFrom, $salesTo);
         $employees = $userRepo->listEmployeesByStore($storeId);
         $byId = [];
         foreach ($employees as $u) {
@@ -50,9 +50,11 @@ class GoalsApiController extends Controller
         }
 
         $this->json([
-            'period' => $period,
+            'period'     => $period,
             'store_goal' => $storeGoalAmount,
-            'employees' => array_values($byId),
+            'employees'  => array_values($byId),
+            'sales_from' => $salesFrom,
+            'sales_to'   => $salesTo,
         ]);
     }
 

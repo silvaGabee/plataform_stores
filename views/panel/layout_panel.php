@@ -9,22 +9,33 @@
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body class="panel<?= !empty($panel_readonly) ? ' panel-readonly' : '' ?>">
+<?php
+$__panelSlug = (string) ($store['slug'] ?? '');
+$__reqPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
+$__panelNav = '';
+if ($__panelSlug !== '' && preg_match('~/painel/' . preg_quote($__panelSlug, '~') . '(?:/([^/?#]+))?~', $__reqPath, $__m)) {
+    $__panelNav = (isset($__m[1]) && $__m[1] !== '') ? strtolower($__m[1]) : 'dashboard';
+}
+$__navActive = static function (string $key) use ($__panelNav): string {
+    return strtolower($key) === $__panelNav ? 'panel-nav-link active' : 'panel-nav-link';
+};
+?>
     <aside class="panel-sidebar">
-        <h2><?= htmlspecialchars($store['name']) ?></h2>
-        <nav>
-            <a href="<?= base_url("painel/{$store['slug']}") ?>">Dashboard</a>
-            <a href="<?= base_url("painel/{$store['slug']}/produtos") ?>">Produtos</a>
-            <a href="<?= base_url("painel/{$store['slug']}/estoque") ?>">Estoque</a>
-            <a href="<?= base_url("painel/{$store['slug']}/entregas") ?>">Entregas</a>
-            <a href="<?= base_url("painel/{$store['slug']}/pdv") ?>">PDV</a>
+        <h2 class="panel-sidebar-title"><?= htmlspecialchars($store['name']) ?></h2>
+        <nav class="panel-sidebar-nav" aria-label="Menu do painel">
+            <a class="<?= $__navActive('dashboard') ?>" href="<?= base_url("painel/{$store['slug']}") ?>">Dashboard</a>
+            <a class="<?= $__navActive('produtos') ?>" href="<?= base_url("painel/{$store['slug']}/produtos") ?>">Produtos</a>
+            <a class="<?= $__navActive('estoque') ?>" href="<?= base_url("painel/{$store['slug']}/estoque") ?>">Estoque</a>
+            <a class="<?= $__navActive('entregas') ?>" href="<?= base_url("painel/{$store['slug']}/entregas") ?>">Entregas</a>
+            <a class="<?= $__navActive('pdv') ?>" href="<?= base_url("painel/{$store['slug']}/pdv") ?>">PDV</a>
             <?php if (empty($panel_readonly)): ?>
-            <a href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>">Funcionários</a>
-            <a href="<?= base_url("painel/{$store['slug']}/clientes") ?>">Clientes</a>
+            <a class="<?= $__navActive('funcionarios') ?>" href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>">Funcionários</a>
+            <a class="<?= $__navActive('clientes') ?>" href="<?= base_url("painel/{$store['slug']}/clientes") ?>">Clientes</a>
             <?php endif; ?>
-            <a href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>">Hierarquia</a>
-            <a href="<?= base_url("painel/{$store['slug']}/relatorios") ?>">Relatórios</a>
+            <a class="<?= $__navActive('hierarquia') ?>" href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>">Hierarquia</a>
+            <a class="<?= $__navActive('relatorios') ?>" href="<?= base_url("painel/{$store['slug']}/relatorios") ?>">Relatórios</a>
         </nav>
-        <p><a href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank">Ver loja →</a></p>
+        <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener">Ver loja →</a></p>
     </aside>
     <main class="panel-main" data-store-slug="<?= htmlspecialchars($store['slug'] ?? '') ?>">
         <?= $content ?? '' ?>

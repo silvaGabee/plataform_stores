@@ -44,4 +44,45 @@ abstract class Controller
             exit;
         }
     }
+
+    /**
+     * Normaliza De/Até para relatórios (YYYY-MM-DD). Strings vazias ou inválidas viram intervalo padrão (últimos 30 dias).
+     *
+     * @return array{0: string, 1: string}
+     */
+    protected function parseReportDateRange(?string $from, ?string $to): array
+    {
+        $from = trim((string) ($from ?? ''));
+        $to = trim((string) ($to ?? ''));
+        $valid = static function (string $d): bool {
+            return (bool) preg_match('/^\d{4}-\d{2}-\d{2}$/', $d);
+        };
+        if (!$valid($from)) {
+            $from = '';
+        }
+        if (!$valid($to)) {
+            $to = '';
+        }
+        if ($from === '' && $to === '') {
+            $to = date('Y-m-d');
+            $from = date('Y-m-d', strtotime('-30 days', strtotime($to)));
+
+            return [$from, $to];
+        }
+        if ($from === '') {
+            $from = date('Y-m-d', strtotime('-30 days', strtotime($to)));
+        }
+        if ($to === '') {
+            $to = date('Y-m-d', strtotime('+30 days', strtotime($from)));
+            $today = date('Y-m-d');
+            if (strcmp($to, $today) > 0) {
+                $to = $today;
+            }
+        }
+        if (strcmp($from, $to) > 0) {
+            return [$to, $from];
+        }
+
+        return [$from, $to];
+    }
 }

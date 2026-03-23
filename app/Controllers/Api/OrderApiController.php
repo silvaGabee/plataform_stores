@@ -138,7 +138,7 @@ class OrderApiController extends Controller
                 $customerId = (int) $user['id'];
             }
         }
-        $createdBy = $orderType === 'pdv' ? ($_SESSION['user_id'] ?? null) : null;
+        $createdBy = $this->resolveOrderCreatedBy($storeId, $orderType);
         $deliveryType = isset($input['delivery_type']) ? strtolower(trim($input['delivery_type'])) : 'retirada';
         if (!in_array($deliveryType, ['retirada', 'entrega'], true)) {
             $deliveryType = 'retirada';
@@ -171,5 +171,35 @@ class OrderApiController extends Controller
         } catch (\Throwable $e) {
             $this->json(['error' => $e->getMessage()], 400);
         }
+    }
+
+    /**
+     * Quem registrou a venda (metas / desempenho por funcionário).
+     * PDV: operador logado no painel.
+     * Online: se um gerente/funcionário da mesma loja estiver logado (ex.: atendimento pelo site),
+     * a venda entra na meta dele; cliente comum logado não recebe esse crédito.
+     */
+    private function resolveOrderCreatedBy(int $storeId, string $orderType): ?int
+    {
+        $opId = (int) ($_SESSION['user_id'] ?? $_SESSION['logged_user_id'] ?? 0);
+        if ($opId < 1) {
+            return null;
+        }
+        $userRepo = new UserRepository();
+        $op = $userRepo->find($opId);
+        if (!$op || (int) ($op['store_id'] ?? 0) !== $storeId) {
+            return null;
+        }
+        $type = strtolower((string) ($op['user_type'] ?? ''));
+        if (!in_array($type, ['funcionario', 'gerente'], true)) {
+            return null;
+        }
+        if ($orderType === 'pdv') {
+            return $opId;
+        }
+        if ($orderType === 'online') {
+            return $opId;
+        }
+        return null;
     }
 }

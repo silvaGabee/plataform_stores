@@ -14,7 +14,12 @@
         </div>
         <?php if (empty($panel_readonly)): ?>
         <div class="dashboard-actions">
-            <button type="button" class="btn btn-secondary" id="btn-edit-dashboard">Customizar dashboard</button>
+            <button type="button" class="btn-dashboard-customize" id="btn-edit-dashboard">
+                <span class="btn-dashboard-customize-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
+                </span>
+                <span class="btn-dashboard-customize-text">Customizar dashboard</span>
+            </button>
             <div id="dashboard-edit-bar" class="dashboard-edit-bar hidden">
                 <select id="widget-type">
                     <option value="">Adicionar bloco...</option>

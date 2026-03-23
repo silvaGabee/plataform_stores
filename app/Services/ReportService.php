@@ -27,15 +27,16 @@ class ReportService
 
     public function topProducts(int $storeId, string $dateFrom, string $dateTo, int $limit = 10): array
     {
-        $stmt = $this->pdo->prepare(
-            "SELECT p.name, SUM(oi.quantity) as total_qty, SUM(oi.quantity * oi.price) as revenue 
+        // LIMIT com placeholder falha em várias versões do MySQL/MariaDB com PDO (erro perto do número).
+        $lim = max(1, min(100, (int) $limit));
+        $sql = "SELECT p.name, SUM(oi.quantity) as total_qty, SUM(oi.quantity * oi.price) as revenue 
              FROM order_items oi 
              JOIN orders o ON o.id = oi.order_id 
              JOIN products p ON p.id = oi.product_id 
              WHERE o.store_id = ? AND o.status = 'pago' AND o.created_at BETWEEN ? AND ? 
-             GROUP BY oi.product_id ORDER BY total_qty DESC LIMIT ?"
-        );
-        $stmt->execute([$storeId, $dateFrom . ' 00:00:00', $dateTo . ' 23:59:59', $limit]);
+             GROUP BY oi.product_id, p.name ORDER BY total_qty DESC LIMIT {$lim}";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$storeId, $dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
         return $stmt->fetchAll();
     }
 

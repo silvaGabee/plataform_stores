@@ -30,11 +30,38 @@
 
   function api(path, opt) {
     var url = base.replace(/\/$/, '') + (path.indexOf('/') === 0 ? path : '/' + path);
-    return fetch(url, { credentials: 'same-origin', ...opt }).then(function (r) { return r.json(); });
+    return fetch(url, { credentials: 'same-origin', ...opt }).then(function (r) {
+      return r.text().then(function (text) {
+        var j = null;
+        try {
+          j = text ? JSON.parse(text) : null;
+        } catch (e) {
+          j = null;
+        }
+        if (!r.ok) {
+          var err = (j && j.error) ? j.error : (text || ('Erro HTTP ' + r.status));
+          return Promise.reject(new Error(err));
+        }
+        return j !== null ? j : {};
+      });
+    });
   }
 
   function from() { return (document.getElementById('report-from') || {}).value || ''; }
   function to() { return (document.getElementById('report-to') || {}).value || ''; }
+
+  /** Garante from <= to (datas YYYY-MM-DD do input type=date). */
+  function fromToBounds() {
+    var f = from();
+    var t = to();
+    if (!f || !t) return { from: f, to: t };
+    if (f > t) {
+      var x = f;
+      f = t;
+      t = x;
+    }
+    return { from: f, to: t };
+  }
   function formatMoney(n) {
     return 'R$ ' + (n != null ? parseFloat(n).toFixed(2).replace('.', ',') : '0,00');
   }
@@ -110,9 +137,13 @@
   function loadWidgetData(w) {
     var body = document.querySelector('.dashboard-widget-body[data-widget-id="' + w.id + '"]');
     if (!body) return;
-    var f = from(), t = to();
+    var b = fromToBounds();
+    var f = b.from;
+    var t = b.to;
+    var qDates = 'from=' + encodeURIComponent(f || '') + '&to=' + encodeURIComponent(t || '');
     if (w.type === 'revenue') {
-      api('/api/loja/' + storeSlug + '/reports/revenue?from=' + f + '&to=' + t).then(function (res) {
+      body.innerHTML = '<p class="report-empty">Carregando...</p>';
+      api('/api/loja/' + storeSlug + '/reports/revenue?' + qDates).then(function (res) {
         var fisico = res.revenue_fisico != null ? res.revenue_fisico : 0;
         var online = res.revenue_online != null ? res.revenue_online : 0;
         var total = res.revenue != null ? res.revenue : (fisico + online);
@@ -121,50 +152,81 @@
           '<li><span class="report-revenue-label">Online:</span> <strong class="report-revenue-value">' + formatMoney(online) + '</strong> <small class="report-revenue-hint"></small></li>' +
           '<li class="report-revenue-total"><span class="report-revenue-label">Total Faturado:</span> <strong class="report-revenue-value">' + formatMoney(total) + '</strong> <small class="report-revenue-hint"></small></li>' +
           '</ul>';
+      }).catch(function (err) {
+        body.innerHTML = '<p class="report-empty report-error">' + String(err.message || err).replace(/</g, '&lt;') + '</p>';
       });
     } else if (w.type === 'top_products') {
-      api('/api/loja/' + storeSlug + '/reports/top-products?from=' + f + '&to=' + t).then(function (res) {
+      body.innerHTML = '<p class="report-empty">Carregando...</p>';
+      api('/api/loja/' + storeSlug + '/reports/top-products?' + qDates).then(function (res) {
         var data = res.data || [];
         body.innerHTML = data.length ? '<ul class="report-list">' + data.map(function (p) {
           return '<li><span class="report-item-name">' + (p.name || '').replace(/</g, '&lt;') + '</span> — ' + (p.total_qty || 0) + ' un. — ' + formatMoney(p.revenue) + '</li>';
         }).join('') + '</ul>' : '<p class="report-empty">Nenhuma venda no período.</p>';
+      }).catch(function (err) {
+        body.innerHTML = '<p class="report-empty report-error">' + String(err.message || err).replace(/</g, '&lt;') + '</p>';
       });
     } else if (w.type === 'low_stock') {
+      body.innerHTML = '<p class="report-empty">Carregando...</p>';
       api('/api/loja/' + storeSlug + '/reports/low-stock').then(function (res) {
         var data = res.data || [];
         body.innerHTML = data.length ? '<ul class="report-list">' + data.map(function (p) {
           return '<li><span class="report-item-name">' + (p.name || '').replace(/</g, '&lt;') + '</span> — Estoque: ' + (p.stock_quantity || 0) + ' (mín: ' + (p.min_stock || 0) + ')</li>';
         }).join('') + '</ul>' : '<p class="report-empty">Nenhum produto com estoque baixo.</p>';
+      }).catch(function (err) {
+        body.innerHTML = '<p class="report-empty report-error">' + String(err.message || err).replace(/</g, '&lt;') + '</p>';
       });
     } else if (w.type === 'employees') {
-      api('/api/loja/' + storeSlug + '/reports/employees?from=' + f + '&to=' + t).then(function (res) {
+      body.innerHTML = '<p class="report-empty">Carregando...</p>';
+      api('/api/loja/' + storeSlug + '/reports/employees?' + qDates).then(function (res) {
         var data = res.data || [];
         body.innerHTML = data.length ? '<ul class="report-list">' + data.map(function (e) {
           return '<li><span class="report-item-name">' + (e.name || '').replace(/</g, '&lt;') + '</span> — ' + (e.orders_count || 0) + ' pedidos — ' + formatMoney(e.total_sales) + '</li>';
         }).join('') + '</ul>' : '<p class="report-empty">Nenhum dado.</p>';
+      }).catch(function (err) {
+        body.innerHTML = '<p class="report-empty report-error">' + String(err.message || err).replace(/</g, '&lt;') + '</p>';
       });
     } else if (w.type === 'goals') {
       loadGoalsWidget(body);
     }
   }
 
-  function goalsPeriod() {
+  function goalsPeriodStorageKey() {
+    return 'goalsPeriod_' + storeSlug;
+  }
+
+  /** Mês inicial do bloco metas: último escolhido (session) ou mês do filtro "De" ou mês atual. */
+  function goalsPeriodDefault() {
+    try {
+      var s = sessionStorage.getItem(goalsPeriodStorageKey());
+      if (s && /^\d{4}-\d{2}$/.test(s)) return s;
+    } catch (e) {}
     var f = from() || '';
     return (f && f.length >= 7) ? f.slice(0, 7) : new Date().toISOString().slice(0, 7);
   }
 
   function loadGoalsWidget(body, periodOverride) {
-    var period = periodOverride || (body.querySelector && body.querySelector('#goals-period-input') && body.querySelector('#goals-period-input').value) || goalsPeriod();
+    var period = periodOverride || (body.querySelector && body.querySelector('#goals-period-input') && body.querySelector('#goals-period-input').value) || goalsPeriodDefault();
+    var b = fromToBounds();
+    var q = 'period=' + encodeURIComponent(period) +
+      '&from=' + encodeURIComponent(b.from || '') + '&to=' + encodeURIComponent(b.to || '');
     body.innerHTML = '<p class="report-empty">Carregando metas...</p>';
-    api('/api/loja/' + storeSlug + '/goals?period=' + period).then(function (res) {
+    api('/api/loja/' + storeSlug + '/goals?' + q).then(function (res) {
+      try {
+        if (res.period && /^\d{4}-\d{2}$/.test(res.period)) {
+          sessionStorage.setItem(goalsPeriodStorageKey(), res.period);
+        }
+      } catch (e) {}
       var storeGoal = res.store_goal != null ? parseFloat(res.store_goal) : 0;
       var employees = res.employees || [];
       var canEdit = isGerente;
-      var periodLabel = period ? period.replace(/-/, '/') : '';
+      var monthHuman = period ? period.replace(/-/, '/') : '';
+      var rangeHint = (res.sales_from && res.sales_to)
+        ? '<p class="goals-range-hint"><strong>Vendas</strong> e <strong>atingido %</strong> usam o mesmo período <strong>De / Até</strong> do topo (' + (res.sales_from || '').split('-').reverse().join('/') + ' a ' + (res.sales_to || '').split('-').reverse().join('/') + '). Os valores em <strong>Meta (R$)</strong> vêm do mês <strong>' + monthHuman + '</strong> (campo Período).</p>'
+        : '';
       var form = canEdit ? '<div class="goals-form"><label>Período (mês)</label><input type="month" id="goals-period-input" value="' + period + '" class="goals-period"><br>' +
         '<label>Meta da loja (R$)</label><input type="number" step="0.01" min="0" id="goals-store-input" value="' + (storeGoal > 0 ? storeGoal : '') + '" placeholder="Ex: 50000" class="goals-store-amount">' +
         '<button type="button" class="btn btn-primary btn-sm goals-btn-set-store" data-period="' + period + '">Definir e distribuir entre funcionários</button></div>' : '';
-      var table = '<div class="goals-table-wrap"><table class="goals-table"><thead><tr><th>Funcionário</th><th>Meta (R$)</th><th>Vendas no mês</th><th>Atingido</th></tr></thead><tbody>';
+      var table = '<div class="goals-table-wrap"><table class="goals-table"><thead><tr><th>Funcionário</th><th>Meta (R$)</th><th>Vendas no período</th><th>Atingido</th></tr></thead><tbody>';
       employees.forEach(function (emp) {
         var goalVal = emp.goal_amount != null ? parseFloat(emp.goal_amount) : 0;
         var sales = emp.total_sales != null ? parseFloat(emp.total_sales) : 0;
@@ -173,7 +235,7 @@
         table += '<tr><td>' + (emp.name || '').replace(/</g, '&lt;') + '</td><td>' + goalCell + '</td><td>' + formatMoney(sales) + '</td><td>' + pct + '%</td></tr>';
       });
       table += '</tbody></table></div>';
-      body.innerHTML = '<div class="goals-widget-content">' + form + table + '</div>';
+      body.innerHTML = '<div class="goals-widget-content">' + form + rangeHint + table + '</div>';
       if (canEdit) {
         body.querySelector('.goals-btn-set-store').addEventListener('click', function () {
           var periodVal = body.querySelector('#goals-period-input').value || body.querySelector('.goals-period').value || period;
@@ -200,10 +262,18 @@
           });
         });
         var periodInput = body.querySelector('#goals-period-input');
-        if (periodInput) periodInput.addEventListener('change', function () { loadGoalsWidget(body, periodInput.value); });
+        if (periodInput) {
+          periodInput.addEventListener('change', function () {
+            var v = periodInput.value;
+            if (v && /^\d{4}-\d{2}$/.test(v)) {
+              try { sessionStorage.setItem(goalsPeriodStorageKey(), v); } catch (e) {}
+            }
+            loadGoalsWidget(body, v);
+          });
+        }
       }
-    }).catch(function () {
-      body.innerHTML = '<p class="report-empty">Erro ao carregar metas.</p>';
+    }).catch(function (err) {
+      body.innerHTML = '<p class="report-empty report-error">' + String((err && err.message) || err || 'Erro ao carregar metas.').replace(/</g, '&lt;') + '</p>';
     });
   }
 
@@ -276,8 +346,21 @@
     renderDashboard();
   }
 
-  document.getElementById('report-from').addEventListener('change', function () { currentWidgets.forEach(loadWidgetData); });
-  document.getElementById('report-to').addEventListener('change', function () { currentWidgets.forEach(loadWidgetData); });
+  (function bindReportFilters() {
+    function reload() {
+      currentWidgets.forEach(loadWidgetData);
+    }
+    var elFrom = document.getElementById('report-from');
+    var elTo = document.getElementById('report-to');
+    if (elFrom) {
+      elFrom.addEventListener('change', reload);
+      elFrom.addEventListener('input', reload);
+    }
+    if (elTo) {
+      elTo.addEventListener('change', reload);
+      elTo.addEventListener('input', reload);
+    }
+  })();
 
   var btnEdit = document.getElementById('btn-edit-dashboard');
   if (btnEdit) {
