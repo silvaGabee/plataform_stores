@@ -122,12 +122,26 @@ class StoreFrontController extends Controller
         $addresses = [];
         $emailSearched = false;
         $logged_in_used = $loginEmail !== null;
+        $user = null;
         if ($email !== '') {
             $emailSearched = true;
             $user = (new UserRepository())->findByEmailAndStore($email, (int) $store['id']);
             if ($user) {
                 $addresses = (new UserAddressRepository())->getByUserId((int) $user['id']);
             }
+        }
+        $customerName = '';
+        if ($loginEmail !== null) {
+            $userId = (int) ($_SESSION['logged_user_id'] ?? $_SESSION['user_id'] ?? 0);
+            if ($userId > 0) {
+                $loggedUser = (new UserRepository())->find($userId);
+                if ($loggedUser) {
+                    $customerName = (string) ($loggedUser['name'] ?? '');
+                }
+            }
+        }
+        if ($customerName === '' && $user) {
+            $customerName = (string) ($user['name'] ?? '');
         }
         $this->render('store/meus_enderecos', [
             'store' => $store,
@@ -136,6 +150,7 @@ class StoreFrontController extends Controller
             'email_searched' => $emailSearched,
             'addresses' => $addresses,
             'logged_in_used' => $logged_in_used,
+            'customer_name' => $customerName,
         ]);
     }
 

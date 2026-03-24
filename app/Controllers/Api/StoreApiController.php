@@ -98,4 +98,43 @@ class StoreApiController extends Controller
         $repo->setWidgets($storeId, $widgets);
         $this->json(['success' => true]);
     }
+
+    /**
+     * Exclui a loja e todos os dados vinculados (irreversível). Apenas gerente.
+     * Corpo JSON: { "confirmation": "Excluir" } (texto exato).
+     */
+    public function deleteStore(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireGerenteOfStore($storeId);
+        $input = $this->getJsonInput();
+        if (trim((string) ($input['confirmation'] ?? '')) !== 'Excluir') {
+            $this->json(['error' => 'Digite Excluir para confirmar.'], 400);
+            return;
+        }
+        $repo = new StoreRepository();
+        try {
+            if (!$repo->delete($storeId)) {
+                $this->json(['error' => 'Não foi possível excluir a loja.'], 500);
+                return;
+            }
+        } catch (\Throwable $e) {
+            $this->json(['error' => 'Não foi possível excluir a loja. Verifique se não há dependências bloqueando a exclusão.'], 500);
+            return;
+        }
+        $this->clearLoginSessionAfterStoreDeleted();
+        $this->json(['success' => true, 'redirect' => base_url('lojas')]);
+    }
+
+    private function clearLoginSessionAfterStoreDeleted(): void
+    {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+    }
 }

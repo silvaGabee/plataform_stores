@@ -68,6 +68,13 @@ class PanelController extends Controller
         $this->render('panel/relatorios', ['store' => $store, 'title' => 'Relatórios']);
     }
 
+    public function settings(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/configuracoes', ['store' => $store, 'title' => 'Configurações']);
+    }
+
     /** Funcionário não acessa estas rotas; redireciona ao dashboard. */
     private function requireGerenteOrRedirect(array $store, string $slug): void
     {

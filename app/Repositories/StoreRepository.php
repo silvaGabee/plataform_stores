@@ -78,4 +78,11 @@ class StoreRepository
         $stmt = $this->pdo->query("SELECT * FROM stores ORDER BY name");
         return $stmt->fetchAll();
     }
+
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM stores WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
+    }
 }

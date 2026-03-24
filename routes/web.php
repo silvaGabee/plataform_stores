@@ -31,4 +31,5 @@ return [
     'GET /painel/{slug}/clientes' => [PanelController::class, 'clientes'],
     'GET /painel/{slug}/hierarquia' => [PanelController::class, 'hierarchy'],
     'GET /painel/{slug}/relatorios' => [PanelController::class, 'reports'],
+    'GET /painel/{slug}/configuracoes' => [PanelController::class, 'settings'],
 ];

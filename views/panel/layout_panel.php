@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="base-url" content="<?= rtrim(base_url(), '/') ?>">
     <title><?= htmlspecialchars($title ?? 'Painel') ?> — <?= htmlspecialchars($store['name']) ?></title>
+    <link rel="icon" href="<?= asset('favicon.svg') ?>" type="image/svg+xml">
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
@@ -34,6 +35,9 @@ $__navActive = static function (string $key) use ($__panelNav): string {
             <?php endif; ?>
             <a class="<?= $__navActive('hierarquia') ?>" href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>">Hierarquia</a>
             <a class="<?= $__navActive('relatorios') ?>" href="<?= base_url("painel/{$store['slug']}/relatorios") ?>">Relatórios</a>
+            <?php if (empty($panel_readonly)): ?>
+            <a class="<?= $__navActive('configuracoes') ?>" href="<?= base_url("painel/{$store['slug']}/configuracoes") ?>">Configurações</a>
+            <?php endif; ?>
         </nav>
         <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener">Ver loja →</a></p>
     </aside>

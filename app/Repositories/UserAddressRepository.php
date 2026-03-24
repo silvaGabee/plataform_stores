@@ -55,4 +55,29 @@ class UserAddressRepository
         ]);
         return (int) $this->pdo->lastInsertId();
     }
+
+    public function update(int $id, array $data): bool
+    {
+        $stmt = $this->pdo->prepare(
+            'UPDATE user_addresses SET label = ?, street = ?, number = ?, complement = ?, neighborhood = ?, city = ?, state = ?, zipcode = ? WHERE id = ?'
+        );
+        return $stmt->execute([
+            $data['label'] ?? null,
+            $data['street'],
+            $data['number'],
+            $data['complement'] ?? null,
+            $data['neighborhood'] ?? null,
+            $data['city'],
+            $data['state'],
+            $data['zipcode'],
+            $id,
+        ]);
+    }
+
+    public function delete(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM user_addresses WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
+    }
 }

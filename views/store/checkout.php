@@ -32,8 +32,8 @@ $content = ob_start();
                 <div class="checkout-field">
                     <label>Como deseja receber? *</label>
                     <div class="checkout-delivery-options">
-                        <label class="checkout-radio"><input type="radio" name="delivery_type" value="retirada" checked> Retirar na loja</label>
-                        <label class="checkout-radio"><input type="radio" name="delivery_type" value="entrega"> Entrega</label>
+                        <label class="checkout-radio"><input type="radio" name="delivery_type" value="retirada" checked><span class="checkout-radio-text">Retirar na loja</span></label>
+                        <label class="checkout-radio"><input type="radio" name="delivery_type" value="entrega"><span class="checkout-radio-text">Entrega</span></label>
                     </div>
                 </div>
                 <div id="checkout-address-block" class="checkout-address-block hidden">

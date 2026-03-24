@@ -19,9 +19,12 @@ return [
 
     'GET /api/loja/{slug}/checkout/addresses' => [CheckoutApiController::class, 'addresses'],
     'POST /api/loja/{slug}/checkout/addresses' => [CheckoutApiController::class, 'createAddress'],
+    'PUT /api/loja/{slug}/checkout/addresses/{id}' => [CheckoutApiController::class, 'updateAddress'],
+    'DELETE /api/loja/{slug}/checkout/addresses/{id}' => [CheckoutApiController::class, 'deleteAddress'],
 
     'GET /api/store/slug/{slug}' => [StoreApiController::class, 'getBySlug'],
     'POST /api/store' => [StoreApiController::class, 'create'],
+    'POST /api/loja/{slug}/store/delete' => [StoreApiController::class, 'deleteStore'],
     'GET /api/loja/{slug}/pix-config' => [StoreApiController::class, 'getPixConfig'],
     'POST /api/loja/{slug}/pix-config' => [StoreApiController::class, 'updatePixConfig'],
     'GET /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'getDashboardConfig'],

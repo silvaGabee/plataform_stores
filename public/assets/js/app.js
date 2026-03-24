@@ -6,6 +6,32 @@
     return v ? v[2] : null;
   }
 
+  /** Aviso temporário na loja (some sozinho, sem botão OK). */
+  function showStoreToast(message, durationMs) {
+    const ms = durationMs === undefined ? 2600 : durationMs;
+    let el = document.getElementById('store-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'store-toast';
+      el.className = 'store-toast';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.remove('is-visible');
+    void el.offsetHeight;
+    clearTimeout(showStoreToast._hideTimer);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.classList.add('is-visible');
+      });
+    });
+    showStoreToast._hideTimer = setTimeout(function () {
+      el.classList.remove('is-visible');
+    }, ms);
+  }
+
   document.querySelectorAll('.add-to-cart').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const storeId = this.dataset.storeId;
@@ -23,7 +49,7 @@
       cart[storeId][productId] = (cart[storeId][productId] || 0) + qty;
       sessionStorage.setItem('cart', JSON.stringify(cart));
       if (typeof window.syncCartToSession === 'function') window.syncCartToSession();
-      alert('Adicionado ao carrinho');
+      showStoreToast('Adicionado ao carrinho');
     });
   });
 
