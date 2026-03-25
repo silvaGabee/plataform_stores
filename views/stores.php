@@ -53,7 +53,6 @@ $content = ob_start();
         <p class="store-list-actions">
             <a href="<?= base_url('criar-loja') ?>" class="btn btn-primary">Criar minha loja</a>
         </p>
-        <p><a href="<?= base_url('sair') ?>" class="link-logout">Sair</a></p>
     </div>
 </main>
 <?php

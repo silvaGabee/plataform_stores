@@ -129,4 +129,20 @@ class UserRepository
         $stmt = $this->pdo->prepare("DELETE FROM users WHERE id = ?");
         return $stmt->execute([$id]);
     }
+
+    /** Pedidos em que este utilizador é o cliente (impede DELETE por RESTRICT na BD). */
+    public function countOrdersAsCustomer(int $userId): int
+    {
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM orders WHERE customer_id = ?');
+        $stmt->execute([$userId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Turnos de caixa abertos por este utilizador (impede DELETE por RESTRICT na BD). */
+    public function countCashRegistersAsOpener(int $userId): int
+    {
+        $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM cash_registers WHERE opened_by = ?');
+        $stmt->execute([$userId]);
+        return (int) $stmt->fetchColumn();
+    }
 }

@@ -8,6 +8,8 @@ return [
     'GET /' => [HomeController::class, 'index'],
     'POST /login' => [HomeController::class, 'login'],
     'GET /sair' => [HomeController::class, 'logout'],
+    'GET /minha-conta' => [HomeController::class, 'myAccount'],
+    'POST /minha-conta/excluir' => [HomeController::class, 'deleteAccount'],
     'GET /lojas' => [HomeController::class, 'listStores'],
     'GET /criar-conta' => [HomeController::class, 'createAccountForm'],
     'POST /criar-conta' => [HomeController::class, 'createAccount'],

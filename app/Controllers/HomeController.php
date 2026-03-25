@@ -69,6 +69,55 @@ class HomeController extends Controller
         ]);
     }
 
+    public function myAccount(): void
+    {
+        if (!logged_in()) {
+            redirect(base_url());
+        }
+        $user = (new UserRepository())->find((int) $_SESSION['logged_user_id']);
+        if ($user === null) {
+            logout();
+            redirect(base_url());
+        }
+        $this->render('my_account', [
+            'title' => 'Minha conta',
+            'user'  => $user,
+        ]);
+    }
+
+    public function deleteAccount(): void
+    {
+        if (!logged_in()) {
+            redirect(base_url());
+        }
+        $userId = (int) $_SESSION['logged_user_id'];
+        $repo = new UserRepository();
+        $user = $repo->find($userId);
+        if ($user === null) {
+            logout();
+            redirect(base_url());
+        }
+        if ($repo->countOrdersAsCustomer($userId) > 0) {
+            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem pedidos associados a este utilizador.';
+            redirect(base_url('minha-conta'));
+        }
+        if ($repo->countCashRegistersAsOpener($userId) > 0) {
+            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem turnos de caixa abertos por este utilizador.';
+            redirect(base_url('minha-conta'));
+        }
+        try {
+            if (!$repo->delete($userId)) {
+                throw new \RuntimeException('delete failed');
+            }
+        } catch (\Throwable $e) {
+            $_SESSION['_error'] = 'Não foi possível excluir a conta. Tente mais tarde ou contacte o suporte.';
+            redirect(base_url('minha-conta'));
+        }
+        logout();
+        $_SESSION['_success'] = 'A sua conta foi excluída com sucesso.';
+        redirect(base_url());
+    }
+
     public function createStoreForm(): void
     {
         if (!logged_in()) {
