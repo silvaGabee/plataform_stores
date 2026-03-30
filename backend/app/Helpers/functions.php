@@ -6,7 +6,7 @@ if (!function_exists('config')) {
         $parts = explode('.', $key);
         $file = $parts[0];
         if (!isset($configs[$file])) {
-            $path = dirname(__DIR__, 2) . "/config/{$file}.php";
+            $path = PLATAFORM_BACKEND . "/config/{$file}.php";
             $configs[$file] = file_exists($path) ? require $path : [];
         }
         $value = $configs[$file];
@@ -58,6 +58,9 @@ if (!function_exists('json_response')) {
 
 if (!function_exists('redirect')) {
     function redirect(string $url, int $code = 302): void {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
         header("Location: {$url}", true, $code);
         exit;
     }
@@ -74,9 +77,24 @@ if (!function_exists('csrf_token')) {
 
 if (!function_exists('base_url')) {
     function base_url(string $path = ''): string {
-        $base = rtrim(config('app.url', 'http://localhost/plataform_stores'), '/');
         $path = ltrim($path, '/');
-        return $path ? "{$base}/{$path}" : $base;
+        $base = '';
+        if (PHP_SAPI !== 'cli' && !empty($_SERVER['SCRIPT_NAME'])) {
+            $scriptDir = dirname(str_replace('\\', '/', $_SERVER['SCRIPT_NAME']));
+            if ($scriptDir !== '/' && $scriptDir !== '.' && $scriptDir !== '') {
+                $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+                $scheme = $https ? 'https' : 'http';
+                $host = $_SERVER['HTTP_HOST'] ?? '';
+                if ($host !== '') {
+                    $base = $scheme . '://' . $host . rtrim($scriptDir, '/');
+                }
+            }
+        }
+        if ($base === '') {
+            $base = rtrim((string) config('app.url', 'http://localhost/plataform_stores/public'), '/');
+        }
+        return $path !== '' ? "{$base}/{$path}" : $base;
     }
 }
 
@@ -132,7 +150,7 @@ if (!function_exists('upload_product_image')) {
         } else {
             return null;
         }
-        $dir = dirname(__DIR__, 2) . '/public/uploads/products';
+        $dir = PLATAFORM_ROOT . '/frontend/public/uploads/products';
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }
@@ -161,7 +179,7 @@ if (!function_exists('save_product_image_from_base64')) {
         if (strpos($header, 'image/png') !== false) $ext = 'png';
         elseif (strpos($header, 'image/gif') !== false) $ext = 'gif';
         elseif (strpos($header, 'image/webp') !== false) $ext = 'webp';
-        $dir = dirname(__DIR__, 2) . '/public/uploads/products';
+        $dir = PLATAFORM_ROOT . '/frontend/public/uploads/products';
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
         }

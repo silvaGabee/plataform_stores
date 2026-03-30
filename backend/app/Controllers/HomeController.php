@@ -224,6 +224,6 @@ class HomeController extends Controller
     private function render(string $view, array $data = []): void
     {
         extract($data);
-        require dirname(__DIR__, 2) . "/views/{$view}.php";
+        require PLATAFORM_BACKEND . "/views/{$view}.php";
     }
 }

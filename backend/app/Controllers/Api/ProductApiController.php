@@ -212,7 +212,7 @@ class ProductApiController extends Controller
             $received = !empty($json['images']) && is_array($json['images']) ? count($json['images']) : 0;
             $msg = 'Nenhuma imagem foi salva.';
             if ($received > 0) {
-                $msg .= ' Verifique se a pasta public/uploads/products existe e tem permissão de escrita.';
+                $msg .= ' Verifique se a pasta frontend/public/uploads/products existe e tem permissão de escrita.';
             } else {
                 $msg = 'Envie imagens em JSON: { "images": ["data:image/...;base64,..."] }';
             }
@@ -247,7 +247,7 @@ class ProductApiController extends Controller
         if (!$img || (int) $img['product_id'] !== $productIdInt) {
             $this->json(['error' => 'Imagem não encontrada'], 404);
         }
-        $baseDir = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
+        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
         $path = $baseDir . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $img['file_path']);
         if (is_file($path)) {
             @unlink($path);
@@ -285,7 +285,7 @@ class ProductApiController extends Controller
         if (!$img || (int) $img['product_id'] !== $productId) {
             $this->json(['error' => 'Imagem não encontrada neste produto'], 404);
         }
-        $baseDir = dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
+        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
         $path = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $img['file_path']);
         if (is_file($path)) {
             @unlink($path);
@@ -407,7 +407,7 @@ class ProductApiController extends Controller
     {
         $imageRepo = new ProductImageRepository();
         $images = $imageRepo->getByProductId($productId);
-        $baseDir = dirname(__DIR__, 3) . '/public/uploads';
+        $baseDir = PLATAFORM_ROOT . '/frontend/public/uploads';
         foreach ($images as $img) {
             $path = $baseDir . '/' . str_replace('/', DIRECTORY_SEPARATOR, $img['file_path']);
             if (is_file($path)) {

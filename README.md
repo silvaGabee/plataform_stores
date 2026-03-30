@@ -22,11 +22,11 @@ Acesso restrito conforme perfil. Inclui **dashboard** (link da loja, alertas, PI
 
 ### API (`/api/...`)
 
-Endpoints REST usados pelo checkout, carrinho, painel (produtos, pedidos, usuários, PIX, estágios de entrega, etc.). As rotas estão em `routes/api.php`.
+Endpoints REST usados pelo checkout, carrinho, painel (produtos, pedidos, usuários, PIX, estágios de entrega, etc.). As rotas estão em `backend/routes/api.php`.
 
 ### Integração PIX
 
-Opcionalmente usa **RapidAPI** para geração de QR Code PIX (`RAPIDAPI_KEY` no `.env`, lido em `config/app.php`). Sem chave, o comportamento do fluxo PIX depende da implementação atual.
+Opcionalmente usa **RapidAPI** para geração de QR Code PIX (`RAPIDAPI_KEY` no `.env`, lido em `backend/config/app.php`). Sem chave, o comportamento do fluxo PIX depende da implementação atual.
 
 ---
 
@@ -43,11 +43,11 @@ Opcionalmente usa **RapidAPI** para geração de QR Code PIX (`RAPIDAPI_KEY` no 
 ## Como colocar para rodar
 
 1. Coloque a pasta do projeto dentro de `htdocs` (ou equivalente).
-2. Crie o banco executando **`database/schema.sql`** no MySQL.
-3. Rode os arquivos em **`database/migrations/`** na ordem dos nomes, se o seu ambiente ainda não tiver essas colunas/tabelas (entregas, endereços, estágios, etc.).
-4. Ajuste **`config/database.php`** para host, nome do banco, usuário e senha do MySQL.
-5. Ajuste **`url`** em **`config/app.php`** para a URL pública da pasta `public` (ex.: `http://localhost/plataform_stores/public`).
-6. Em **`public/.htaccess`**, o **`RewriteBase`** deve refletir o caminho depois da pasta `htdocs` (ex.: `/plataform_stores/public/`).
+2. Crie o banco executando **`backend/database/schema.sql`** no MySQL.
+3. Rode os arquivos em **`backend/database/migrations/`** na ordem dos nomes, se o seu ambiente ainda não tiver essas colunas/tabelas (entregas, endereços, estágios, etc.).
+4. Ajuste **`backend/config/database.php`** para host, nome do banco, usuário e senha do MySQL.
+5. Ajuste **`url`** em **`backend/config/app.php`** para a URL pública da pasta `public` (ex.: `http://localhost/plataform_stores/public`).
+6. Em **`public/.htaccess`** (e, se usar, **`frontend/public/.htaccess`**), o **`RewriteBase`** deve refletir o caminho depois da pasta `htdocs` (ex.: `/plataform_stores/public/`).
 7. Opcional: arquivo **`.env`** na raiz com `RAPIDAPI_KEY=` para PIX via RapidAPI.
 8. Acesse a URL do passo 5 no navegador.
 
@@ -55,19 +55,15 @@ Opcionalmente usa **RapidAPI** para geração de QR Code PIX (`RAPIDAPI_KEY` no 
 
 ## Estrutura de pastas
 
-- **`app/`** - Controllers, Services, Repositories, classe `Database`
-- **`config/`** - `app.php` (nome, URL, timezone, debug, chave RapidAPI), `database.php`
-- **`database/`** - `schema.sql` e `migrations/`
-- **`public/`** - `index.php` (entrada), CSS/JS, `.htaccess`, uploads de imagens de produto
-- **`routes/`** - `web.php` (páginas), `api.php` (API)
-- **`views/`** - templates PHP (login, lojas, vitrine, painel)
-- **`bootstrap.php`** - carrega `.env` e registra autoload
+- **`backend/`** - PHP da aplicação: `app/` (controllers, services, repositórios, `Database`), `config/`, `routes/`, `views/`, `database/`, `bootstrap.php` (`.env` na raiz do projeto, autoload)
+- **`frontend/public/`** - entrada real (`index.php`), `assets/` (CSS/JS), uploads de imagens, `.htaccess`
+- **`public/`** - ponte: `index.php` inclui `frontend/public/index.php` para manter URLs `.../public/` no XAMPP sem reconfigurar o DocumentRoot
 
 ---
 
 ## Segurança e ambiente público
 
-Em servidor real: use HTTPS, senha forte no MySQL, `debug` em `false` em `config/app.php`, e não publique o `.env` nem credenciais no repositório.
+Em servidor real: use HTTPS, senha forte no MySQL, `debug` em `false` em `backend/config/app.php`, e não publique o `.env` nem credenciais no repositório.
 
 ---
 

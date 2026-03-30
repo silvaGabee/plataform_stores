@@ -66,6 +66,17 @@
     return 'R$ ' + (n != null ? parseFloat(n).toFixed(2).replace('.', ',') : '0,00');
   }
 
+  /** Percentual da meta (pt-BR): uma casa decimal com vírgula; não arredonda para 100% quando falta valor. */
+  function formatGoalPercent(sales, goalVal) {
+    var s = sales != null ? parseFloat(sales) : 0;
+    var g = goalVal != null ? parseFloat(goalVal) : 0;
+    if (!(g > 0)) {
+      return s > 0 ? '100,0' : '0,0';
+    }
+    var pct = (s / g) * 100;
+    return pct.toFixed(1).replace('.', ',');
+  }
+
   function generateId() {
     return 'w' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   }
@@ -230,9 +241,9 @@
       employees.forEach(function (emp) {
         var goalVal = emp.goal_amount != null ? parseFloat(emp.goal_amount) : 0;
         var sales = emp.total_sales != null ? parseFloat(emp.total_sales) : 0;
-        var pct = goalVal > 0 ? Math.min(100, Math.round((sales / goalVal) * 100)) : (sales > 0 ? 100 : 0);
+        var pctStr = formatGoalPercent(sales, goalVal);
         var goalCell = canEdit ? '<input type="number" step="0.01" min="0" class="goals-emp-input" data-user-id="' + emp.user_id + '" data-period="' + period + '" value="' + (goalVal > 0 ? goalVal : '') + '" placeholder="0">' : formatMoney(goalVal);
-        table += '<tr><td>' + (emp.name || '').replace(/</g, '&lt;') + '</td><td>' + goalCell + '</td><td>' + formatMoney(sales) + '</td><td>' + pct + '%</td></tr>';
+        table += '<tr><td>' + (emp.name || '').replace(/</g, '&lt;') + '</td><td>' + goalCell + '</td><td>' + formatMoney(sales) + '</td><td>' + pctStr + '%</td></tr>';
       });
       table += '</tbody></table></div>';
       body.innerHTML = '<div class="goals-widget-content">' + form + rangeHint + table + '</div>';

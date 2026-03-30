@@ -186,6 +186,6 @@ class StoreFrontController extends Controller
             $data['can_see_panel'] = can_access_store_panel((int) $data['store']['id']);
         }
         extract($data);
-        require dirname(__DIR__, 2) . "/views/{$view}.php";
+        require PLATAFORM_BACKEND . "/views/{$view}.php";
     }
 }

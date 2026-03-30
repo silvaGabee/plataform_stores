@@ -125,6 +125,6 @@ class PanelController extends Controller
             $data['panel_is_gerente'] = true;
         }
         extract($data);
-        require dirname(__DIR__, 2) . "/views/{$view}.php";
+        require PLATAFORM_BACKEND . "/views/{$view}.php";
     }
 }

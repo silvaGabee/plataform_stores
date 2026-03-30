@@ -14,7 +14,7 @@ final class Database
         if (self::$pdo !== null) {
             return self::$pdo;
         }
-        $c = require dirname(__DIR__, 2) . '/config/database.php';
+        $c = require PLATAFORM_BACKEND . '/config/database.php';
         $dsn = "mysql:host={$c['host']};dbname={$c['dbname']};charset={$c['charset']}";
         try {
             self::$pdo = new PDO($dsn, $c['username'], $c['password'], [
@@ -22,7 +22,7 @@ final class Database
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
         } catch (PDOException $e) {
-            if (($cfg = require dirname(__DIR__, 2) . '/config/app.php')['debug'] ?? false) {
+            if (($cfg = require PLATAFORM_BACKEND . '/config/app.php')['debug'] ?? false) {
                 throw $e;
             }
             throw new \RuntimeException('Erro de conexão com o banco.');

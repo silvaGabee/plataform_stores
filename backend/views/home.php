@@ -11,7 +11,7 @@ $content = ob_start();
         <?php if (!empty($_SESSION['_error'])): ?>
             <div class="alert alert-error">
                 <strong>Erro:</strong> <?= htmlspecialchars($_SESSION['_error']) ?>
-                <br><small>Se for erro de banco, <a href="<?= base_url('test-conexao.php') ?>">teste a conexão aqui</a> e confira se executou o database/schema.sql.</small>
+                <br><small>Se for erro de banco, <a href="<?= base_url('test-conexao.php') ?>">teste a conexão aqui</a> e confira se executou o backend/database/schema.sql.</small>
             </div>
             <?php unset($_SESSION['_error']); ?>
         <?php endif; ?>

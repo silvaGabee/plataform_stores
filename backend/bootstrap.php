@@ -1,6 +1,13 @@
 <?php
 
-$envFile = __DIR__ . '/.env';
+if (!defined('PLATAFORM_ROOT')) {
+    define('PLATAFORM_ROOT', dirname(__DIR__));
+}
+if (!defined('PLATAFORM_BACKEND')) {
+    define('PLATAFORM_BACKEND', __DIR__);
+}
+
+$envFile = PLATAFORM_ROOT . '/.env';
 if (file_exists($envFile) && is_readable($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
@@ -20,7 +27,7 @@ if (file_exists($envFile) && is_readable($envFile)) {
 
 spl_autoload_register(function (string $class) {
     $prefix = 'App\\';
-    $baseDir = __DIR__ . '/app/';
+    $baseDir = PLATAFORM_BACKEND . '/app/';
     $len = strlen($prefix);
     if (strncmp($prefix, $class, $len) !== 0) return;
     $relative = substr($class, $len);
