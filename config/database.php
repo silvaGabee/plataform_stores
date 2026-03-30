@@ -6,8 +6,8 @@
  */
 return [
     'host'     => 'localhost',
-    'dbname'   => 'plataform_stores',  // nome do banco (crie se não existir)
+    'dbname'   => 'plataform_stores',  
     'charset'  => 'utf8mb4',
     'username' => 'root',
-    'password' => '',                  // no XAMPP costuma ser vazio
+    'password' => '',                
 ];
