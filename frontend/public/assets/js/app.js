@@ -76,6 +76,82 @@
     else location.reload();
   }
 
+  (function authModal() {
+    var modal = document.getElementById('auth-modal');
+    if (!modal) return;
+
+    var initial = document.body.getAttribute('data-auth-modal-initial') || '';
+    var openers = document.querySelectorAll('.js-auth-open');
+    var closers = modal.querySelectorAll('.js-auth-close');
+    var tabButtons = modal.querySelectorAll('.auth-modal-tab');
+    var panelLogin = document.getElementById('panel-login');
+    var panelCadastro = document.getElementById('panel-cadastro');
+
+    function setTab(which) {
+      var w = which === 'cadastro' ? 'cadastro' : 'login';
+      tabButtons.forEach(function (t) {
+        var on = t.getAttribute('data-auth-tab') === w;
+        t.classList.toggle('is-active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (panelLogin) {
+        panelLogin.classList.toggle('is-active', w === 'login');
+        panelLogin.hidden = w !== 'login';
+      }
+      if (panelCadastro) {
+        panelCadastro.classList.toggle('is-active', w === 'cadastro');
+        panelCadastro.hidden = w !== 'cadastro';
+      }
+    }
+
+    function open(which) {
+      setTab(which);
+      modal.removeAttribute('hidden');
+      requestAnimationFrame(function () {
+        modal.classList.add('is-open');
+      });
+      document.body.classList.add('auth-modal-open');
+      var sel = which === 'cadastro' ? '#modal-register-name' : '#modal-login-email';
+      var focusTarget = modal.querySelector(sel);
+      if (focusTarget) setTimeout(function () { focusTarget.focus(); }, 80);
+    }
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      document.body.classList.remove('auth-modal-open');
+      setTimeout(function () {
+        modal.setAttribute('hidden', '');
+      }, 220);
+    }
+
+    openers.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        open(btn.getAttribute('data-auth-tab') || 'login');
+      });
+    });
+    closers.forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+    tabButtons.forEach(function (t) {
+      t.addEventListener('click', function () {
+        setTab(t.getAttribute('data-auth-tab') || 'login');
+        var w = t.getAttribute('data-auth-tab') === 'cadastro' ? 'cadastro' : 'login';
+        var inp = modal.querySelector(w === 'cadastro' ? '#modal-register-name' : '#modal-login-email');
+        if (inp) inp.focus();
+      });
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+
+    if (initial === 'login' || initial === 'cadastro') {
+      open(initial);
+    }
+  })();
+
   document.querySelectorAll('.cart-qty-control').forEach(function (control) {
     const row = control.closest('tr');
     const productId = row?.dataset?.productId;

@@ -14,7 +14,7 @@ class HomeController extends Controller
         if (logged_in()) {
             redirect(base_url('lojas'));
         }
-        $this->render('login', ['title' => 'Entrar']);
+        $this->render('home', ['title' => 'Plataforma de Lojas']);
     }
 
     public function login(): void
@@ -24,7 +24,7 @@ class HomeController extends Controller
         if (!$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha e-mail e senha.';
-            redirect(base_url());
+            redirect(base_url('?auth=login'));
         }
         $userRepo = new UserRepository();
         $candidates = $userRepo->findAllByEmail($email);
@@ -38,7 +38,7 @@ class HomeController extends Controller
         }
         $_SESSION['_old'] = ['email' => $email];
         $_SESSION['_error'] = 'E-mail ou senha incorretos.';
-        redirect(base_url());
+        redirect(base_url('?auth=login'));
     }
 
     public function listStores(): void
@@ -115,7 +115,7 @@ class HomeController extends Controller
         }
         logout();
         $_SESSION['_success'] = 'A sua conta foi excluída com sucesso.';
-        redirect(base_url());
+        redirect(base_url('?auth=login'));
     }
 
     public function createStoreForm(): void
@@ -182,7 +182,7 @@ class HomeController extends Controller
         if (logged_in()) {
             redirect(base_url('lojas'));
         }
-        $this->render('create_account', ['title' => 'Criar minha conta']);
+        redirect(base_url('?auth=cadastro'));
     }
 
     public function createAccount(): void
@@ -196,13 +196,13 @@ class HomeController extends Controller
         if (!$name || !$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha todos os campos.';
-            redirect(base_url('criar-conta'));
+            redirect(base_url('?auth=cadastro'));
         }
         $userRepo = new UserRepository();
         if ($userRepo->findByEmail($email, null) !== null) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Este e-mail já está cadastrado.';
-            redirect(base_url('criar-conta'));
+            redirect(base_url('?auth=cadastro'));
         }
         try {
             $userRepo->create([
@@ -213,11 +213,11 @@ class HomeController extends Controller
                 'user_type' => 'cliente',
             ]);
             $_SESSION['_success'] = 'Conta criada. Faça login para continuar.';
-            redirect(base_url());
+            redirect(base_url('?auth=login'));
         } catch (\Throwable $e) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = $e->getMessage();
-            redirect(base_url('criar-conta'));
+            redirect(base_url('?auth=cadastro'));
         }
     }
 
