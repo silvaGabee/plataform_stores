@@ -1,5 +1,5 @@
 <?php
-$content = ob_start();
+ob_start();
 ?>
 <main class="page create-account">
     <div class="container">
@@ -12,6 +12,7 @@ $content = ob_start();
             <?php unset($_SESSION['_error']); ?>
         <?php endif; ?>
         <form method="post" action="<?= base_url('criar-conta') ?>" class="card form-create-account">
+            <input type="hidden" name="auth_intent" value="register">
             <h2>Cadastro</h2>
             <label>Nome *</label>
             <input type="text" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name">

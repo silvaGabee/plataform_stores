@@ -3,10 +3,12 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\Controller;
+use App\Database\Database;
 use App\Services\StoreService;
 use App\Repositories\StoreRepository;
 use App\Repositories\StorePixConfigRepository;
 use App\Repositories\StoreDashboardConfigRepository;
+use App\Repositories\UserRepository;
 
 class StoreApiController extends Controller
 {
@@ -116,25 +118,65 @@ class StoreApiController extends Controller
             $this->json(['error' => 'Digite Excluir para confirmar.'], 400);
             return;
         }
+        $userRepo = new UserRepository();
+        $sessionUid = (int) ($_SESSION['logged_user_id'] ?? 0);
+        $sessionEmail = '';
+        if ($sessionUid > 0) {
+            $u = $userRepo->find($sessionUid);
+            $sessionEmail = (string) ($u['email'] ?? '');
+        }
+        $pdo = Database::getConnection();
         $repo = new StoreRepository();
         try {
+            $pdo->beginTransaction();
+            $userRepo->detachUsersForDeletedStore($storeId);
             if (!$repo->delete($storeId)) {
+                $pdo->rollBack();
                 $this->json(['error' => 'Não foi possível excluir a loja.'], 500);
                 return;
             }
+            $pdo->commit();
         } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $this->json(['error' => 'Não foi possível excluir a loja. Verifique se não há dependências bloqueando a exclusão.'], 500);
             return;
         }
-        $this->clearLoginSessionAfterStoreDeleted();
+        $this->restoreSessionAfterStoreDeleted($sessionEmail, $storeId);
         $this->json(['success' => true, 'redirect' => base_url('lojas')]);
     }
 
-    private function clearLoginSessionAfterStoreDeleted(): void
+    /** Mantém a sessão: reatribui ao utilizador de plataforma (mesmo e-mail) se o id da sessão foi removido. */
+    private function restoreSessionAfterStoreDeleted(string $sessionEmail, int $deletedStoreId): void
     {
-        $_SESSION = [];
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
+        if ($sessionEmail === '') {
+            logout();
+            return;
         }
+        $userRepo = new UserRepository();
+        $rows = $userRepo->findAllByEmail($sessionEmail);
+        $pick = null;
+        foreach ($rows as $r) {
+            $sid = $r['store_id'] ?? null;
+            if ($sid === null || $sid === '') {
+                $pick = $r;
+                break;
+            }
+        }
+        if ($pick === null && $rows !== []) {
+            $pick = $rows[0];
+        }
+        if ($pick === null) {
+            logout();
+            return;
+        }
+        $_SESSION['logged_user_id'] = (int) $pick['id'];
+        $_SESSION['user_id'] = (int) $pick['id'];
+        $loggedStore = $pick['store_id'] ? (int) $pick['store_id'] : null;
+        if ($loggedStore === $deletedStoreId) {
+            $loggedStore = null;
+        }
+        $_SESSION['logged_store_id'] = $loggedStore;
     }
 }

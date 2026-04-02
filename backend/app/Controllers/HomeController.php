@@ -19,6 +19,16 @@ class HomeController extends Controller
 
     public function login(): void
     {
+        $intent = $_POST['auth_intent'] ?? null;
+        if ($intent !== null && $intent !== 'login') {
+            $_SESSION['_old'] = $_POST;
+            if ($intent === 'register') {
+                $_SESSION['_error'] = 'Para criar uma conta nova, use o separador «Criar conta» no formulário.';
+                redirect(base_url('?auth=cadastro'));
+            }
+            $_SESSION['_error'] = 'Pedido de entrada inválido. Tente novamente.';
+            redirect(base_url('?auth=login'));
+        }
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         if (!$email || !$password) {
@@ -63,7 +73,7 @@ class HomeController extends Controller
             }
         }
         $this->render('stores', [
-            'title'            => 'Lojas existentes',
+            'title'            => 'Lojas',
             'my_stores'        => $myStores,
             'available_stores' => $availableStores,
         ]);
@@ -123,7 +133,17 @@ class HomeController extends Controller
         if (!logged_in()) {
             redirect(base_url());
         }
-        $this->render('create_store', ['title' => 'Criar minha loja']);
+        $userRepo = new UserRepository();
+        $me = $userRepo->find((int) $_SESSION['logged_user_id']);
+        if ($me === null) {
+            logout();
+            redirect(base_url());
+        }
+        $this->render('create_store', [
+            'title'            => 'Criar minha loja',
+            'current_user'     => $me,
+            'hide_app_header'  => true,
+        ]);
     }
 
     public function createStore(): void
@@ -131,18 +151,35 @@ class HomeController extends Controller
         if (!logged_in()) {
             redirect(base_url());
         }
-        $name = trim($_POST['name'] ?? '');
+        $userRepo = new UserRepository();
+        $me = $userRepo->find((int) $_SESSION['logged_user_id']);
+        if ($me === null) {
+            logout();
+            redirect(base_url());
+        }
+        $name = trim($_POST['store_name'] ?? '');
         $category = trim($_POST['category'] ?? '');
         $city = trim($_POST['city'] ?? '');
         $phone = trim($_POST['phone'] ?? '');
-        $managerName = trim($_POST['manager_name'] ?? '');
-        $managerEmail = trim($_POST['manager_email'] ?? '');
-        $managerPassword = $_POST['manager_password'] ?? '';
-        if (!$name || !$managerName || !$managerEmail || !$managerPassword) {
+        $passwordConfirm = $_POST['manager_password'] ?? '';
+        if ($name === '' || $passwordConfirm === '') {
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = 'Preencha pelo menos: Nome da loja, Seu nome, E-mail e Senha.';
+            $_SESSION['_error'] = 'Preencha o nome da loja e confirme a sua senha.';
             redirect(base_url('criar-loja'));
         }
+        if (!password_verify($passwordConfirm, $me['password'])) {
+            $_SESSION['_old'] = $_POST;
+            $_SESSION['_error'] = 'Senha incorreta. Utilize a mesma palavra-passe com que faz login.';
+            redirect(base_url('criar-loja'));
+        }
+        $managerName = trim((string) $me['name']);
+        $managerEmail = trim((string) $me['email']);
+        if ($managerName === '' || $managerEmail === '') {
+            $_SESSION['_old'] = $_POST;
+            $_SESSION['_error'] = 'Complete o nome e o e-mail na página Minha conta antes de criar uma loja.';
+            redirect(base_url('minha-conta'));
+        }
+        $managerPassword = $passwordConfirm;
         $service = new StoreService(
             new StoreRepository(),
             new StorePixConfigRepository(),
@@ -157,6 +194,7 @@ class HomeController extends Controller
                 'manager_name' => $managerName,
                 'manager_email' => $managerEmail,
                 'manager_password' => $managerPassword,
+                'existing_manager_user_id' => (int) $me['id'],
             ]);
             $_SESSION['store_slug'] = $store['slug'];
             $user = (new UserRepository())->findByEmailAndStore($managerEmail, $store['id']);
@@ -189,6 +227,16 @@ class HomeController extends Controller
     {
         if (logged_in()) {
             redirect(base_url('lojas'));
+        }
+        $intent = $_POST['auth_intent'] ?? '';
+        if ($intent !== 'register') {
+            $_SESSION['_old'] = $_POST;
+            if ($intent === 'login') {
+                $_SESSION['_error'] = 'Para entrar, use o separador «Entrar» (não cria conta nova).';
+                redirect(base_url('?auth=login'));
+            }
+            $_SESSION['_error'] = 'Utilize o formulário «Criar conta» para se registar.';
+            redirect(base_url('?auth=cadastro'));
         }
         $name = trim($_POST['name'] ?? '');
         $email = trim($_POST['email'] ?? '');

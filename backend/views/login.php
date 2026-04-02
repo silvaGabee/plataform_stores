@@ -1,5 +1,5 @@
 <?php
-$content = ob_start();
+ob_start();
 ?>
 <main class="page login">
     <div class="container">
@@ -18,6 +18,7 @@ $content = ob_start();
             <?php unset($_SESSION['_success']); ?>
         <?php endif; ?>
         <form method="post" action="<?= base_url('login') ?>" class="card form-login">
+            <input type="hidden" name="auth_intent" value="login">
             <h2>Entrar</h2>
             <label for="login-email">E-mail *</label>
             <input type="email" id="login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email">

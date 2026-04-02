@@ -89,7 +89,7 @@ class UserRepository
     {
         $fields = [];
         $params = [];
-        foreach (['name', 'email', 'password', 'user_type'] as $f) {
+        foreach (['name', 'email', 'password', 'user_type', 'store_id'] as $f) {
             if (array_key_exists($f, $data)) {
                 $fields[] = "{$f} = ?";
                 $params[] = $data[$f];
@@ -144,5 +144,80 @@ class UserRepository
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM cash_registers WHERE opened_by = ?');
         $stmt->execute([$userId]);
         return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Antes de apagar a loja: remove vínculo dos utilizadores com esta loja.
+     * Funcionários são removidos; gerente com conta de plataforma (mesmo e-mail, store_id nulo)
+     * perde o registo duplicado; caso contrário passa a cliente com store_id nulo.
+     */
+    public function detachUsersForDeletedStore(int $storeId): void
+    {
+        $stmt = $this->pdo->prepare('SELECT id, email, user_type FROM users WHERE store_id = ?');
+        $stmt->execute([$storeId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $u) {
+            $id = (int) $u['id'];
+            $email = (string) $u['email'];
+            $type = (string) $u['user_type'];
+            if ($type === 'funcionario') {
+                if (!$this->tryDeleteUser($id)) {
+                    $this->update($id, ['user_type' => 'cliente']);
+                    $this->setStoreIdNull($id);
+                }
+                continue;
+            }
+            if ($type === 'gerente') {
+                $platform = $this->findByEmail($email, null);
+                if ($platform !== null && (int) $platform['id'] !== $id) {
+                    $this->deleteGerenteWhenPlatformUserExists($id, (int) $platform['id']);
+                } else {
+                    $stmtUp = $this->pdo->prepare('UPDATE users SET store_id = NULL, user_type = ? WHERE id = ?');
+                    $stmtUp->execute(['cliente', $id]);
+                }
+                continue;
+            }
+            $stmtUp = $this->pdo->prepare('UPDATE users SET store_id = NULL WHERE id = ?');
+            $stmtUp->execute([$id]);
+        }
+    }
+
+    public function setStoreIdNull(int $id): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE users SET store_id = NULL WHERE id = ?');
+        return $stmt->execute([$id]);
+    }
+
+    private function tryDeleteUser(int $id): bool
+    {
+        try {
+            return $this->delete($id);
+        } catch (\PDOException $e) {
+            return false;
+        }
+    }
+
+    private function reassignOrdersCustomerId(int $fromUserId, int $toUserId): void
+    {
+        $stmt = $this->pdo->prepare('UPDATE orders SET customer_id = ? WHERE customer_id = ?');
+        $stmt->execute([$toUserId, $fromUserId]);
+    }
+
+    private function reassignCashRegistersOpenedBy(int $fromUserId, int $toUserId): void
+    {
+        $stmt = $this->pdo->prepare('UPDATE cash_registers SET opened_by = ? WHERE opened_by = ?');
+        $stmt->execute([$toUserId, $fromUserId]);
+    }
+
+    private function deleteGerenteWhenPlatformUserExists(int $gerenteId, int $platformUserId): void
+    {
+        try {
+            $this->delete($gerenteId);
+            return;
+        } catch (\PDOException $e) {
+            $this->reassignOrdersCustomerId($gerenteId, $platformUserId);
+            $this->reassignCashRegistersOpenedBy($gerenteId, $platformUserId);
+            $this->delete($gerenteId);
+        }
     }
 }

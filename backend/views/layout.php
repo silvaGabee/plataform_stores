@@ -1,6 +1,7 @@
 <?php
 $authQuery = $_GET['auth'] ?? '';
 $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $authQuery : '';
+$hide_app_header = isset($hide_app_header) && $hide_app_header;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -8,7 +9,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
-    <link rel="icon" href="<?= asset('favicon.svg') ?>" type="image/svg+xml">
+    <link rel="icon" href="<?= asset('../frontend/public/assets/favicon.svg') ?>" type="image/svg+xml">
     <?php if (!logged_in()): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,15 +18,16 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
-<body class="<?= !logged_in() ? 'has-public-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
-    <header class="app-header">
+<body class="<?= !logged_in() ? 'has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
+    <?php if (!$hide_app_header): ?>
+    <header class="app-header<?= logged_in() ? ' app-header--session' : '' ?>">
         <div class="container app-header-inner">
-            <a href="<?= base_url() ?>" class="app-header-brand">
+            <a href="<?= base_url(logged_in() ? 'lojas' : '') ?>" class="app-header-brand">
                 <span class="app-header-brand-mark" aria-hidden="true"></span>
-                <span>Plataforma de Lojas</span>
+                <span class="app-header-brand-text">Plataforma de Lojas</span>
             </a>
             <?php if (logged_in()): ?>
-                <nav class="app-header-actions" aria-label="Conta">
+                <nav class="app-header-actions app-header-actions-session" aria-label="Conta">
                     <a href="<?= base_url('minha-conta') ?>" class="app-header-minha-conta">
                         <svg class="app-header-minha-conta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -33,7 +35,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
                         </svg>
                         <span>Minha conta</span>
                     </a>
-                    <a href="<?= base_url('sair') ?>" class="link-logout">Sair</a>
+                    <a href="<?= base_url('sair') ?>" class="app-header-logout">Sair</a>
                 </nav>
             <?php else: ?>
                 <nav class="app-header-actions app-header-actions-guest" aria-label="Acesso">
@@ -49,6 +51,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
             <?php endif; ?>
         </div>
     </header>
+    <?php endif; ?>
     <?= $content ?? '' ?>
 
     <?php if (!logged_in()): ?>
@@ -60,7 +63,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
                 <aside class="auth-modal-visual" aria-hidden="true">
                     <p class="auth-modal-visual-eyebrow">Tudo num só lugar</p>
                     <h2 id="auth-modal-title" class="auth-modal-visual-title">Venda online e no balcão com confiança</h2>
-                    <p class="auth-modal-visual-text">Catálogo, carrinho, checkout e painel para a sua equipa — pensado para quem quer crescer sem complicar.</p>
+                    <p class="auth-modal-visual-text">Catálogo, carrinho, checkout e painel para a sua equipe — pensado para quem quer crescer sem complicar.</p>
                     <ul class="auth-modal-visual-list">
                         <li>Loja pública com vitrine e produtos</li>
                         <li>Painel para stock, entregas e relatórios</li>
@@ -86,6 +89,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
                             <?php unset($_SESSION['_success']); ?>
                         <?php endif; ?>
                         <form method="post" action="<?= base_url('login') ?>" class="form-login auth-modal-form">
+                            <input type="hidden" name="auth_intent" value="login">
                             <label for="modal-login-email">E-mail</label>
                             <input type="email" id="modal-login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
                             <label for="modal-login-password">Senha</label>
@@ -101,6 +105,7 @@ $authModalInitial = ($authQuery === 'login' || $authQuery === 'cadastro') ? $aut
                             <?php unset($_SESSION['_error']); ?>
                         <?php endif; ?>
                         <form method="post" action="<?= base_url('criar-conta') ?>" class="form-create-account auth-modal-form">
+                            <input type="hidden" name="auth_intent" value="register">
                             <label for="modal-register-name">Nome</label>
                             <input type="text" id="modal-register-name" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name" placeholder="O seu nome">
                             <label for="modal-register-email">E-mail</label>
