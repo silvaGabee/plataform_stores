@@ -1,4 +1,6 @@
-<?php $content = ob_start(); ?>
+<?php
+ob_start();
+?>
 <div class="panel-content dashboard-builder-page">
     <h1>Meu dashboard</h1>
     <?php if (!empty($panel_readonly)): ?>
@@ -45,3 +47,4 @@
 $content = ob_get_clean();
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script><script src="' . asset('js/panel-reports.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';
+

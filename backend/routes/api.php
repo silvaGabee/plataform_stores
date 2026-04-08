@@ -1,5 +1,6 @@
 <?php
 
+use App\Controllers\AiController;
 use App\Controllers\Api\StoreApiController;
 use App\Controllers\Api\ProductApiController;
 use App\Controllers\Api\OrderApiController;
@@ -88,4 +89,9 @@ return [
 
     'GET /api/loja/{slug}/stock-movements' => [StockMovementApiController::class, 'listByStore'],
     'GET /api/loja/{slug}/stock-movements/product/{id}' => [StockMovementApiController::class, 'listByProduct'],
+
+    'POST /api/ai/chat' => [AiController::class, 'chatGlobal'],
+    'POST /api/loja/{slug}/ai/chat' => [AiController::class, 'chat'],
+    'POST /api/loja/{slug}/ai/descricao-produto' => [AiController::class, 'descricaoProduto'],
+    'POST /api/loja/{slug}/ai/organograma' => [AiController::class, 'organograma'],
 ];
