@@ -20,6 +20,7 @@ if ($phone !== '') {
         <div class="container store-vitrine-hero-inner">
             <p class="store-vitrine-eyebrow">Loja online</p>
             <h1 id="store-vitrine-title" class="store-vitrine-title"><?= htmlspecialchars($store['name']) ?></h1>
+            <p class="store-vitrine-tagline">Explore o catálogo e faça seu pedido com segurança.</p>
             <?php if ($metaItems !== []): ?>
                 <ul class="store-vitrine-meta" aria-label="Informações da loja">
                     <?php foreach ($metaItems as $i => $label): ?>

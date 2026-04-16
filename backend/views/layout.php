@@ -9,7 +9,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
-    <link rel="icon" href="<?= asset('../frontend/public/assets/favicon.svg') ?>" type="image/svg+xml">
+    <link rel="icon" href="<?= favicon_url() ?>" sizes="any">
+    <link rel="shortcut icon" href="<?= favicon_url() ?>" type="image/x-icon">
     <?php if (!logged_in()): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +24,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <header class="app-header<?= logged_in() ? ' app-header--session' : '' ?>">
         <div class="container app-header-inner">
             <a href="<?= base_url(logged_in() ? 'lojas' : '') ?>" class="app-header-brand">
-                <span class="app-header-brand-mark" aria-hidden="true"></span>
+                <img src="<?= favicon_url() ?>" alt="" class="app-header-brand-mark" decoding="async">
                 <span class="app-header-brand-text">Plataforma de Lojas</span>
             </a>
             <?php if (logged_in()): ?>

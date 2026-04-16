@@ -104,6 +104,17 @@ if (!function_exists('asset')) {
     }
 }
 
+if (!function_exists('favicon_url')) {
+    /** URL do favicon com versão (mtime) para contornar cache agressivo do navegador. */
+    function favicon_url(): string
+    {
+        $file = PLATAFORM_ROOT . '/frontend/public/assets/favicon.ico';
+        $v = is_readable($file) ? (string) @filemtime($file) : '1';
+
+        return asset('favicon.ico') . '?v=' . rawurlencode($v);
+    }
+}
+
 if (!function_exists('old')) {
     function old(string $key, $default = '') {
         return $_SESSION['_old'][$key] ?? $default;
