@@ -21,6 +21,69 @@ ob_start();
         </div>
     </div>
 
+    <section class="panel-section-card dashboard-banner-section" id="dashboard-banner-section" aria-labelledby="dashboard-banner-title">
+        <div class="panel-section-head">
+            <span class="panel-section-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="8.5" cy="10.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5-4 4-2-2-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <div class="panel-section-head-text">
+                <h2 id="dashboard-banner-title" class="panel-section-title">Banner da vitrine</h2>
+                <p class="panel-section-desc">Aparece na página inicial da loja, entre o cabeçalho e o catálogo, para destacar promoções ou novidades.</p>
+            </div>
+        </div>
+        <div class="panel-section-body dashboard-banner-body">
+            <div class="dashboard-banner-layout">
+                <div class="dashboard-banner-col dashboard-banner-col-visual">
+                    <p class="dashboard-banner-col-label">Pré-visualização</p>
+                    <div id="dashboard-banner-stage" class="dashboard-banner-stage"<?= empty($panel_readonly) ? '' : ' data-readonly="1"' ?>>
+                        <div id="dashboard-banner-placeholder" class="dashboard-banner-empty" role="status">
+                            <div class="dashboard-banner-empty-inner">
+                                <span class="dashboard-banner-empty-icon" aria-hidden="true">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.35" opacity="0.35"/><circle cx="8.5" cy="10.5" r="1.5" fill="currentColor" opacity="0.45"/><path d="M21 15l-5-5-4 4-2-2-5 5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/></svg>
+                                </span>
+                                <p class="dashboard-banner-empty-title">Pré-visualização</p>
+                                <p class="dashboard-banner-placeholder-text">A carregar…</p>
+                            </div>
+                        </div>
+                        <figure id="dashboard-banner-preview-wrap" class="dashboard-banner-preview-figure hidden">
+                            <img id="dashboard-banner-preview" src="" alt="Pré-visualização do banner da vitrine" class="dashboard-banner-preview-img" width="1200" height="360" decoding="async">
+                            <figcaption class="dashboard-banner-preview-caption"><span class="dashboard-banner-preview-badge">Na vitrine</span></figcaption>
+                        </figure>
+                    </div>
+                </div>
+                <div class="dashboard-banner-col dashboard-banner-col-actions">
+                    <?php if (empty($panel_readonly)): ?>
+                    <ul class="dashboard-banner-hints" aria-label="Recomendações">
+                        <li>JPG, PNG, GIF ou WebP — largura recomendada <strong>≥ 1100 px</strong></li>
+                        <li>Proporção larga (ex.: <strong>3:1</strong>) encaixa bem entre o título e o catálogo</li>
+                        <li>Pode <strong>arrastar e largar</strong> a imagem na área à esquerda</li>
+                    </ul>
+                    <form id="dashboard-banner-form" class="dashboard-banner-form" enctype="multipart/form-data">
+                        <p class="dashboard-banner-field-label">Ficheiro</p>
+                        <div class="dashboard-banner-drop">
+                            <input type="file" id="dashboard-banner-file" name="banner" class="dashboard-banner-file-input" accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp" title="Escolher imagem">
+                            <label for="dashboard-banner-file" class="dashboard-banner-drop-label">
+                                <span class="dashboard-banner-drop-icon" aria-hidden="true">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                                </span>
+                                <span class="dashboard-banner-drop-text">Escolher imagem</span>
+                            </label>
+                            <span id="dashboard-banner-filename" class="dashboard-banner-filename">Nenhum ficheiro selecionado</span>
+                        </div>
+                        <div class="dashboard-banner-form-actions">
+                            <button type="submit" class="btn btn-primary btn-sm dashboard-banner-btn-save">Guardar na vitrine</button>
+                            <button type="button" id="dashboard-banner-remove" class="btn btn-secondary btn-sm dashboard-banner-btn-remove hidden">Remover banner</button>
+                        </div>
+                    </form>
+                    <p id="dashboard-banner-msg" class="panel-form-msg dashboard-banner-msg" role="status" aria-live="polite"></p>
+                    <?php else: ?>
+                    <p class="dashboard-banner-readonly-note">Só o gerente pode carregar ou remover o banner.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <div id="dashboard-low-stock-alert" class="dashboard-low-stock-alert panel-alert-warning hidden">
         <h2>Estoque baixo</h2>
         <p>Os seguintes produtos estão abaixo do estoque mínimo:</p>
@@ -210,6 +273,182 @@ ob_start();
       });
     });
   });
+})();
+</script>
+<script>
+(function(){
+  var slug = <?= json_encode($store['slug']) ?>;
+  var panelBannerReadonly = <?= !empty($panel_readonly) ? 'true' : 'false' ?>;
+  var base = (document.querySelector('meta[name="base-url"]') || {}).content || '';
+  base = base.replace(/\/$/, '');
+  var section = document.getElementById('dashboard-banner-section');
+  var stage = document.getElementById('dashboard-banner-stage');
+  var ph = document.getElementById('dashboard-banner-placeholder');
+  var wrap = document.getElementById('dashboard-banner-preview-wrap');
+  var img = document.getElementById('dashboard-banner-preview');
+  var form = document.getElementById('dashboard-banner-form');
+  var fileInput = document.getElementById('dashboard-banner-file');
+  var removeBtn = document.getElementById('dashboard-banner-remove');
+  var msg = document.getElementById('dashboard-banner-msg');
+  var nameEl = document.getElementById('dashboard-banner-filename');
+
+  function setMsg(text, kind) {
+    if (!msg) return;
+    if (msg._timer) { clearTimeout(msg._timer); msg._timer = null; }
+    msg.textContent = text || '';
+    msg.classList.remove('is-error', 'is-success');
+    if (kind === 'error') msg.classList.add('is-error');
+    else if (kind === 'success') msg.classList.add('is-success');
+    if (text && kind === 'success') {
+      msg._timer = setTimeout(function() {
+        msg.textContent = '';
+        msg.classList.remove('is-success');
+        msg._timer = null;
+      }, 4800);
+    }
+  }
+
+  function setFilenameLabel() {
+    if (!nameEl || !fileInput) return;
+    var f = fileInput.files && fileInput.files[0];
+    nameEl.textContent = f ? f.name : 'Nenhum ficheiro selecionado';
+    nameEl.classList.toggle('dashboard-banner-filename--picked', !!(f && f.name));
+  }
+
+  function setBannerUi(url) {
+    if (!ph || !wrap || !img) return;
+    ph.classList.add('hidden');
+    ph.classList.remove('dashboard-banner-empty--loading');
+    if (section) section.classList.toggle('dashboard-banner-section--has-banner', !!url);
+    if (stage) stage.classList.toggle('dashboard-banner-stage--has-image', !!url);
+    if (url) {
+      img.src = url;
+      wrap.classList.remove('hidden');
+      if (removeBtn) removeBtn.classList.remove('hidden');
+    } else {
+      wrap.classList.add('hidden');
+      img.removeAttribute('src');
+      if (removeBtn) removeBtn.classList.add('hidden');
+      ph.classList.remove('hidden');
+      var t = ph.querySelector('.dashboard-banner-placeholder-text');
+      if (t) {
+        t.textContent = panelBannerReadonly
+          ? 'Nenhum banner definido para esta loja.'
+          : 'Arraste uma imagem para aqui ou use «Escolher imagem» à direita.';
+      }
+    }
+  }
+
+  if (ph) ph.classList.add('dashboard-banner-empty--loading');
+
+  fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if (ph) ph.classList.remove('dashboard-banner-empty--loading');
+      if (res.error) {
+        if (ph) {
+          ph.classList.remove('hidden');
+          var t = ph.querySelector('.dashboard-banner-placeholder-text');
+          if (t) t.textContent = res.error;
+        }
+        return;
+      }
+      if (res.banner_url) setBannerUi(res.banner_url);
+      else setBannerUi(null);
+    })
+    .catch(function(){
+      if (ph) {
+        ph.classList.remove('dashboard-banner-empty--loading');
+        ph.classList.remove('hidden');
+        var t = ph.querySelector('.dashboard-banner-placeholder-text');
+        if (t) t.textContent = 'Não foi possível carregar o estado do banner.';
+      }
+    });
+
+  if (!panelBannerReadonly && form && fileInput) {
+    fileInput.addEventListener('change', function() {
+      setFilenameLabel();
+      setMsg('', '');
+    });
+
+    function assignBannerFile(file) {
+      if (!file || !/^image\//.test(file.type)) {
+        setMsg('Use uma imagem (JPG, PNG, GIF ou WebP).', 'error');
+        return;
+      }
+      try {
+        var dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+      } catch (err) {
+        setMsg('Este navegador não suporta largar ficheiros aqui. Use «Escolher imagem».', 'error');
+        return;
+      }
+      setFilenameLabel();
+      setMsg('', '');
+    }
+
+    if (stage && stage.getAttribute('data-readonly') !== '1') {
+      ['dragenter', 'dragover'].forEach(function(ev) {
+        stage.addEventListener(ev, function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          stage.classList.add('dashboard-banner-stage--dropping');
+        });
+      });
+      stage.addEventListener('dragleave', function(e) {
+        if (!stage.contains(e.relatedTarget)) stage.classList.remove('dashboard-banner-stage--dropping');
+      });
+      stage.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        stage.classList.remove('dashboard-banner-stage--dropping');
+        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) assignBannerFile(f);
+      });
+    }
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      if (!fileInput.files || !fileInput.files[0]) {
+        setMsg('Escolha ou largue uma imagem primeiro.', 'error');
+        return;
+      }
+      var fd = new FormData();
+      fd.append('banner', fileInput.files[0]);
+      fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (res.error) {
+            setMsg(res.error, 'error');
+            return;
+          }
+          setMsg('Banner guardado — já está visível na vitrine.', 'success');
+          fileInput.value = '';
+          setFilenameLabel();
+          if (res.banner_url) setBannerUi(res.banner_url);
+        })
+        .catch(function(){ setMsg('Erro de rede.', 'error'); });
+    });
+  }
+  if (!panelBannerReadonly && removeBtn) {
+    removeBtn.addEventListener('click', function(){
+      if (!confirm('Remover o banner da vitrine?')) return;
+      fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { method: 'DELETE', credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(res){
+          if (res.error) {
+            setMsg(res.error, 'error');
+            return;
+          }
+          setMsg('Banner removido.', 'success');
+          if (fileInput) fileInput.value = '';
+          setFilenameLabel();
+          setBannerUi(null);
+        })
+        .catch(function(){ setMsg('Erro de rede.', 'error'); });
+    });
+  }
 })();
 </script>
 <script>

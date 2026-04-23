@@ -115,6 +115,24 @@ if (!function_exists('favicon_url')) {
     }
 }
 
+/** URL do ícone da loja na vitrine (aba e cabeçalho); sem imagem própria usa o ícone da plataforma. */
+if (!function_exists('store_brand_icon_url')) {
+    function store_brand_icon_url(?array $store): string
+    {
+        $path = isset($store['store_icon_path']) ? trim((string) $store['store_icon_path']) : '';
+        if ($path === '' || strpos($path, '..') !== false) {
+            return favicon_url();
+        }
+        $full = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path);
+        if (!is_file($full)) {
+            return favicon_url();
+        }
+        $v = (string) @filemtime($full);
+
+        return base_url('uploads/' . str_replace('\\', '/', $path)) . '?v=' . rawurlencode($v !== '' && $v !== '0' ? $v : (string) time());
+    }
+}
+
 if (!function_exists('old')) {
     function old(string $key, $default = '') {
         return $_SESSION['_old'][$key] ?? $default;
@@ -203,6 +221,146 @@ if (!function_exists('save_product_image_from_base64')) {
             return null;
         }
         return 'products/' . $filename;
+    }
+}
+
+/** Salva banner da vitrine (uma imagem por loja). Retorna path relativo (ex.: store-banners/1/banner_xxx.jpg) ou null. */
+if (!function_exists('upload_store_banner')) {
+    function upload_store_banner(int $storeId, array $file): ?string
+    {
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return null;
+        }
+        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/pjpeg'];
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = (string) finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+        }
+        if ($mime === '') {
+            $mime = $file['type'] ?? '';
+        }
+        $name = $file['name'] ?? '';
+        $ext = 'jpg';
+        if (in_array($mime, $allowed, true)) {
+            if ($mime === 'image/png') {
+                $ext = 'png';
+            } elseif ($mime === 'image/gif') {
+                $ext = 'gif';
+            } elseif ($mime === 'image/webp') {
+                $ext = 'webp';
+            }
+        } elseif (preg_match('/\.(jpe?g|png|gif|webp)$/i', $name, $m)) {
+            $ext = strtolower($m[1]);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+        } else {
+            return null;
+        }
+        $storeId = max(1, $storeId);
+        $dir = PLATAFORM_ROOT . '/frontend/public/uploads/store-banners/' . $storeId;
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            return null;
+        }
+        $filename = 'banner_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $path = $dir . '/' . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $path)) {
+            return null;
+        }
+        return 'store-banners/' . $storeId . '/' . $filename;
+    }
+}
+
+/** Remove arquivo de banner salvo em uploads/ (path relativo guardado em stores.banner_path). */
+if (!function_exists('delete_store_banner_file')) {
+    function delete_store_banner_file(?string $relativePath): void
+    {
+        if ($relativePath === null || $relativePath === '') {
+            return;
+        }
+        if (strpos($relativePath, '..') !== false) {
+            return;
+        }
+        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
+        $path = $baseDir . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativePath);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+}
+
+/** Imagem pequena da loja (aba do navegador e marca ao lado do nome). Path: store-icons/{id}/loja_*.ext */
+if (!function_exists('upload_store_icon')) {
+    function upload_store_icon(int $storeId, array $file): ?string
+    {
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return null;
+        }
+        $allowed = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/pjpeg',
+            'image/x-icon', 'image/vnd.microsoft.icon',
+        ];
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = (string) finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+        }
+        if ($mime === '') {
+            $mime = $file['type'] ?? '';
+        }
+        $name = $file['name'] ?? '';
+        $ext = 'png';
+        if (in_array($mime, $allowed, true)) {
+            if ($mime === 'image/jpeg' || $mime === 'image/pjpeg') {
+                $ext = 'jpg';
+            } elseif ($mime === 'image/png') {
+                $ext = 'png';
+            } elseif ($mime === 'image/gif') {
+                $ext = 'gif';
+            } elseif ($mime === 'image/webp') {
+                $ext = 'webp';
+            } elseif ($mime === 'image/x-icon' || $mime === 'image/vnd.microsoft.icon') {
+                $ext = 'ico';
+            }
+        } elseif (preg_match('/\.(jpe?g|png|gif|webp|ico)$/i', $name, $m)) {
+            $ext = strtolower($m[1]);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+        } else {
+            return null;
+        }
+        $storeId = max(1, $storeId);
+        $dir = PLATAFORM_ROOT . '/frontend/public/uploads/store-icons/' . $storeId;
+        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+            return null;
+        }
+        $filename = 'loja_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $path = $dir . '/' . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $path)) {
+            return null;
+        }
+        return 'store-icons/' . $storeId . '/' . $filename;
+    }
+}
+
+if (!function_exists('delete_store_icon_file')) {
+    function delete_store_icon_file(?string $relativePath): void
+    {
+        if ($relativePath === null || $relativePath === '') {
+            return;
+        }
+        if (strpos($relativePath, '..') !== false) {
+            return;
+        }
+        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
+        $path = $baseDir . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativePath);
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }
 

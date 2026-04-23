@@ -101,6 +101,151 @@ class StoreApiController extends Controller
         $this->json(['success' => true]);
     }
 
+    /** GET: path e URL do banner da vitrine (painel). */
+    public function getBanner(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireStorePanelAccess($storeId);
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $path = trim((string) ($store['banner_path'] ?? ''));
+        $url = $path !== '' ? base_url('uploads/' . str_replace('\\', '/', $path)) : null;
+        $this->json(['banner_path' => $path !== '' ? $path : null, 'banner_url' => $url]);
+    }
+
+    /** POST multipart: campo de ficheiro `banner` (JPEG, PNG, GIF, WebP). Apenas gerente. */
+    public function uploadBanner(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $file = $_FILES['banner'] ?? null;
+        if (!is_array($file) || empty($file['tmp_name']) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['error' => 'Envie uma imagem no campo «banner» (JPEG, PNG, GIF ou WebP).'], 400);
+        }
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $old = trim((string) ($store['banner_path'] ?? ''));
+        $path = upload_store_banner($storeId, $file);
+        if (!$path) {
+            $this->json(['error' => 'Não foi possível guardar a imagem. Verifique o formato e permissões da pasta uploads.'], 400);
+        }
+        if ($old !== '') {
+            delete_store_banner_file($old);
+        }
+        $repo->updateBannerPath($storeId, $path);
+        $this->json([
+            'success' => true,
+            'banner_path' => $path,
+            'banner_url' => base_url('uploads/' . str_replace('\\', '/', $path)),
+        ]);
+    }
+
+    /** DELETE: remove o banner da vitrine. Apenas gerente. */
+    public function deleteBanner(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $old = trim((string) ($store['banner_path'] ?? ''));
+        if ($old !== '') {
+            delete_store_banner_file($old);
+        }
+        $repo->updateBannerPath($storeId, null);
+        $this->json(['success' => true, 'banner_url' => null, 'banner_path' => null]);
+    }
+
+    /** GET: URL da «foto da loja» (ícone na aba e no cabeçalho da vitrine). Apenas gerente. */
+    public function getStoreIcon(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $path = trim((string) ($store['store_icon_path'] ?? ''));
+        $url = $path !== '' ? base_url('uploads/' . str_replace('\\', '/', $path)) : null;
+        $this->json(['store_icon_path' => $path !== '' ? $path : null, 'store_icon_url' => $url]);
+    }
+
+    /** POST multipart: campo `store_icon` (JPEG, PNG, GIF, WebP ou ICO). Apenas gerente. */
+    public function uploadStoreIcon(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $file = $_FILES['store_icon'] ?? null;
+        if (!is_array($file) || empty($file['tmp_name']) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $this->json(['error' => 'Envie uma imagem (JPG, PNG, GIF, WebP ou ICO).'], 400);
+        }
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $old = trim((string) ($store['store_icon_path'] ?? ''));
+        $path = upload_store_icon($storeId, $file);
+        if (!$path) {
+            $this->json(['error' => 'Não foi possível guardar a imagem. Use JPG, PNG, GIF, WebP ou ICO.'], 400);
+        }
+        if ($old !== '') {
+            delete_store_icon_file($old);
+        }
+        $repo->updateStoreIconPath($storeId, $path);
+        $url = base_url('uploads/' . str_replace('\\', '/', $path));
+        $this->json([
+            'success' => true,
+            'store_icon_path' => $path,
+            'store_icon_url' => $url . '?v=' . rawurlencode((string) time()),
+        ]);
+    }
+
+    /** DELETE: remove a imagem personalizada (volta ao ícone padrão da plataforma). Apenas gerente. */
+    public function deleteStoreIcon(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $repo = new StoreRepository();
+        $store = $repo->find($storeId);
+        if (!$store) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $old = trim((string) ($store['store_icon_path'] ?? ''));
+        if ($old !== '') {
+            delete_store_icon_file($old);
+        }
+        $repo->updateStoreIconPath($storeId, null);
+        $this->json(['success' => true, 'store_icon_url' => null, 'store_icon_path' => null]);
+    }
+
     /**
      * Exclui a loja e todos os dados vinculados (irreversível). Apenas gerente.
      * Corpo JSON: { "confirmation": "Excluir" } (texto exato).

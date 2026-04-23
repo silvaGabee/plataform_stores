@@ -15,6 +15,8 @@ CREATE TABLE stores (
     category VARCHAR(100) DEFAULT NULL,
     city VARCHAR(100) DEFAULT NULL,
     phone VARCHAR(20) DEFAULT NULL,
+    banner_path VARCHAR(512) DEFAULT NULL,
+    store_icon_path VARCHAR(512) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_slug (slug)
 ) ENGINE=InnoDB;

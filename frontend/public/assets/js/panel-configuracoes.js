@@ -5,6 +5,147 @@
   var meta = document.querySelector('meta[name="base-url"]');
   var base = meta && meta.getAttribute('content') ? meta.getAttribute('content').replace(/\/$/, '') : '';
 
+  (function storePhoto() {
+    var section = document.getElementById('config-store-photo-section');
+    if (!section) return;
+    var preview = document.getElementById('config-store-photo-preview');
+    var fallback = document.getElementById('config-store-photo-fallback');
+    var form = document.getElementById('config-store-photo-form');
+    var fileInput = document.getElementById('config-store-photo-file');
+    var nameEl = document.getElementById('config-store-photo-filename');
+    var removeBtn = document.getElementById('config-store-photo-remove');
+    var msgEl = document.getElementById('config-store-photo-msg');
+    var stage = document.getElementById('config-store-photo-stage');
+
+    function setMsg(text, kind, autoClearSuccessMs) {
+      if (!msgEl) return;
+      if (msgEl._timer) {
+        clearTimeout(msgEl._timer);
+        msgEl._timer = null;
+      }
+      msgEl.textContent = text || '';
+      msgEl.classList.remove('is-error', 'is-success');
+      if (kind === 'error') msgEl.classList.add('is-error');
+      else if (kind === 'success') {
+        msgEl.classList.add('is-success');
+        var ms = typeof autoClearSuccessMs === 'number' ? autoClearSuccessMs : 4200;
+        if (text && ms > 0) {
+          msgEl._timer = setTimeout(function () {
+            msgEl.textContent = '';
+            msgEl.classList.remove('is-success');
+            msgEl._timer = null;
+          }, ms);
+        }
+      }
+    }
+
+    function setFilenameLabel() {
+      if (!nameEl || !fileInput) return;
+      var f = fileInput.files && fileInput.files[0];
+      nameEl.textContent = f ? f.name : 'Nenhum ficheiro novo';
+      nameEl.classList.toggle('panel-config-store-photo-filename--picked', !!(f && f.name));
+    }
+
+    function setHasCustomIcon(hasUrl) {
+      if (preview && fallback) {
+        if (hasUrl) {
+          preview.classList.remove('hidden');
+          fallback.classList.add('hidden');
+        } else {
+          preview.classList.add('hidden');
+          fallback.classList.remove('hidden');
+          preview.removeAttribute('src');
+        }
+      }
+      if (removeBtn) removeBtn.classList.toggle('hidden', !hasUrl);
+      if (stage) stage.classList.toggle('panel-config-store-photo-stage--custom', !!hasUrl);
+    }
+
+    fetch(base + '/api/loja/' + encodeURIComponent(storeSlug) + '/store-icon', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.error) {
+          setMsg(res.error, 'error');
+          setHasCustomIcon(false);
+          return;
+        }
+        if (res.store_icon_url && preview) {
+          preview.src = res.store_icon_url + (res.store_icon_url.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
+          setHasCustomIcon(true);
+        } else {
+          setHasCustomIcon(false);
+        }
+      })
+      .catch(function () {
+        setMsg('Não foi possível carregar a foto da loja.', 'error');
+      });
+
+    if (fileInput) {
+      fileInput.addEventListener('change', function () {
+        setFilenameLabel();
+        setMsg('', '');
+      });
+    }
+
+    if (form && fileInput) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!fileInput.files || !fileInput.files[0]) {
+          setMsg('Escolha uma imagem primeiro.', 'error');
+          return;
+        }
+        var fd = new FormData();
+        fd.append('store_icon', fileInput.files[0]);
+        fetch(base + '/api/loja/' + encodeURIComponent(storeSlug) + '/store-icon', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin'
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res.error) {
+              setMsg(res.error, 'error');
+              return;
+            }
+            setMsg('Foto atualizado.', 'success');
+            fileInput.value = '';
+            setFilenameLabel();
+            if (res.store_icon_url && preview) {
+              preview.src = res.store_icon_url;
+              setHasCustomIcon(true);
+            }
+          })
+          .catch(function () {
+            setMsg('Erro de rede.', 'error');
+          });
+      });
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        if (!confirm('Remover a foto da loja?')) return;
+        fetch(base + '/api/loja/' + encodeURIComponent(storeSlug) + '/store-icon', {
+          method: 'DELETE',
+          credentials: 'same-origin'
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res.error) {
+              setMsg(res.error, 'error');
+              return;
+            }
+            setMsg('Foto removida.', 'success');
+            if (fileInput) fileInput.value = '';
+            setFilenameLabel();
+            setHasCustomIcon(false);
+          })
+          .catch(function () {
+            setMsg('Erro de rede.', 'error');
+          });
+      });
+    }
+  })();
+
   function api(path, options) {
     var url = base + '/' + path.replace(/^\//, '');
     return fetch(url, {

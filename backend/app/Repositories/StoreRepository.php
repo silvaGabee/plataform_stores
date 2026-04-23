@@ -85,4 +85,16 @@ class StoreRepository
         $stmt->execute([$id]);
         return $stmt->rowCount() > 0;
     }
+
+    public function updateBannerPath(int $id, ?string $path): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET banner_path = ? WHERE id = ?');
+        return $stmt->execute([$path, $id]);
+    }
+
+    public function updateStoreIconPath(int $id, ?string $path): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET store_icon_path = ? WHERE id = ?');
+        return $stmt->execute([$path, $id]);
+    }
 }

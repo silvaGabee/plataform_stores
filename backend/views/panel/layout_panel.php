@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="base-url" content="<?= rtrim(base_url(), '/') ?>">
     <title><?= htmlspecialchars($title ?? 'Painel') ?> — <?= htmlspecialchars($store['name']) ?></title>
-    <link rel="icon" href="<?= favicon_url() ?>" sizes="any">
-    <link rel="shortcut icon" href="<?= favicon_url() ?>" type="image/x-icon">
+    <?php $__panel_icon = htmlspecialchars(store_brand_icon_url($store ?? []), ENT_QUOTES, 'UTF-8'); ?>
+    <link rel="icon" href="<?= $__panel_icon ?>" sizes="any">
+    <link rel="shortcut icon" href="<?= $__panel_icon ?>" type="image/x-icon">
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>

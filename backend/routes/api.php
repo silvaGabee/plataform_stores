@@ -30,6 +30,12 @@ return [
     'POST /api/loja/{slug}/pix-config' => [StoreApiController::class, 'updatePixConfig'],
     'GET /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'getDashboardConfig'],
     'POST /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'updateDashboardConfig'],
+    'GET /api/loja/{slug}/banner' => [StoreApiController::class, 'getBanner'],
+    'POST /api/loja/{slug}/banner' => [StoreApiController::class, 'uploadBanner'],
+    'DELETE /api/loja/{slug}/banner' => [StoreApiController::class, 'deleteBanner'],
+    'GET /api/loja/{slug}/store-icon' => [StoreApiController::class, 'getStoreIcon'],
+    'POST /api/loja/{slug}/store-icon' => [StoreApiController::class, 'uploadStoreIcon'],
+    'DELETE /api/loja/{slug}/store-icon' => [StoreApiController::class, 'deleteStoreIcon'],
 
     'POST /api/loja/{slug}/product-image-delete' => [ProductApiController::class, 'deleteProductImageByBody'],
     'GET /api/loja/{slug}/products' => [ProductApiController::class, 'list'],

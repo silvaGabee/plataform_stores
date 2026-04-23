@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="base-url" content="<?= rtrim(base_url(), '/') ?>">
     <title><?= htmlspecialchars($title ?? $store['name']) ?></title>
-    <link rel="icon" href="<?= favicon_url() ?>" sizes="any">
-    <link rel="shortcut icon" href="<?= favicon_url() ?>" type="image/x-icon">
+    <link rel="icon" href="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" sizes="any">
+    <link rel="shortcut icon" href="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" type="image/x-icon">
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
@@ -14,7 +14,7 @@
     <header class="store-header">
         <div class="container store-header-inner">
             <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-brand">
-                <img src="<?= favicon_url() ?>" alt="" class="store-brand-icon" width="36" height="36" decoding="async">
+                <img src="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" alt="" class="store-brand-icon" width="36" height="36" decoding="async">
                 <span class="store-brand-text"><?= htmlspecialchars($store['name']) ?></span>
             </a>
             <nav class="store-header-links" aria-label="Menu da loja">

@@ -9,8 +9,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
-    <link rel="icon" href="<?= favicon_url() ?>" sizes="any">
-    <link rel="shortcut icon" href="<?= favicon_url() ?>" type="image/x-icon">
+    <link rel="icon" href="<?= htmlspecialchars(favicon_url(), ENT_QUOTES, 'UTF-8') ?>" sizes="any">
+    <link rel="shortcut icon" href="<?= htmlspecialchars(favicon_url(), ENT_QUOTES, 'UTF-8') ?>" type="image/x-icon">
     <?php if (!logged_in()): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

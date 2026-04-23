@@ -30,11 +30,19 @@ $renderStoreCard = function (array $s, bool $isMine) use ($storeHue, $storeIniti
     $city = !empty($s['city']) ? htmlspecialchars((string) $s['city']) : '';
     $category = !empty($s['category']) ? htmlspecialchars((string) $s['category']) : '';
     $phone = !empty($s['phone']) ? htmlspecialchars((string) $s['phone']) : '';
+    $hasStorePhoto = trim((string) ($s['store_icon_path'] ?? '')) !== '';
+    $avatarImgUrl = $hasStorePhoto ? htmlspecialchars(store_brand_icon_url($s), ENT_QUOTES, 'UTF-8') : '';
     ?>
     <li class="store-card-pro">
         <div class="store-card-pro-inner">
             <div class="store-card-pro-top">
-                <div class="store-card-pro-avatar" style="--store-hue: <?= (int) $hue ?>;" aria-hidden="true"><?= $initial ?></div>
+                <div class="store-card-pro-avatar<?= $hasStorePhoto ? ' store-card-pro-avatar--photo' : '' ?>" style="--store-hue: <?= (int) $hue ?>;" aria-hidden="true">
+                    <?php if ($hasStorePhoto): ?>
+                        <img src="<?= $avatarImgUrl ?>" alt="" class="store-card-pro-avatar-img" width="48" height="48" decoding="async">
+                    <?php else: ?>
+                        <?= $initial ?>
+                    <?php endif; ?>
+                </div>
                 <div class="store-card-pro-heading">
                     <h3 class="store-card-pro-title">
                         <a href="<?= $hrefVitrine ?>"><?= $nameEsc ?></a>

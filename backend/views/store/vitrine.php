@@ -31,6 +31,18 @@ if ($phone !== '') {
         </div>
     </section>
 
+    <?php
+    $bannerPath = trim((string) ($store['banner_path'] ?? ''));
+    $bannerUrl = $bannerPath !== '' ? base_url('uploads/' . str_replace('\\', '/', $bannerPath)) : null;
+    ?>
+    <?php if ($bannerUrl): ?>
+        <section class="store-vitrine-banner-wrap" aria-label="Destaque da loja">
+            <div class="container store-vitrine-banner-inner">
+                <img src="<?= htmlspecialchars($bannerUrl) ?>" alt="<?= htmlspecialchars($store['name']) ?> — destaque" class="store-vitrine-banner-img" width="1200" height="360" decoding="async" fetchpriority="high">
+            </div>
+        </section>
+    <?php endif; ?>
+
     <div class="container store-vitrine-body">
         <?php if (!empty($products)): ?>
             <div class="store-vitrine-catalog-head">
