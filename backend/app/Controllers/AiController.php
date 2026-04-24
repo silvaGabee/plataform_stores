@@ -84,26 +84,4 @@ class AiController extends Controller
             'descricao_completa' => $out['descricao_completa'],
         ]);
     }
-
-    public function organograma(string $slug): void
-    {
-        $storeId = $this->getStoreIdFromSlug($slug);
-        if (!$storeId) {
-            $this->json(['error' => 'Loja não encontrada'], 404);
-        }
-        $this->requireStorePanelAccess($storeId);
-        $input = $this->getJsonInput();
-        $ctx = [
-            'tipo_loja' => $input['tipo_loja'] ?? null,
-            'numero_funcionarios' => $input['numero_funcionarios'] ?? null,
-            'contexto' => $input['contexto'] ?? null,
-        ];
-        $service = new AiAssistantService();
-        $resposta = $service->sugerirOrganograma($storeId, $ctx);
-        if ($resposta === null) {
-            $this->json(['resposta' => self::MSG_INDISPONIVEL]);
-            return;
-        }
-        $this->json(['resposta' => $resposta]);
-    }
 }

@@ -62,12 +62,6 @@ class PanelController extends Controller
         $this->render('panel/hierarquia', ['store' => $store, 'title' => 'Hierarquia']);
     }
 
-    public function reports(string $slug): void
-    {
-        $store = $this->getStore($slug);
-        $this->render('panel/relatorios', ['store' => $store, 'title' => 'Relatórios']);
-    }
-
     public function settings(string $slug): void
     {
         $store = $this->getStore($slug);

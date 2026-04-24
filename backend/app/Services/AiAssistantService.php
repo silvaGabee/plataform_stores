@@ -204,26 +204,6 @@ class AiAssistantService
         ];
     }
 
-    /**
-     * @param array{tipo_loja?: string, numero_funcionarios?: int|string, contexto?: string} $contexto
-     */
-    public function sugerirOrganograma(int $storeId, array $contexto): ?string
-    {
-        $store = $this->stores->find($storeId);
-        $nomeLoja = $store ? trim((string) ($store['name'] ?? '')) : '';
-        $catLoja = $store ? trim((string) ($store['category'] ?? '')) : '';
-        $tipo = trim((string) ($contexto['tipo_loja'] ?? $catLoja));
-        $n = (int) ($contexto['numero_funcionarios'] ?? 0);
-        $extra = trim((string) ($contexto['contexto'] ?? ''));
-        $regras = $this->carregarRegrasIA();
-        $system = $regras . "\n\nVocê sugere uma estrutura simples de cargos (organograma) para uma pequena/média loja. Use lista ou tópicos em português. Não cite tecnologia interna do sistema.";
-        $user = "Loja: {$nomeLoja}\nCategoria / tipo de loja: {$tipo}\nNúmero de funcionários (aproximado): {$n}\nObservações do dono: {$extra}";
-        return $this->chamarOpenRouter([
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user', 'content' => $user],
-        ]);
-    }
-
     public function montarContextoLoja(int $storeId): string
     {
         $store = $this->stores->find($storeId);

@@ -4,11 +4,15 @@
   var base = (document.querySelector('meta[name="base-url"]') || {}).content || '';
   function api(path, opt) {
     var url = (base.replace(/\/$/, '') + (path.indexOf('/') === 0 ? path : '/' + path));
-    return fetch(url, {
+    var fetchOpts = {
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      ...opt
-    }).then(function (r) {
+      credentials: 'same-origin'
+    };
+    if (opt) {
+      if (opt.method != null) fetchOpts.method = opt.method;
+      if (opt.body != null) fetchOpts.body = opt.body;
+    }
+    return fetch(url, fetchOpts).then(function (r) {
       return r.text().then(function (text) {
         var data = {};
         try {

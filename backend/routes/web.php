@@ -3,6 +3,7 @@
 use App\Controllers\HomeController;
 use App\Controllers\StoreFrontController;
 use App\Controllers\PanelController;
+use App\Controllers\AnalyzingBIController;
 
 return [
     'GET /' => [HomeController::class, 'index'],
@@ -32,6 +33,6 @@ return [
     'GET /painel/{slug}/funcionarios' => [PanelController::class, 'employees'],
     'GET /painel/{slug}/clientes' => [PanelController::class, 'clientes'],
     'GET /painel/{slug}/hierarquia' => [PanelController::class, 'hierarchy'],
-    'GET /painel/{slug}/relatorios' => [PanelController::class, 'reports'],
+    'GET /painel/{slug}/analyzing-bi' => [AnalyzingBIController::class, 'panel'],
     'GET /painel/{slug}/configuracoes' => [PanelController::class, 'settings'],
 ];

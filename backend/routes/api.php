@@ -13,6 +13,7 @@ use App\Controllers\Api\StockMovementApiController;
 use App\Controllers\Api\CartApiController;
 use App\Controllers\Api\CheckoutApiController;
 use App\Controllers\Api\GoalsApiController;
+use App\Controllers\Api\AnalyzingBIApiController;
 
 return [
     'POST /api/loja/{slug}/cart/sync' => [CartApiController::class, 'sync'],
@@ -74,6 +75,12 @@ return [
     'GET /api/loja/{slug}/reports/revenue' => [ReportApiController::class, 'revenue'],
     'GET /api/loja/{slug}/reports/customers' => [ReportApiController::class, 'customers'],
 
+    'GET /api/loja/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento'],
+    'GET /api/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento'],
+    'GET /api/loja/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index'],
+    /** Alias do endpoint do BI (mesmo handler; slug = loja). */
+    'GET /api/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index'],
+
     'GET /api/loja/{slug}/goals' => [GoalsApiController::class, 'get'],
     'POST /api/loja/{slug}/goals/store' => [GoalsApiController::class, 'setStoreGoal'],
     'POST /api/loja/{slug}/goals/employee' => [GoalsApiController::class, 'setEmployeeGoal'],
@@ -99,5 +106,4 @@ return [
     'POST /api/ai/chat' => [AiController::class, 'chatGlobal'],
     'POST /api/loja/{slug}/ai/chat' => [AiController::class, 'chat'],
     'POST /api/loja/{slug}/ai/descricao-produto' => [AiController::class, 'descricaoProduto'],
-    'POST /api/loja/{slug}/ai/organograma' => [AiController::class, 'organograma'],
 ];

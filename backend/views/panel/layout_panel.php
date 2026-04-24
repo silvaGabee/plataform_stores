@@ -42,14 +42,14 @@ $__ic = static function (string $d): string {
             <a class="<?= $__navActive('clientes') ?>" href="<?= base_url("painel/{$store['slug']}/clientes") ?>"><?= $__ic('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z') ?><span class="panel-nav-text">Clientes</span></a>
             <?php endif; ?>
             <a class="<?= $__navActive('hierarquia') ?>" href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>"><?= $__ic('M4 4h6v5H4zM14 4h6v5h-6zM9 14h6v6H9z') ?><span class="panel-nav-text">Hierarquia</span></a>
-            <a class="<?= $__navActive('relatorios') ?>" href="<?= base_url("painel/{$store['slug']}/relatorios") ?>"><?= $__ic('M18 20V10 M12 20V4 M6 20v-6') ?><span class="panel-nav-text">Relatórios</span></a>
             <?php if (empty($panel_readonly)): ?>
+            <a class="<?= $__navActive('analyzing-bi') ?>" href="<?= base_url("painel/{$store['slug']}/analyzing-bi") ?>"><?= $__ic('M4 19h16M4 15h10M4 11h16M4 7h12M9 3v4') ?><span class="panel-nav-text">Analyzing BI</span></a>
             <a class="<?= $__navActive('configuracoes') ?>" href="<?= base_url("painel/{$store['slug']}/configuracoes") ?>"><svg class="panel-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="panel-nav-text">Configurações</span></a>
             <?php endif; ?>
         </nav>
         <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener"><span class="panel-store-link-icon" aria-hidden="true">↗</span> Ver vitrine</a></p>
     </aside>
-    <main class="panel-main" data-store-slug="<?= htmlspecialchars($store['slug'] ?? '') ?>">
+    <main class="panel-main<?= !empty($panel_main_extra_class) ? ' ' . htmlspecialchars((string) $panel_main_extra_class, ENT_QUOTES, 'UTF-8') : '' ?>" data-store-slug="<?= htmlspecialchars($store['slug'] ?? '') ?>">
         <?= $content ?? '' ?>
     </main>
     <button type="button" id="panel-ai-fab" class="panel-ai-fab" aria-haspopup="dialog" aria-controls="panel-ai-dialog" aria-label="Assistente da loja" title="Assistente da loja">
