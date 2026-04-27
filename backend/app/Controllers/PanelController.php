@@ -49,13 +49,6 @@ class PanelController extends Controller
         $this->render('panel/funcionarios', ['store' => $store, 'title' => 'Funcionários']);
     }
 
-    public function clientes(string $slug): void
-    {
-        $store = $this->getStore($slug);
-        $this->requireGerenteOrRedirect($store, $slug);
-        $this->render('panel/clientes', ['store' => $store, 'title' => 'Clientes']);
-    }
-
     public function hierarchy(string $slug): void
     {
         $store = $this->getStore($slug);

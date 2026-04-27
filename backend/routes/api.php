@@ -73,7 +73,6 @@ return [
     'GET /api/loja/{slug}/reports/low-stock' => [ReportApiController::class, 'lowStock'],
     'GET /api/loja/{slug}/reports/employees' => [ReportApiController::class, 'employeePerformance'],
     'GET /api/loja/{slug}/reports/revenue' => [ReportApiController::class, 'revenue'],
-    'GET /api/loja/{slug}/reports/customers' => [ReportApiController::class, 'customers'],
 
     'GET /api/loja/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento'],
     'GET /api/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento'],

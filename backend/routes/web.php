@@ -31,7 +31,6 @@ return [
     'GET /painel/{slug}/entregas' => [PanelController::class, 'entregas'],
     'GET /painel/{slug}/pdv' => [PanelController::class, 'pdv'],
     'GET /painel/{slug}/funcionarios' => [PanelController::class, 'employees'],
-    'GET /painel/{slug}/clientes' => [PanelController::class, 'clientes'],
     'GET /painel/{slug}/hierarquia' => [PanelController::class, 'hierarchy'],
     'GET /painel/{slug}/analyzing-bi' => [AnalyzingBIController::class, 'panel'],
     'GET /painel/{slug}/configuracoes' => [PanelController::class, 'settings'],

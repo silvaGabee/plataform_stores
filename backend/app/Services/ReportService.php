@@ -63,24 +63,6 @@ class ReportService
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
-    public function customersWithStats(int $storeId): array
-    {
-        $stmt = $this->pdo->prepare(
-            "SELECT u.id, u.name, u.email,
-                    COUNT(DISTINCT o.id) AS orders_count,
-                    COALESCE(SUM(oi.quantity), 0) AS products_count,
-                    COALESCE(SUM(CASE WHEN o.status = 'pago' THEN o.total ELSE 0 END), 0) AS total_spent
-             FROM users u
-             LEFT JOIN orders o ON o.customer_id = u.id AND o.store_id = u.store_id
-             LEFT JOIN order_items oi ON oi.order_id = o.id
-             WHERE u.store_id = ? AND u.user_type = 'cliente'
-             GROUP BY u.id, u.name, u.email
-             ORDER BY total_spent DESC, orders_count DESC"
-        );
-        $stmt->execute([$storeId]);
-        return $stmt->fetchAll();
-    }
-
     public function storeRevenue(int $storeId, ?string $dateFrom = null, ?string $dateTo = null): float
     {
         $data = $this->storeRevenueByType($storeId, $dateFrom, $dateTo);

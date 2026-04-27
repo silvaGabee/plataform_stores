@@ -75,16 +75,4 @@ class ReportApiController extends Controller
             'revenue_online' => $data['revenue_online'],
         ]);
     }
-
-    public function customers(string $slug): void
-    {
-        $storeId = $this->getStoreIdFromSlug($slug);
-        if (!$storeId) {
-            $this->json(['error' => 'Loja não encontrada'], 404);
-        }
-        $this->requireStorePanelAccess($storeId);
-        $service = new ReportService();
-        $data = $service->customersWithStats($storeId);
-        $this->json(['customers' => $data]);
-    }
 }

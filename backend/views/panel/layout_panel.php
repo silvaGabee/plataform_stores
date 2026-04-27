@@ -39,7 +39,6 @@ $__ic = static function (string $d): string {
             <a class="<?= $__navActive('pdv') ?>" href="<?= base_url("painel/{$store['slug']}/pdv") ?>"><?= $__ic('M4 4h16v4H4z M4 10h16v10H4z M8 14h4') ?><span class="panel-nav-text">PDV</span></a>
             <?php if (empty($panel_readonly)): ?>
             <a class="<?= $__navActive('funcionarios') ?>" href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>"><?= $__ic('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75') ?><span class="panel-nav-text">Funcionários</span></a>
-            <a class="<?= $__navActive('clientes') ?>" href="<?= base_url("painel/{$store['slug']}/clientes") ?>"><?= $__ic('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z') ?><span class="panel-nav-text">Clientes</span></a>
             <?php endif; ?>
             <a class="<?= $__navActive('hierarquia') ?>" href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>"><?= $__ic('M4 4h6v5H4zM14 4h6v5h-6zM9 14h6v6H9z') ?><span class="panel-nav-text">Hierarquia</span></a>
             <?php if (empty($panel_readonly)): ?>
