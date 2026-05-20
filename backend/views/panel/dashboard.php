@@ -46,17 +46,22 @@ ob_start();
                             </div>
                         </div>
                         <figure id="dashboard-banner-preview-wrap" class="dashboard-banner-preview-figure hidden">
-                            <img id="dashboard-banner-preview" src="" alt="Pré-visualização do banner da vitrine" class="dashboard-banner-preview-img" width="1200" height="360" decoding="async">
-                            <figcaption class="dashboard-banner-preview-caption"><span class="dashboard-banner-preview-badge">Na vitrine</span></figcaption>
+                            <div class="dashboard-banner-preview-scene">
+                                <div class="dashboard-banner-preview-frame">
+                                    <img id="dashboard-banner-preview" src="" alt="Pré-visualização do banner da vitrine" class="dashboard-banner-preview-img" width="1920" height="512" decoding="async">
+                                </div>
+                            </div>
+                            <figcaption class="dashboard-banner-preview-caption"><span class="dashboard-banner-preview-badge">Como na vitrine</span></figcaption>
                         </figure>
                     </div>
                 </div>
                 <div class="dashboard-banner-col dashboard-banner-col-actions">
                     <?php if (empty($panel_readonly)): ?>
                     <ul class="dashboard-banner-hints" aria-label="Recomendações">
-                        <li>JPG, PNG, GIF ou WebP — largura recomendada <strong>≥ 1100 px</strong></li>
-                        <li>Proporção larga (ex.: <strong>3:1</strong>) encaixa bem entre o título e o catálogo</li>
-                        <li>Pode <strong>arrastar e largar</strong> a imagem na área à esquerda</li>
+                        <li>JPG, PNG, GIF ou WebP — use imagem <strong>larga</strong> (ex.: <strong>1920×512 px</strong> ou proporção <strong>3,75:1</strong>)</li>
+                        <li>O banner ocupa <strong>toda a largura</strong> da vitrine, em faixa panorâmica abaixo do cabeçalho</li>
+                        <li>Pode <strong>arrastar e largar</strong> a imagem na área à esquerda. Use <strong>Editar</strong> (JPG/PNG) para recortar e ajustar o enquadramento</li>
+                        <li><strong>GIF animado</strong> não pode ser editado — envie já no tamanho certo (ex. 1920×512 px)</li>
                     </ul>
                     <form id="dashboard-banner-form" class="dashboard-banner-form" enctype="multipart/form-data">
                         <p class="dashboard-banner-field-label">Ficheiro</p>
@@ -71,10 +76,12 @@ ob_start();
                             <span id="dashboard-banner-filename" class="dashboard-banner-filename">Nenhum ficheiro selecionado</span>
                         </div>
                         <div class="dashboard-banner-form-actions">
+                            <button type="button" id="dashboard-banner-edit" class="btn btn-primary btn-sm dashboard-banner-edit-btn hidden">Editar</button>
                             <button type="submit" class="btn btn-primary btn-sm dashboard-banner-btn-save">Guardar na vitrine</button>
                             <button type="button" id="dashboard-banner-remove" class="btn btn-secondary btn-sm dashboard-banner-btn-remove hidden">Remover banner</button>
                         </div>
                     </form>
+                    <p id="dashboard-banner-gif-note" class="dashboard-banner-gif-note hidden" role="note">GIF animado: não é possível editar no painel. Envie o ficheiro já no tamanho desejado (ex. 1920×512 px) e clique em <strong>Guardar na vitrine</strong>.</p>
                     <p id="dashboard-banner-msg" class="panel-form-msg dashboard-banner-msg" role="status" aria-live="polite"></p>
                     <?php else: ?>
                     <p class="dashboard-banner-readonly-note">Só o gerente pode carregar ou remover o banner.</p>
@@ -83,6 +90,74 @@ ob_start();
             </div>
         </div>
     </section>
+
+    <?php if (empty($panel_readonly)): ?>
+    <div id="dashboard-banner-crop-modal" class="modal modal--banner-crop hidden" role="dialog" aria-modal="true" aria-labelledby="dashboard-banner-crop-title">
+        <div class="modal-content modal-content--banner-crop">
+            <header class="banner-crop-header">
+                <div class="banner-crop-header-main">
+                    <span class="banner-crop-header-icon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                            <path d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16M14 14l1.586-1.586a2 2 0 0 1 2.828 0L20 14M3 20h18" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="8.5" cy="8.5" r="1.75" fill="currentColor"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h2 id="dashboard-banner-crop-title">Editar banner</h2>
+                        <p id="dashboard-banner-crop-lead" class="dashboard-banner-crop-lead">Ajuste o enquadramento. A área destacada é o que os clientes veem na vitrine.</p>
+                    </div>
+                </div>
+                <button type="button" class="banner-crop-close js-banner-crop-cancel" aria-label="Fechar editor">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </header>
+
+            <div class="banner-crop-body">
+                <div class="banner-crop-stage-label">
+                    <span class="banner-crop-stage-badge">Pré-visualização na vitrine</span>
+                    <span class="banner-crop-stage-ratio">3,75 : 1</span>
+                </div>
+                <div class="banner-crop-viewport-shell">
+                    <div id="dashboard-banner-crop-viewport" class="dashboard-banner-crop-viewport" aria-label="Área de recorte do banner">
+                        <div class="banner-crop-viewport-frame" aria-hidden="true"></div>
+                        <img id="dashboard-banner-crop-img" class="dashboard-banner-crop-img" alt="" draggable="false">
+                    </div>
+                    <p class="banner-crop-drag-hint">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Arraste para reposicionar
+                    </p>
+                </div>
+
+                <div class="banner-crop-toolbar">
+                    <div class="banner-crop-zoom">
+                        <div class="banner-crop-zoom-head">
+                            <label class="banner-crop-zoom-title" for="dashboard-banner-crop-zoom">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M8 11h8M11 8v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.75"/></svg>
+                                Zoom
+                            </label>
+                            <span id="dashboard-banner-crop-zoom-val" class="banner-crop-zoom-value" aria-live="polite">100%</span>
+                        </div>
+                        <div class="banner-crop-zoom-slider-wrap">
+                            <span class="banner-crop-zoom-bound" aria-hidden="true">100%</span>
+                            <input type="range" id="dashboard-banner-crop-zoom" class="banner-crop-zoom-input" min="100" max="300" value="100" step="1" aria-valuemin="100" aria-valuemax="300" aria-valuenow="100">
+                            <span class="banner-crop-zoom-bound" aria-hidden="true">300%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="banner-crop-footer">
+                <button type="button" id="dashboard-banner-crop-cancel" class="btn btn-secondary js-banner-crop-cancel">Cancelar</button>
+                <button type="button" id="dashboard-banner-crop-apply" class="btn btn-primary banner-crop-btn-apply">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Aplicar e guardar
+                </button>
+            </footer>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div id="dashboard-low-stock-alert" class="dashboard-low-stock-alert panel-alert-warning hidden">
         <h2>Estoque baixo</h2>
@@ -275,6 +350,7 @@ ob_start();
   });
 })();
 </script>
+<script src="<?= asset('js/panel-banner-editor.js') ?>"></script>
 <script>
 (function(){
   var slug = <?= json_encode($store['slug']) ?>;
@@ -289,8 +365,71 @@ ob_start();
   var form = document.getElementById('dashboard-banner-form');
   var fileInput = document.getElementById('dashboard-banner-file');
   var removeBtn = document.getElementById('dashboard-banner-remove');
+  var editBtn = document.getElementById('dashboard-banner-edit');
   var msg = document.getElementById('dashboard-banner-msg');
   var nameEl = document.getElementById('dashboard-banner-filename');
+  var cropEditor = null;
+  var pendingObjectUrl = null;
+  var pendingBannerFile = null;
+  var gifNote = document.getElementById('dashboard-banner-gif-note');
+
+  function isGifFile(file) {
+    if (!file) return false;
+    if (file.type === 'image/gif') return true;
+    return !!(file.name && /\.gif$/i.test(file.name));
+  }
+
+  function isGifUrl(url) {
+    return !!(url && /\.gif(\?|$)/i.test(url));
+  }
+
+  function isCurrentBannerGif() {
+    if (pendingBannerFile && isGifFile(pendingBannerFile)) return true;
+    if (fileInput && fileInput.files && fileInput.files[0] && isGifFile(fileInput.files[0])) return true;
+    if (img && img.src && isGifUrl(img.src)) return true;
+    return false;
+  }
+
+  function syncEditButton() {
+    if (!editBtn) return;
+    var isGif = isCurrentBannerGif();
+    var hasPreview = !!(img && img.src && wrap && !wrap.classList.contains('hidden'));
+    if (isGif || !hasPreview) {
+      editBtn.classList.add('hidden');
+    } else {
+      editBtn.classList.remove('hidden');
+    }
+    if (gifNote) {
+      gifNote.classList.toggle('hidden', !(isGif && hasPreview));
+    }
+  }
+
+  function revokePendingUrl() {
+    if (pendingObjectUrl) {
+      URL.revokeObjectURL(pendingObjectUrl);
+      pendingObjectUrl = null;
+    }
+  }
+
+  function uploadBannerBlob(blob, filename, mime) {
+    var fd = new FormData();
+    fd.append('banner', blob, filename || 'banner.jpg');
+    setMsg('A guardar banner…', '');
+    return fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { method: 'POST', body: fd, credentials: 'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(res){
+        if (res.error) {
+          setMsg(res.error, 'error');
+          return;
+        }
+        setMsg('Banner guardado — já está visível na vitrine.', 'success');
+        if (fileInput) fileInput.value = '';
+        pendingBannerFile = null;
+        setFilenameLabel();
+        if (res.banner_url) setBannerUi(res.banner_url);
+      })
+      .catch(function(){ setMsg('Erro de rede.', 'error'); });
+  }
 
   function setMsg(text, kind) {
     if (!msg) return;
@@ -337,6 +476,7 @@ ob_start();
           : 'Arraste uma imagem para aqui ou use «Escolher imagem» à direita.';
       }
     }
+    syncEditButton();
   }
 
   if (ph) ph.classList.add('dashboard-banner-empty--loading');
@@ -353,8 +493,11 @@ ob_start();
         }
         return;
       }
-      if (res.banner_url) setBannerUi(res.banner_url);
-      else setBannerUi(null);
+      if (res.banner_url) {
+        setBannerUi(res.banner_url);
+      } else {
+        setBannerUi(null);
+      }
     })
     .catch(function(){
       if (ph) {
@@ -365,10 +508,84 @@ ob_start();
       }
     });
 
+  if (!panelBannerReadonly && typeof BannerCropEditor !== 'undefined') {
+    cropEditor = new BannerCropEditor({
+      modal: document.getElementById('dashboard-banner-crop-modal'),
+      viewport: document.getElementById('dashboard-banner-crop-viewport'),
+      img: document.getElementById('dashboard-banner-crop-img'),
+      zoomInput: document.getElementById('dashboard-banner-crop-zoom'),
+      zoomVal: document.getElementById('dashboard-banner-crop-zoom-val'),
+      applyBtn: document.getElementById('dashboard-banner-crop-apply'),
+      cancelBtn: document.getElementById('dashboard-banner-crop-cancel'),
+      noticeEl: document.getElementById('dashboard-banner-crop-lead'),
+      onApply: function(blob, filename, mime) {
+        uploadBannerBlob(blob, filename, mime);
+      },
+      onExportError: function(text) {
+        setMsg(text || 'Erro ao processar a imagem.', 'error');
+      }
+    });
+  }
+
+  function openBannerEditor() {
+    if (!cropEditor) return;
+    if (isCurrentBannerGif()) {
+      setMsg('GIF animado não pode ser editado. Use JPG ou PNG para recortar, ou envie o GIF já no tamanho final.', 'error');
+      return;
+    }
+    var src = null;
+    var mime = 'image/jpeg';
+    var blob = null;
+    var name = 'banner.jpg';
+    if (pendingBannerFile || (fileInput && fileInput.files && fileInput.files[0])) {
+      var f = pendingBannerFile || fileInput.files[0];
+      if (isGifFile(f)) {
+        setMsg('GIF animado não pode ser editado. Use JPG ou PNG para recortar, ou envie o GIF já no tamanho final.', 'error');
+        return;
+      }
+      revokePendingUrl();
+      pendingObjectUrl = URL.createObjectURL(f);
+      src = pendingObjectUrl;
+      mime = f.type || mime;
+      blob = f;
+      name = f.name || name;
+    } else if (img && img.src) {
+      src = img.src;
+      if (/\.png(\?|$)/i.test(src)) {
+        mime = 'image/png';
+        name = 'banner.png';
+      }
+    }
+    if (!src) {
+      setMsg('Carregue ou escolha uma imagem antes de editar.', 'error');
+      return;
+    }
+    cropEditor.open(src, mime, blob, name);
+  }
+
+  if (!panelBannerReadonly && editBtn) {
+    editBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openBannerEditor();
+    });
+  }
+
   if (!panelBannerReadonly && form && fileInput) {
     fileInput.addEventListener('change', function() {
       setFilenameLabel();
       setMsg('', '');
+      pendingBannerFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+      if (pendingBannerFile) {
+        if (wrap) wrap.classList.remove('hidden');
+        if (ph) ph.classList.add('hidden');
+        revokePendingUrl();
+        pendingObjectUrl = URL.createObjectURL(pendingBannerFile);
+        if (img) img.src = pendingObjectUrl;
+        if (section) section.classList.add('dashboard-banner-section--has-banner');
+        if (stage) stage.classList.add('dashboard-banner-stage--has-image');
+      }
+      syncEditButton();
     });
 
     function assignBannerFile(file) {
@@ -376,6 +593,7 @@ ob_start();
         setMsg('Use uma imagem (JPG, PNG, GIF ou WebP).', 'error');
         return;
       }
+      pendingBannerFile = file;
       try {
         var dt = new DataTransfer();
         dt.items.add(file);
@@ -386,6 +604,16 @@ ob_start();
       }
       setFilenameLabel();
       setMsg('', '');
+      if (wrap && ph && img) {
+        revokePendingUrl();
+        pendingObjectUrl = URL.createObjectURL(file);
+        img.src = pendingObjectUrl;
+        wrap.classList.remove('hidden');
+        ph.classList.add('hidden');
+        if (section) section.classList.add('dashboard-banner-section--has-banner');
+        if (stage) stage.classList.add('dashboard-banner-stage--has-image');
+      }
+      syncEditButton();
     }
 
     if (stage && stage.getAttribute('data-readonly') !== '1') {
@@ -406,6 +634,9 @@ ob_start();
         var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
         if (f) assignBannerFile(f);
       });
+      stage.addEventListener('dblclick', function() {
+        if (img && img.src && cropEditor && !isCurrentBannerGif()) openBannerEditor();
+      });
     }
 
     form.addEventListener('submit', function(e){
@@ -414,8 +645,9 @@ ob_start();
         setMsg('Escolha ou largue uma imagem primeiro.', 'error');
         return;
       }
+      var uploadFile = pendingBannerFile || fileInput.files[0];
       var fd = new FormData();
-      fd.append('banner', fileInput.files[0]);
+      fd.append('banner', uploadFile, uploadFile.name || 'banner.gif');
       fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(res){
@@ -425,6 +657,7 @@ ob_start();
           }
           setMsg('Banner guardado — já está visível na vitrine.', 'success');
           fileInput.value = '';
+          pendingBannerFile = null;
           setFilenameLabel();
           if (res.banner_url) setBannerUi(res.banner_url);
         })
@@ -443,6 +676,7 @@ ob_start();
           }
           setMsg('Banner removido.', 'success');
           if (fileInput) fileInput.value = '';
+          pendingBannerFile = null;
           setFilenameLabel();
           setBannerUi(null);
         })

@@ -60,7 +60,7 @@
             Esta opção é <strong>irreversível</strong>. Depois de confirmada, todos os dados desta loja serão apagados de forma permanente
             (produtos, pedidos, clientes, funcionários, configurações e demais registros vinculados). Não é possível desfazer.
         </p>
-        <button type="button" id="btn-show-delete-store" class="btn btn-secondary">Excluir loja</button>
+        <button type="button" id="btn-show-delete-store" class="btn btn-danger">Excluir loja</button>
 
         <div id="store-delete-confirm" class="hidden" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border);">
             <p class="panel-config-delete-prompt" style="margin: 0 0 0.75rem 0; font-weight: 600; color: var(--text);">
@@ -71,7 +71,7 @@
                 <input type="text" id="store-delete-confirmation-input" autocomplete="off" placeholder="Excluir" spellcheck="false">
             </div>
             <div class="form-actions" style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
-                <button type="button" id="btn-confirm-delete-store" class="btn meus-enderecos-btn-delete">Confirmar exclusão da loja</button>
+                <button type="button" id="btn-confirm-delete-store" class="btn btn-danger">Confirmar exclusão da loja</button>
                 <button type="button" id="btn-cancel-delete-store" class="btn btn-outline btn-sm">Cancelar</button>
             </div>
             <p id="store-delete-msg" class="text-muted" role="status" style="min-height: 1.25rem; margin-top: 0.75rem;"></p>

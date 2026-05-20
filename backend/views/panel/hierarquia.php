@@ -7,8 +7,11 @@
     <div class="hierarchy-layout">
         <div class="hierarchy-left">
             <?php if (empty($panel_readonly)): ?>
-            <button type="button" class="btn btn-primary" id="btn-new-role">Novo cargo</button>
-            <button type="button" class="btn btn-secondary" id="btn-seed-example" title="Cria o organograma de exemplo (CEO, Comercial, etc.). Depois você pode editar os nomes.">Organograma automático (Editável)</button>
+            <button type="button" class="btn btn-primary" id="btn-new-role">
+                <?= btn_icon_plus() ?>
+                Novo cargo
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-seed-example" title="Cria o organograma de exemplo (CEO, Comercial, etc.). Depois você pode editar os nomes.">Organograma automático (Editável)</button>
             <?php endif; ?>
             <h2 class="hierarchy-list-title">Lista de cargos</h2>
             <div id="role-list"></div>

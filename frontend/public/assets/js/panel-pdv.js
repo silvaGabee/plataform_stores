@@ -1,5 +1,6 @@
 (function () {
   if (typeof storeSlug === 'undefined') return;
+  var btnIconPlus = '<svg class="btn-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
   var base = (document.querySelector('meta[name="base-url"]') || {}).content || '';
   function api(path, opt) {
     return fetch(base.replace(/\/$/, '') + path, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...opt }).then(function (r) { return r.json(); });
@@ -60,7 +61,7 @@
   function renderCashClosed() {
     var el = document.getElementById('cash-status');
     el.className = 'pdv-cash-status';
-    el.innerHTML = '<p>Caixa fechado.</p><button type="button" class="btn btn-primary" id="btn-open-cash">Abrir caixa</button>';
+    el.innerHTML = '<p>Caixa fechado.</p><button type="button" class="btn btn-primary" id="btn-open-cash">' + btnIconPlus + ' Abrir caixa</button>';
     document.getElementById('btn-open-cash').addEventListener('click', function () {
       api('/api/loja/' + storeSlug + '/cash/open', {
         method: 'POST',

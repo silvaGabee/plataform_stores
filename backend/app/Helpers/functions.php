@@ -104,6 +104,17 @@ if (!function_exists('asset')) {
     }
 }
 
+/** Ícone «+» para botões de ação primária (mesmo padrão de «Novo funcionário»). */
+if (!function_exists('btn_icon_plus')) {
+    function btn_icon_plus(int $size = 18): string
+    {
+        $s = max(12, min(24, (int) $size));
+
+        return '<svg class="btn-icon-svg" width="' . $s . '" height="' . $s . '" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">'
+            . '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    }
+}
+
 if (!function_exists('favicon_url')) {
     /** URL do favicon com versão (mtime) para contornar cache agressivo do navegador. */
     function favicon_url(): string

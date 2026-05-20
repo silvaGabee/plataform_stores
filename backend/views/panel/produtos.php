@@ -1,7 +1,10 @@
 <?php $content = ob_start(); ?>
 <div class="panel-content">
     <h1>Produtos</h1>
-    <button type="button" class="btn btn-primary" id="btn-new-product">Novo produto</button>
+    <button type="button" class="btn btn-primary" id="btn-new-product">
+        <?= btn_icon_plus() ?>
+        Novo produto
+    </button>
     <div id="product-list"></div>
     <div id="product-modal" class="modal hidden">
         <div class="modal-content">

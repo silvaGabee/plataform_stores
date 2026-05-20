@@ -74,7 +74,7 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                                         </p>
                                         <div class="meus-enderecos-item-actions">
                                             <button type="button" class="btn btn-secondary meus-enderecos-edit" data-address="<?= $addrJson ?>">Editar</button>
-                                            <button type="button" class="btn meus-enderecos-btn-delete meus-enderecos-delete" data-address-id="<?= (int) $a['id'] ?>">Excluir</button>
+                                            <button type="button" class="btn btn-danger meus-enderecos-delete" data-address-id="<?= (int) $a['id'] ?>">Excluir</button>
                                         </div>
                                     </div>
                                 </div>

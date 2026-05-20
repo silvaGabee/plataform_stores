@@ -22,7 +22,7 @@
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Aplicar</button>
                     <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
-                    <button type="button" class="btn btn-secondary" id="btn-delete-product-from-stock" style="background:#dc2626;color:#fff">Excluir produto</button>
+                    <button type="button" class="btn btn-danger" id="btn-delete-product-from-stock">Excluir produto</button>
                 </div>
             </form>
         </div>

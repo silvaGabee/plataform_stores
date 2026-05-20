@@ -78,7 +78,7 @@
       if (!listEl) return;
       var html = currentRoles.map(function (r, i) {
         var actions = readonly ? '' : ' <button type="button" class="btn btn-sm btn-edit-role" data-index="' + i + '">Editar</button> ' +
-          '<button type="button" class="btn btn-sm btn-delete-role" data-index="' + i + '" style="background:#dc2626;color:#fff">Excluir</button>';
+          '<button type="button" class="btn btn-sm btn-danger btn-delete-role" data-index="' + i + '">Excluir</button>';
         return '<div class="card" style="margin-bottom:0.5rem;padding:0.75rem">' + (r.name || '') + actions + '</div>';
       }).join('') || '<p>Nenhum cargo.</p>';
       listEl.innerHTML = html;

@@ -6,10 +6,8 @@
             <h1>Funcionários</h1>
             <p class="panel-lead">Convide quem opera o painel com você. Gerentes têm acesso completo; funcionários seguem as permissões dos <a href="<?= base_url("painel/{$store['slug']}/hierarquia") ?>">cargos da hierarquia</a>.</p>
         </div>
-        <button type="button" class="btn btn-primary panel-employees-add" id="btn-new-user">
-            <svg class="panel-employees-add-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
+        <button type="button" class="btn btn-primary" id="btn-new-user">
+            <?= btn_icon_plus() ?>
             Novo funcionário
         </button>
     </header>

@@ -1,44 +1,13 @@
-<?php
-ob_start();
-$cat = trim((string) ($store['category'] ?? ''));
-$city = trim((string) ($store['city'] ?? ''));
-$phone = trim((string) ($store['phone'] ?? ''));
-$metaItems = [];
-if ($cat !== '') {
-    $metaItems[] = $cat;
-}
-if ($city !== '') {
-    $metaItems[] = $city;
-}
-if ($phone !== '') {
-    $metaItems[] = $phone;
-}
-?>
+<?php ob_start(); ?>
 <div class="store-vitrine-page">
-    <section class="store-vitrine-hero" aria-labelledby="store-vitrine-title">
-        <div class="store-vitrine-hero-glow" aria-hidden="true"></div>
-        <div class="container store-vitrine-hero-inner">
-            <p class="store-vitrine-eyebrow">Loja online</p>
-            <h1 id="store-vitrine-title" class="store-vitrine-title"><?= htmlspecialchars($store['name']) ?></h1>
-            <p class="store-vitrine-tagline">Explore o catálogo e faça seu pedido com segurança.</p>
-            <?php if ($metaItems !== []): ?>
-                <ul class="store-vitrine-meta" aria-label="Informações da loja">
-                    <?php foreach ($metaItems as $i => $label): ?>
-                        <li class="store-vitrine-meta-item"><?= htmlspecialchars($label) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </div>
-    </section>
-
     <?php
     $bannerPath = trim((string) ($store['banner_path'] ?? ''));
     $bannerUrl = $bannerPath !== '' ? base_url('uploads/' . str_replace('\\', '/', $bannerPath)) : null;
     ?>
     <?php if ($bannerUrl): ?>
         <section class="store-vitrine-banner-wrap" aria-label="Destaque da loja">
-            <div class="container store-vitrine-banner-inner">
-                <img src="<?= htmlspecialchars($bannerUrl) ?>" alt="<?= htmlspecialchars($store['name']) ?> — destaque" class="store-vitrine-banner-img" width="1200" height="360" decoding="async" fetchpriority="high">
+            <div class="store-vitrine-banner-frame">
+                <img src="<?= htmlspecialchars($bannerUrl) ?>" alt="<?= htmlspecialchars($store['name']) ?> — destaque" class="store-vitrine-banner-img" width="1920" height="512" decoding="async" fetchpriority="high">
             </div>
         </section>
     <?php endif; ?>
