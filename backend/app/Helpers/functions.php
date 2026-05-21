@@ -126,6 +126,581 @@ if (!function_exists('favicon_url')) {
     }
 }
 
+/** Normaliza chave de ícone (inclui aliases do catálogo antigo). */
+if (!function_exists('vitrine_category_icon_normalize_key')) {
+    function vitrine_category_icon_normalize_key(string $key): string
+    {
+        $safe = preg_replace('/[^a-z0-9_-]/', '', strtolower($key));
+        if ($safe === '') {
+            return 'acessorios';
+        }
+        $legacy = [
+            'camisa' => 'feminino',
+            'calca' => 'masculino',
+            'legging' => 'feminino',
+            'shorts' => 'feminino',
+            'garrafa' => 'suplementos',
+            'suplemento' => 'suplementos',
+            'mochila' => 'acessorios',
+            'sacola' => 'acessorios',
+            'presente' => 'ofertas',
+            'relogio' => 'premium',
+            'bone' => 'acessorios',
+            'luvas' => 'treino',
+            'corda' => 'treino',
+            'bike' => 'corrida',
+            'carrinho' => 'ofertas',
+        ];
+
+        return $legacy[$safe] ?? $safe;
+    }
+}
+
+/** Catálogo de ícones para categorias da vitrine (Iconify API, ícones brancos para círculo azul). */
+if (!function_exists('vitrine_category_icon_catalog')) {
+    function vitrine_category_icon_catalog(): array
+    {
+        return [
+            [
+                'key' => 'feminino',
+                'label' => 'Feminino / Moda fitness',
+                'url' => 'https://api.iconify.design/lucide:shirt.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'masculino',
+                'label' => 'Masculino',
+                'url' => 'https://api.iconify.design/lucide:user-round.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'masculino_simbolo',
+                'label' => 'Masculino símbolo',
+                'url' => asset('images/category-icons/masculino_simbolo.svg'),
+            ],
+            [
+                'key' => 'treino',
+                'label' => 'Treino / Academia',
+                'url' => 'https://api.iconify.design/lucide:dumbbell.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'corrida',
+                'label' => 'Corrida',
+                'url' => 'https://api.iconify.design/lucide:footprints.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'caminhada',
+                'label' => 'Caminhada',
+                'url' => asset('images/category-icons/caminhada.svg'),
+            ],
+            [
+                'key' => 'vestido',
+                'label' => 'Vestido',
+                'url' => asset('images/category-icons/vestido.svg'),
+            ],
+            [
+                'key' => 'casaco',
+                'label' => 'Casaco',
+                'url' => asset('images/category-icons/casaco.svg'),
+            ],
+            [
+                'key' => 'tenis',
+                'label' => 'Ténis',
+                'url' => 'https://api.iconify.design/game-icons:running-shoe.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'acessorios',
+                'label' => 'Acessórios',
+                'url' => 'https://api.iconify.design/lucide:backpack.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'yoga',
+                'label' => 'Yoga / Pilates',
+                'url' => 'https://api.iconify.design/lucide:flower.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'suplementos',
+                'label' => 'Suplementos / Shaker',
+                'url' => 'https://api.iconify.design/mdi:bottle-soda-classic-outline.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'ofertas',
+                'label' => 'Ofertas',
+                'url' => 'https://api.iconify.design/lucide:badge-percent.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'lancamentos',
+                'label' => 'Lançamentos',
+                'url' => 'https://api.iconify.design/lucide:sparkles.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'premium',
+                'label' => 'Premium',
+                'url' => 'https://api.iconify.design/lucide:gem.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'plus_size',
+                'label' => 'Plus Size',
+                'url' => 'https://api.iconify.design/lucide:heart.svg?color=white&width=34',
+            ],
+            [
+                'key' => 'nike',
+                'label' => 'Nike',
+                'url' => asset('images/category-icons/nike.svg'),
+            ],
+            [
+                'key' => 'adidas',
+                'label' => 'Adidas',
+                'url' => asset('images/category-icons/adidas.svg'),
+            ],
+            [
+                'key' => 'puma',
+                'label' => 'Puma',
+                'url' => asset('images/category-icons/puma.svg'),
+            ],
+            [
+                'key' => 'new_balance',
+                'label' => 'New Balance',
+                'url' => asset('images/category-icons/new_balance.svg'),
+            ],
+            [
+                'key' => 'fila',
+                'label' => 'Fila',
+                'url' => asset('images/category-icons/fila.svg'),
+            ],
+        ];
+    }
+}
+
+if (!function_exists('vitrine_category_icon_is_valid')) {
+    function vitrine_category_icon_is_valid(string $key): bool
+    {
+        $normalized = vitrine_category_icon_normalize_key($key);
+        foreach (vitrine_category_icon_catalog() as $icon) {
+            if ($icon['key'] === $normalized) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('vitrine_category_icon_url')) {
+    function vitrine_category_icon_url(string $key): string
+    {
+        $normalized = vitrine_category_icon_normalize_key($key);
+        foreach (vitrine_category_icon_catalog() as $icon) {
+            if ($icon['key'] === $normalized) {
+                return $icon['url'];
+            }
+        }
+
+        return vitrine_category_icon_catalog()[5]['url'];
+    }
+}
+
+/** Catálogo de variações de produto (tipo + valores permitidos). */
+if (!function_exists('product_variant_type_catalog')) {
+    function product_variant_type_catalog(): array
+    {
+        return [
+            'tamanho' => [
+                'label' => 'Tamanho',
+                'values' => ['P', 'M', 'G', 'GG', 'EGG', 'EXGG'],
+            ],
+            'numeracao' => [
+                'label' => 'Numeração',
+                'values' => ['34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
+            ],
+            'cor' => [
+                'label' => 'Cores',
+                'values' => ['Preto', 'Branco', 'Azul', 'Vermelho', 'Verde', 'Cinza', 'Rosa', 'Amarelo'],
+            ],
+        ];
+    }
+}
+
+if (!function_exists('product_variant_type_is_valid')) {
+    function product_variant_type_is_valid(string $type): bool
+    {
+        return isset(product_variant_type_catalog()[$type])
+            || $type === 'combinacao'
+            || $type === '_meta';
+    }
+}
+
+if (!function_exists('product_variant_value_is_valid')) {
+    function product_variant_value_is_valid(string $type, string $value): bool
+    {
+        $catalog = product_variant_type_catalog();
+        if (!isset($catalog[$type])) {
+            return false;
+        }
+        $value = trim($value);
+
+        return in_array($value, $catalog[$type]['values'], true);
+    }
+}
+
+if (!function_exists('product_variant_type_label')) {
+    function product_variant_type_label(string $type): string
+    {
+        if ($type === 'combinacao') {
+            return 'Combinação';
+        }
+        $catalog = product_variant_type_catalog();
+
+        return $catalog[$type]['label'] ?? $type;
+    }
+}
+
+if (!function_exists('product_variant_combination_key')) {
+    function product_variant_combination_key(string $color, string $size): string
+    {
+        return trim($color) . '|' . trim($size);
+    }
+}
+
+if (!function_exists('product_variants_matrix_to_rows')) {
+    /** @param mixed $matrix */
+    function product_variants_matrix_to_rows($matrix): array
+    {
+        if (!is_array($matrix)) {
+            return [];
+        }
+        $axis = trim((string) ($matrix['axis'] ?? ''));
+        if (!in_array($axis, ['tamanho', 'numeracao'], true)) {
+            return [];
+        }
+        $colors = [];
+        foreach ($matrix['colors'] ?? [] as $c) {
+            $c = trim((string) $c);
+            if ($c !== '' && product_variant_value_is_valid('cor', $c)) {
+                $colors[$c] = true;
+            }
+        }
+        $colors = array_keys($colors);
+        $sizes = product_variants_matrix_normalize_sizes(
+            is_array($matrix['sizes'] ?? null) ? $matrix['sizes'] : [],
+            $axis
+        );
+        if ($colors === [] || $sizes === []) {
+            return [];
+        }
+        $stockMap = is_array($matrix['stock'] ?? null) ? $matrix['stock'] : [];
+        $out = [
+            [
+                'variant_type' => '_meta',
+                'variant_value' => 'axis:' . $axis,
+                'stock_quantity' => 0,
+            ],
+        ];
+        foreach ($sizes as $size) {
+            $rowStock = is_array($stockMap[$size] ?? null) ? $stockMap[$size] : [];
+            foreach ($colors as $color) {
+                $qty = max(0, (int) ($rowStock[$color] ?? 0));
+                $out[] = [
+                    'variant_type' => 'combinacao',
+                    'variant_value' => product_variant_combination_key($color, $size),
+                    'stock_quantity' => $qty,
+                ];
+            }
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('product_variants_rows_to_matrix')) {
+    /** @param list<array> $rows */
+    function product_variants_rows_to_matrix(array $rows): ?array
+    {
+        $axis = null;
+        $colors = [];
+        $sizes = [];
+        $stock = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $type = (string) ($row['variant_type'] ?? '');
+            $value = trim((string) ($row['variant_value'] ?? ''));
+            if ($type === '_meta' && str_starts_with($value, 'axis:')) {
+                $a = substr($value, 5);
+                if (in_array($a, ['tamanho', 'numeracao'], true)) {
+                    $axis = $a;
+                }
+                continue;
+            }
+            if ($type !== 'combinacao' || !str_contains($value, '|')) {
+                continue;
+            }
+            [$color, $size] = explode('|', $value, 2);
+            $color = trim($color);
+            $size = trim($size);
+            if ($color === '' || $size === '') {
+                continue;
+            }
+            $colors[$color] = true;
+            $sizes[$size] = true;
+            if (!isset($stock[$size])) {
+                $stock[$size] = [];
+            }
+            $stock[$size][$color] = max(0, (int) ($row['stock_quantity'] ?? 0));
+        }
+        if ($axis === null || $colors === [] || $stock === []) {
+            return null;
+        }
+        $catalog = product_variant_type_catalog();
+        $sizeOrder = $catalog[$axis]['values'] ?? [];
+        $colorOrder = $catalog['cor']['values'] ?? [];
+
+        $colorsFromStock = [];
+        foreach ($stock as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            foreach (array_keys($row) as $colorName) {
+                if ($colorName !== '' && product_variant_value_is_valid('cor', $colorName)) {
+                    $colorsFromStock[$colorName] = true;
+                }
+            }
+        }
+        $sortedColors = array_values(array_intersect($colorOrder, array_keys($colorsFromStock)));
+        foreach (array_keys($colorsFromStock) as $c) {
+            if (!in_array($c, $sortedColors, true)) {
+                $sortedColors[] = $c;
+            }
+        }
+
+        $sortedSizes = array_keys($stock);
+        usort($sortedSizes, static function (string $a, string $b) use ($sizeOrder): int {
+            $ia = array_search($a, $sizeOrder, true);
+            $ib = array_search($b, $sizeOrder, true);
+            $ia = $ia === false ? PHP_INT_MAX : $ia;
+            $ib = $ib === false ? PHP_INT_MAX : $ib;
+
+            return $ia <=> $ib ?: strcmp($a, $b);
+        });
+
+        return [
+            'axis' => $axis,
+            'axis_label' => product_variant_type_label($axis),
+            'colors' => $sortedColors,
+            'sizes' => array_values($sortedSizes),
+            'stock' => $stock,
+        ];
+    }
+}
+
+if (!function_exists('product_variants_matrix_normalize_sizes')) {
+    /** @param list<string> $sizes */
+    function product_variants_matrix_normalize_sizes(array $sizes, string $axis): array
+    {
+        $seen = [];
+        $out = [];
+        foreach ($sizes as $s) {
+            $s = trim((string) $s);
+            if ($s === '' || isset($seen[$s])) {
+                continue;
+            }
+            if ($axis !== '' && !product_variant_value_is_valid($axis, $s)) {
+                continue;
+            }
+            $seen[$s] = true;
+            $out[] = $s;
+        }
+        $catalog = product_variant_type_catalog();
+        $order = $catalog[$axis]['values'] ?? [];
+        usort($out, static function (string $a, string $b) use ($order): int {
+            $ia = array_search($a, $order, true);
+            $ib = array_search($b, $order, true);
+            $ia = $ia === false ? PHP_INT_MAX : $ia;
+            $ib = $ib === false ? PHP_INT_MAX : $ib;
+
+            return $ia <=> $ib ?: strcmp($a, $b);
+        });
+
+        return $out;
+    }
+}
+
+if (!function_exists('normalize_product_variants_input')) {
+    /** @param mixed $raw */
+    function normalize_product_variants_input($raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+        if (isset($raw['axis'], $raw['colors'], $raw['sizes'])) {
+            return product_variants_matrix_to_rows($raw);
+        }
+        $seen = [];
+        $out = [];
+        foreach ($raw as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $type = trim((string) ($row['variant_type'] ?? ''));
+            $value = trim((string) ($row['variant_value'] ?? ''));
+            $stock = max(0, (int) ($row['stock_quantity'] ?? 0));
+            if ($type === '_meta') {
+                if (preg_match('/^axis:(tamanho|numeracao)$/', $value)) {
+                    $key = '_meta|' . $value;
+                    if (!isset($seen[$key])) {
+                        $seen[$key] = true;
+                        $out[] = [
+                            'variant_type' => '_meta',
+                            'variant_value' => $value,
+                            'stock_quantity' => 0,
+                        ];
+                    }
+                }
+                continue;
+            }
+            if ($type === 'combinacao' && str_contains($value, '|')) {
+                [$color, $size] = explode('|', $value, 2);
+                if (!product_variant_value_is_valid('cor', trim($color))) {
+                    continue;
+                }
+                $key = 'combinacao|' . mb_strtolower($value);
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $out[] = [
+                    'variant_type' => 'combinacao',
+                    'variant_value' => trim($color) . '|' . trim($size),
+                    'stock_quantity' => $stock,
+                ];
+                continue;
+            }
+            if (!product_variant_type_is_valid($type) || !product_variant_value_is_valid($type, $value)) {
+                continue;
+            }
+            $key = $type . '|' . mb_strtolower($value);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $out[] = [
+                'variant_type' => $type,
+                'variant_value' => $value,
+                'stock_quantity' => $stock,
+            ];
+        }
+
+        return $out;
+    }
+}
+
+if (!function_exists('product_cover_image')) {
+    function product_cover_image(array $product): ?array
+    {
+        $images = $product['images'] ?? [];
+        if ($images === []) {
+            return null;
+        }
+        foreach ($images as $img) {
+            if (!empty($img['is_cover'])) {
+                return $img;
+            }
+        }
+
+        return $images[0];
+    }
+}
+
+if (!function_exists('product_variants_grouped')) {
+    /** @return list<array{type: string, label: string, items: list<array>}> */
+    function product_variants_grouped(array $product): array
+    {
+        $matrix = $product['variants_matrix'] ?? product_variants_rows_to_matrix($product['variants'] ?? []);
+        if ($matrix !== null) {
+            return [];
+        }
+        $groups = [];
+        foreach ($product['variants'] ?? [] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $type = (string) ($row['variant_type'] ?? '');
+            if ($type === '' || $type === '_meta' || $type === 'combinacao') {
+                continue;
+            }
+            if (!isset($groups[$type])) {
+                $groups[$type] = [
+                    'type' => $type,
+                    'label' => (string) ($row['variant_type_label'] ?? product_variant_type_label($type)),
+                    'items' => [],
+                ];
+            }
+            $groups[$type]['items'][] = $row;
+        }
+
+        return array_values($groups);
+    }
+}
+
+if (!function_exists('product_has_variants')) {
+    function product_has_variants(array $product): bool
+    {
+        if (!empty($product['variants_matrix']) && is_array($product['variants_matrix'])) {
+            return !empty($product['variants_matrix']['colors']);
+        }
+        $matrix = product_variants_rows_to_matrix($product['variants'] ?? []);
+
+        return $matrix !== null || (!empty($product['variants']) && is_array($product['variants']));
+    }
+}
+
+if (!function_exists('product_variants_total_stock')) {
+    /** @param list<array> $variants */
+    function product_variants_total_stock(array $variants): int
+    {
+        $sum = 0;
+        foreach ($variants as $row) {
+            if (!is_array($row) || ($row['variant_type'] ?? '') === '_meta') {
+                continue;
+            }
+            $sum += max(0, (int) ($row['stock_quantity'] ?? 0));
+        }
+
+        return $sum;
+    }
+}
+
+if (!function_exists('product_variant_stock_for_combination')) {
+    function product_variant_stock_for_combination(array $product, string $color, string $size): int
+    {
+        $matrix = $product['variants_matrix'] ?? product_variants_rows_to_matrix($product['variants'] ?? []);
+        if ($matrix === null) {
+            return 0;
+        }
+        $size = trim($size);
+        $color = trim($color);
+
+        return max(0, (int) ($matrix['stock'][$size][$color] ?? 0));
+    }
+}
+
+if (!function_exists('product_variant_color_hex')) {
+    function product_variant_color_hex(string $colorName): ?string
+    {
+        $map = [
+            'Preto' => '#171717',
+            'Branco' => '#f8fafc',
+            'Azul' => '#2563eb',
+            'Vermelho' => '#dc2626',
+            'Verde' => '#16a34a',
+            'Cinza' => '#94a3b8',
+            'Rosa' => '#ec4899',
+            'Amarelo' => '#eab308',
+        ];
+
+        return $map[trim($colorName)] ?? null;
+    }
+}
+
 /** URL do ícone da loja na vitrine (aba e cabeçalho); sem imagem própria usa o ícone da plataforma. */
 if (!function_exists('store_brand_icon_url')) {
     function store_brand_icon_url(?array $store): string

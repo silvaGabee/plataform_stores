@@ -11,6 +11,7 @@ use App\Repositories\OrderRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\PaymentRepository;
 use App\Repositories\UserAddressRepository;
+use App\Repositories\StoreVitrineCategoryRepository;
 
 class StoreFrontController extends Controller
 {
@@ -19,7 +20,59 @@ class StoreFrontController extends Controller
         $store = $this->getStore($slug);
         $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
         $products = $service->listForStore((int) $store['id'], true);
-        $this->render('store/vitrine', ['store' => $store, 'products' => $products, 'title' => $store['name']]);
+        $this->render('store/vitrine', [
+            'store' => $store,
+            'products' => $products,
+            'vitrine_categories' => $this->loadVitrineCategories((int) $store['id']),
+            'title' => $store['name'],
+        ]);
+    }
+
+    public function categoria(string $slug, string $id): void
+    {
+        $store = $this->getStore($slug);
+        $categoryId = (int) $id;
+        $catRepo = new StoreVitrineCategoryRepository();
+        $row = $catRepo->find($categoryId, (int) $store['id']);
+        if (!$row) {
+            http_response_code(404);
+            echo 'Categoria não encontrada';
+
+            return;
+        }
+        $key = vitrine_category_icon_normalize_key((string) ($row['icon_key'] ?? 'acessorios'));
+        $category = [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+            'icon_key' => $key,
+            'icon_url' => vitrine_category_icon_url($key),
+        ];
+        $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
+        $products = $service->listForStoreByCategory((int) $store['id'], $categoryId, true);
+        $this->render('store/categoria', [
+            'store' => $store,
+            'category' => $category,
+            'products' => $products,
+            'vitrine_categories' => $this->loadVitrineCategories((int) $store['id']),
+            'title' => $category['name'] . ' — ' . $store['name'],
+        ]);
+    }
+
+    /** @return list<array{id: int, name: string, icon_key: string, icon_url: string}> */
+    private function loadVitrineCategories(int $storeId): array
+    {
+        $vitrineCategories = [];
+        foreach ((new StoreVitrineCategoryRepository())->listByStore($storeId) as $row) {
+            $key = vitrine_category_icon_normalize_key((string) ($row['icon_key'] ?? 'acessorios'));
+            $vitrineCategories[] = [
+                'id' => (int) $row['id'],
+                'name' => (string) $row['name'],
+                'icon_key' => $key,
+                'icon_url' => vitrine_category_icon_url($key),
+            ];
+        }
+
+        return $vitrineCategories;
     }
 
     public function product(string $slug, string $id): void
@@ -32,7 +85,18 @@ class StoreFrontController extends Controller
             echo 'Produto não encontrado';
             return;
         }
-        $this->render('store/produto', ['store' => $store, 'product' => $product, 'title' => $product['name']]);
+        $vitrineCategory = null;
+        $catId = (int) ($product['vitrine_category_id'] ?? 0);
+        if ($catId > 0) {
+            $catRepo = new \App\Repositories\StoreVitrineCategoryRepository();
+            $vitrineCategory = $catRepo->find($catId, (int) $store['id']);
+        }
+        $this->render('store/produto', [
+            'store' => $store,
+            'product' => $product,
+            'vitrineCategory' => $vitrineCategory,
+            'title' => $product['name'],
+        ]);
     }
 
     public function cart(string $slug): void

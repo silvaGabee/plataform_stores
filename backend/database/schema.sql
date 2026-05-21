@@ -11,6 +11,7 @@ USE plataform_stores;
 CREATE TABLE stores (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    slogan VARCHAR(160) DEFAULT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
     category VARCHAR(100) DEFAULT NULL,
     city VARCHAR(100) DEFAULT NULL,
@@ -81,6 +82,7 @@ CREATE TABLE employee_roles (
 CREATE TABLE products (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     store_id INT UNSIGNED NOT NULL,
+    vitrine_category_id INT UNSIGNED DEFAULT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT DEFAULT NULL,
     cost_price DECIMAL(12,2) DEFAULT 0.00,
@@ -89,7 +91,36 @@ CREATE TABLE products (
     min_stock INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
-    INDEX idx_store (store_id)
+    FOREIGN KEY (vitrine_category_id) REFERENCES store_vitrine_categories(id) ON DELETE SET NULL,
+    INDEX idx_store (store_id),
+    INDEX idx_vitrine_category (vitrine_category_id)
+) ENGINE=InnoDB;
+
+-- 5.1) Categorias da vitrine (faixa de ícones no catálogo)
+CREATE TABLE store_vitrine_categories (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    store_id INT UNSIGNED NOT NULL,
+    name VARCHAR(80) NOT NULL,
+    icon_key VARCHAR(40) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
+    INDEX idx_store_sort (store_id, sort_order),
+    UNIQUE KEY uniq_store_name (store_id, name)
+) ENGINE=InnoDB;
+
+-- 6.0.1) Variações do produto (tamanho, numeração, cor + estoque por item)
+CREATE TABLE product_variants (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id INT UNSIGNED NOT NULL,
+    variant_type VARCHAR(20) NOT NULL,
+    variant_value VARCHAR(40) NOT NULL,
+    stock_quantity INT NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    UNIQUE KEY uniq_product_variant (product_id, variant_type, variant_value),
+    INDEX idx_product (product_id)
 ) ENGINE=InnoDB;
 
 -- 6.1) Fotos do produto (várias por produto)

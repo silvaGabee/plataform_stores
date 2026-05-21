@@ -21,6 +21,60 @@ ob_start();
         </div>
     </div>
 
+    <section class="panel-section-card dashboard-vitrine-categories-section" id="dashboard-vitrine-categories-section" aria-labelledby="dashboard-vitrine-categories-title">
+        <div class="panel-section-head">
+            <span class="panel-section-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <div class="panel-section-head-text">
+                <h2 id="dashboard-vitrine-categories-title" class="panel-section-title">Categorias da vitrine</h2>
+                <p class="panel-section-desc">Aparecem na loja pública, abaixo do banner, com ícone e nome — como na referência de lojas online.</p>
+            </div>
+        </div>
+        <div class="panel-section-body dashboard-vitrine-categories-body">
+            <div id="dashboard-categories-preview" class="dashboard-categories-preview" aria-live="polite">
+                <p id="dashboard-categories-empty" class="dashboard-categories-empty hidden">Ainda não há categorias. Adicione a primeira para organizar a vitrine.</p>
+                <ul id="dashboard-categories-list" class="dashboard-categories-list" role="list" hidden></ul>
+            </div>
+            <?php if (empty($panel_readonly)): ?>
+            <div class="dashboard-categories-actions">
+                <button type="button" class="btn btn-primary btn-sm dashboard-categories-add-btn" id="dashboard-categories-add-btn">
+                    <span class="btn-icon" aria-hidden="true"><?= btn_icon_plus(16) ?></span>
+                    Adicionar categoria
+                </button>
+            </div>
+            <p id="dashboard-categories-msg" class="panel-form-msg dashboard-categories-msg" role="status" aria-live="polite"></p>
+            <?php else: ?>
+            <p class="dashboard-categories-readonly-note">Só o gerente pode adicionar ou remover categorias.</p>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <?php if (empty($panel_readonly)): ?>
+    <div id="dashboard-category-modal" class="modal modal--vitrine-category hidden" role="dialog" aria-modal="true" aria-labelledby="dashboard-category-modal-title">
+        <div class="modal-content modal-content--vitrine-category">
+            <header class="dashboard-category-modal-head">
+                <h2 id="dashboard-category-modal-title">Nova categoria</h2>
+                <button type="button" class="dashboard-category-modal-close" id="dashboard-category-modal-close" aria-label="Fechar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </header>
+            <form id="dashboard-category-form" class="dashboard-category-form">
+                <label for="dashboard-category-name">Nome da categoria</label>
+                <input type="text" id="dashboard-category-name" name="name" maxlength="80" required placeholder="Ex.: Feminino, Ténis, Ofertas" autocomplete="off">
+                <p class="dashboard-category-icon-label">Ícone</p>
+                <div id="dashboard-category-icon-picker" class="dashboard-category-icon-picker" role="radiogroup" aria-label="Escolher ícone"></div>
+                <input type="hidden" id="dashboard-category-icon-key" name="icon_key" value="feminino">
+                <div class="dashboard-category-modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="dashboard-category-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="dashboard-category-save">Guardar categoria</button>
+                </div>
+            </form>
+            <p id="dashboard-category-modal-msg" class="panel-form-msg" role="status" aria-live="polite"></p>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <section class="panel-section-card dashboard-banner-section" id="dashboard-banner-section" aria-labelledby="dashboard-banner-title">
         <div class="panel-section-head">
             <span class="panel-section-icon" aria-hidden="true">
@@ -705,4 +759,5 @@ ob_start();
 </script>
 <?php
 $content = ob_get_clean();
+$extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script><script src="' . asset('js/panel-dashboard-categories.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';

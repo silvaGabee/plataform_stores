@@ -52,4 +52,34 @@ class ProductImageRepository
         $stmt = $this->pdo->prepare("DELETE FROM product_images WHERE product_id = ?");
         $stmt->execute([$productId]);
     }
+
+    /** Define a foto de capa (sort_order 0); demais imagens seguem na ordem atual. */
+    public function setCover(int $productId, int $imageId): bool
+    {
+        $images = $this->getByProductId($productId);
+        $cover = null;
+        $others = [];
+        foreach ($images as $img) {
+            if ((int) $img['id'] === $imageId) {
+                $cover = $img;
+            } else {
+                $others[] = $img;
+            }
+        }
+        if ($cover === null) {
+            return false;
+        }
+        usort($others, static function (array $a, array $b): int {
+            return ((int) $a['sort_order']) <=> ((int) $b['sort_order'])
+                ?: ((int) $a['id']) <=> ((int) $b['id']);
+        });
+        $stmt = $this->pdo->prepare('UPDATE product_images SET sort_order = ? WHERE id = ? AND product_id = ?');
+        $stmt->execute([0, $imageId, $productId]);
+        $order = 1;
+        foreach ($others as $img) {
+            $stmt->execute([$order++, (int) $img['id'], $productId]);
+        }
+
+        return true;
+    }
 }

@@ -18,6 +18,7 @@ return [
     'POST /criar-loja' => [HomeController::class, 'createStore'],
 
     'GET /loja/{slug}' => [StoreFrontController::class, 'vitrine'],
+    'GET /loja/{slug}/categoria/{id}' => [StoreFrontController::class, 'categoria'],
     'GET /loja/{slug}/produto/{id}' => [StoreFrontController::class, 'product'],
     'GET /loja/{slug}/carrinho' => [StoreFrontController::class, 'cart'],
     'GET /loja/{slug}/checkout' => [StoreFrontController::class, 'checkout'],

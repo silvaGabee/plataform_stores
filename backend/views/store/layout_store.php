@@ -11,11 +11,19 @@
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body class="store-front">
+    <?php $storeSlogan = trim((string) ($store['slogan'] ?? '')); ?>
     <header class="store-header">
         <div class="container store-header-inner">
             <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-brand">
                 <img src="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" alt="" class="store-brand-icon" width="36" height="36" decoding="async">
-                <span class="store-brand-text"><?= htmlspecialchars($store['name']) ?></span>
+                <?php if ($storeSlogan !== ''): ?>
+                    <span class="store-brand-copy">
+                        <span class="store-brand-text"><?= htmlspecialchars($store['name']) ?></span>
+                        <span class="store-brand-slogan"><?= htmlspecialchars($storeSlogan) ?></span>
+                    </span>
+                <?php else: ?>
+                    <span class="store-brand-text"><?= htmlspecialchars($store['name']) ?></span>
+                <?php endif; ?>
             </a>
             <nav class="store-header-links" aria-label="Menu da loja">
                 <?php if (!empty($can_see_panel)): ?>

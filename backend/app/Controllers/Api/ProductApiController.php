@@ -9,6 +9,7 @@ use App\Repositories\StockMovementRepository;
 use App\Repositories\OrderItemRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\ProductImageRepository;
+use App\Repositories\StoreVitrineCategoryRepository;
 
 class ProductApiController extends Controller
 {
@@ -51,6 +52,11 @@ class ProductApiController extends Controller
         if (empty($input['name'])) {
             $this->json(['error' => 'Nome é obrigatório'], 400);
         }
+        $categoryError = $this->validateVitrineCategoryForStore($storeId, $input['vitrine_category_id'] ?? null);
+        if ($categoryError !== null) {
+            $this->json(['error' => $categoryError], 400);
+        }
+        $input['vitrine_category_id'] = $this->normalizeVitrineCategoryId($input['vitrine_category_id'] ?? null);
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         try {
             $imagePaths = $input['image_paths'] ?? [];
@@ -60,12 +66,19 @@ class ProductApiController extends Controller
             $product = $service->create($storeId, $input);
             $productId = (int) $product['id'];
             $imageRepo = new ProductImageRepository();
+            $newImageIds = [];
             foreach ($imagesBase64 as $i => $dataUrl) {
-                if (!is_string($dataUrl)) continue;
+                if (!is_string($dataUrl)) {
+                    continue;
+                }
                 $path = save_product_image_from_base64($dataUrl);
                 if ($path) {
-                    $imageRepo->add($productId, $path, $i);
+                    $newImageIds[] = $imageRepo->add($productId, $path, $i);
                 }
+            }
+            $coverIdx = isset($input['cover_index']) ? (int) $input['cover_index'] : 0;
+            if ($coverIdx > 0 && isset($newImageIds[$coverIdx])) {
+                $imageRepo->setCover($productId, $newImageIds[$coverIdx]);
             }
             $product = $service->getByIdAndStore($productId, $storeId);
             $this->json(['success' => true, 'product' => $product]);
@@ -82,6 +95,13 @@ class ProductApiController extends Controller
         }
         $this->requireStorePanelAccess($storeId);
         $input = $this->getJsonInput();
+        if (array_key_exists('vitrine_category_id', $input)) {
+            $categoryError = $this->validateVitrineCategoryForStore($storeId, $input['vitrine_category_id']);
+            if ($categoryError !== null) {
+                $this->json(['error' => $categoryError], 400);
+            }
+            $input['vitrine_category_id'] = $this->normalizeVitrineCategoryId($input['vitrine_category_id']);
+        }
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         $product = $service->update($id, $storeId, $input);
         if (!$product) {
@@ -179,13 +199,22 @@ class ProductApiController extends Controller
         $saved = 0;
 
         $json = $this->getJsonInput();
+        $newImageIds = [];
         if (!empty($json['images']) && is_array($json['images'])) {
             foreach ($json['images'] as $i => $dataUrl) {
-                if (!is_string($dataUrl)) continue;
+                if (!is_string($dataUrl)) {
+                    continue;
+                }
                 $path = save_product_image_from_base64($dataUrl);
                 if ($path) {
-                    $imageRepo->add($id, $path, $sortStart + $i);
+                    $newImageIds[] = $imageRepo->add($id, $path, $sortStart + $i);
                     $saved++;
+                }
+            }
+            if ($saved > 0 && isset($json['cover_index'])) {
+                $coverIdx = (int) $json['cover_index'];
+                if ($coverIdx >= 0 && isset($newImageIds[$coverIdx])) {
+                    $imageRepo->setCover($id, $newImageIds[$coverIdx]);
                 }
             }
         }
@@ -221,6 +250,27 @@ class ProductApiController extends Controller
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         $product = $service->getByIdAndStore($id, $storeId);
         $this->json(['success' => true, 'product' => $product, 'saved_images' => $saved]);
+    }
+
+    /** Define foto de capa (POST JSON { "image_id": 1 }). */
+    public function setCoverImage(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireStorePanelAccess($storeId);
+        $input = $this->getJsonInput();
+        $imageId = (int) ($input['image_id'] ?? 0);
+        if ($imageId <= 0) {
+            $this->json(['error' => 'Informe image_id'], 400);
+        }
+        $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
+        $product = $service->setProductCoverImage($id, $storeId, $imageId);
+        if (!$product) {
+            $this->json(['error' => 'Produto ou imagem não encontrado'], 404);
+        }
+        $this->json(['success' => true, 'product' => $product]);
     }
 
     /** Remove uma foto do produto (POST JSON { "image_id": 1 }). */
@@ -295,6 +345,30 @@ class ProductApiController extends Controller
             $this->json(['error' => 'Nenhuma linha excluída. Verifique image_id e product_id.'], 404);
         }
         $this->json(['success' => true, 'deleted' => $imageId]);
+    }
+
+    private function normalizeVitrineCategoryId(mixed $raw): ?int
+    {
+        if ($raw === null || $raw === '' || $raw === false) {
+            return null;
+        }
+        $id = (int) $raw;
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function validateVitrineCategoryForStore(int $storeId, mixed $raw): ?string
+    {
+        $id = $this->normalizeVitrineCategoryId($raw);
+        if ($id === null) {
+            return null;
+        }
+        $cat = (new StoreVitrineCategoryRepository())->find($id, $storeId);
+        if (!$cat) {
+            return 'Categoria da vitrine inválida.';
+        }
+
+        return null;
     }
 
     /** Lê dados do produto: JSON ou multipart (name, description, cost_price, sale_price, stock_quantity, min_stock, images). */

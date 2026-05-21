@@ -77,4 +77,47 @@ class StoreService
     {
         return $this->storeRepo->findBySlug($slug);
     }
+
+    /** Atualiza o nome de exibição da loja (o slug/URL da vitrine não muda). */
+    public function updateStoreName(int $storeId, string $name): array
+    {
+        $name = trim($name);
+        if ($name === '') {
+            throw new \InvalidArgumentException('Informe o nome da loja.');
+        }
+        if (mb_strlen($name) < 2) {
+            throw new \InvalidArgumentException('O nome deve ter pelo menos 2 caracteres.');
+        }
+        if (mb_strlen($name) > 120) {
+            throw new \InvalidArgumentException('O nome pode ter no máximo 120 caracteres.');
+        }
+        $store = $this->storeRepo->find($storeId);
+        if (!$store) {
+            throw new \InvalidArgumentException('Loja não encontrada.');
+        }
+        if (! $this->storeRepo->updateName($storeId, $name)) {
+            throw new \RuntimeException('Não foi possível guardar o nome.');
+        }
+        $updated = $this->storeRepo->find($storeId);
+        return $updated ?: array_merge($store, ['name' => $name]);
+    }
+
+    /** Atualiza o slogan exibido abaixo do nome na vitrine (vazio = ocultar). */
+    public function updateStoreSlogan(int $storeId, string $slogan): array
+    {
+        $slogan = trim($slogan);
+        if ($slogan !== '' && mb_strlen($slogan) > 160) {
+            throw new \InvalidArgumentException('O slogan pode ter no máximo 160 caracteres.');
+        }
+        $store = $this->storeRepo->find($storeId);
+        if (!$store) {
+            throw new \InvalidArgumentException('Loja não encontrada.');
+        }
+        $value = $slogan === '' ? null : $slogan;
+        if (! $this->storeRepo->updateSlogan($storeId, $value)) {
+            throw new \RuntimeException('Não foi possível guardar o slogan.');
+        }
+        $updated = $this->storeRepo->find($storeId);
+        return $updated ?: array_merge($store, ['slogan' => $value]);
+    }
 }

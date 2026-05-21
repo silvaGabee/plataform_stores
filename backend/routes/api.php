@@ -14,6 +14,7 @@ use App\Controllers\Api\CartApiController;
 use App\Controllers\Api\CheckoutApiController;
 use App\Controllers\Api\GoalsApiController;
 use App\Controllers\Api\AnalyzingBIApiController;
+use App\Controllers\Api\VitrineCategoryApiController;
 
 return [
     'POST /api/loja/{slug}/cart/sync' => [CartApiController::class, 'sync'],
@@ -27,6 +28,8 @@ return [
     'GET /api/store/slug/{slug}' => [StoreApiController::class, 'getBySlug'],
     'POST /api/store' => [StoreApiController::class, 'create'],
     'POST /api/loja/{slug}/store/delete' => [StoreApiController::class, 'deleteStore'],
+    'POST /api/loja/{slug}/store/name' => [StoreApiController::class, 'updateStoreName'],
+    'POST /api/loja/{slug}/store/slogan' => [StoreApiController::class, 'updateStoreSlogan'],
     'GET /api/loja/{slug}/pix-config' => [StoreApiController::class, 'getPixConfig'],
     'POST /api/loja/{slug}/pix-config' => [StoreApiController::class, 'updatePixConfig'],
     'GET /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'getDashboardConfig'],
@@ -38,12 +41,20 @@ return [
     'POST /api/loja/{slug}/store-icon' => [StoreApiController::class, 'uploadStoreIcon'],
     'DELETE /api/loja/{slug}/store-icon' => [StoreApiController::class, 'deleteStoreIcon'],
 
+    'GET /api/loja/{slug}/vitrine-categories' => [VitrineCategoryApiController::class, 'list'],
+    'GET /api/loja/{slug}/vitrine-categories/public' => [VitrineCategoryApiController::class, 'listPublic'],
+    'GET /api/loja/{slug}/vitrine-home/conteudo' => [VitrineCategoryApiController::class, 'homeContentPublic'],
+    'GET /api/loja/{slug}/vitrine-categories/{id}/conteudo' => [VitrineCategoryApiController::class, 'contentPublic'],
+    'POST /api/loja/{slug}/vitrine-categories' => [VitrineCategoryApiController::class, 'create'],
+    'DELETE /api/loja/{slug}/vitrine-categories/{id}' => [VitrineCategoryApiController::class, 'delete'],
+
     'POST /api/loja/{slug}/product-image-delete' => [ProductApiController::class, 'deleteProductImageByBody'],
     'GET /api/loja/{slug}/products' => [ProductApiController::class, 'list'],
     'GET /api/loja/{slug}/products/low-stock' => [ProductApiController::class, 'lowStock'],
     'GET /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'get'],
     'POST /api/loja/{slug}/products' => [ProductApiController::class, 'create'],
     'POST /api/loja/{slug}/products/{id}/images' => [ProductApiController::class, 'addImages'],
+    'POST /api/loja/{slug}/products/{id}/cover-image' => [ProductApiController::class, 'setCoverImage'],
     'POST /api/loja/{slug}/products/{id}/images/delete' => [ProductApiController::class, 'deleteImage'],
     'PUT /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'update'],
     'DELETE /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'delete'],

@@ -97,4 +97,16 @@ class StoreRepository
         $stmt = $this->pdo->prepare('UPDATE stores SET store_icon_path = ? WHERE id = ?');
         return $stmt->execute([$path, $id]);
     }
+
+    public function updateName(int $id, string $name): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET name = ? WHERE id = ?');
+        return $stmt->execute([$name, $id]);
+    }
+
+    public function updateSlogan(int $id, ?string $slogan): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET slogan = ? WHERE id = ?');
+        return $stmt->execute([$slogan, $id]);
+    }
 }

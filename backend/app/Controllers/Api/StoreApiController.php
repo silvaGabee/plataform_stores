@@ -246,6 +246,66 @@ class StoreApiController extends Controller
         $this->json(['success' => true, 'store_icon_url' => null, 'store_icon_path' => null]);
     }
 
+    /** POST JSON: { "name": "..." } — altera o nome de exibição (slug inalterado). Apenas gerente. */
+    public function updateStoreName(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireGerenteOfStore($storeId);
+        $input = $this->getJsonInput();
+        $name = trim((string) ($input['name'] ?? ''));
+        $service = new StoreService(
+            new StoreRepository(),
+            new StorePixConfigRepository(),
+            new UserRepository()
+        );
+        try {
+            $store = $service->updateStoreName($storeId, $name);
+            $this->json([
+                'success' => true,
+                'name' => (string) ($store['name'] ?? $name),
+                'slug' => (string) ($store['slug'] ?? $slug),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            $this->json(['error' => 'Não foi possível guardar o nome.'], 500);
+        }
+    }
+
+    /** POST JSON: { "slogan": "..." } — slogan na vitrine (vazio remove). Apenas gerente. */
+    public function updateStoreSlogan(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireGerenteOfStore($storeId);
+        $input = $this->getJsonInput();
+        $slogan = (string) ($input['slogan'] ?? '');
+        $service = new StoreService(
+            new StoreRepository(),
+            new StorePixConfigRepository(),
+            new UserRepository()
+        );
+        try {
+            $store = $service->updateStoreSlogan($storeId, $slogan);
+            $saved = trim((string) ($store['slogan'] ?? ''));
+            $this->json([
+                'success' => true,
+                'slogan' => $saved,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            $this->json(['error' => 'Não foi possível guardar o slogan.'], 500);
+        }
+    }
+
     /**
      * Exclui a loja e todos os dados vinculados (irreversível). Apenas gerente.
      * Corpo JSON: { "confirmation": "Excluir" } (texto exato).

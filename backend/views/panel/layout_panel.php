@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
 <body class="panel<?= !empty($panel_readonly) ? ' panel-readonly' : '' ?>">
+    <div class="panel-sidebar-backdrop" id="panel-sidebar-backdrop" aria-hidden="true"></div>
 <?php
 $__panelSlug = (string) ($store['slug'] ?? '');
 $__reqPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
@@ -26,7 +27,7 @@ $__ic = static function (string $d): string {
     return '<svg class="panel-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '"/></svg>';
 };
 ?>
-    <aside class="panel-sidebar">
+    <aside class="panel-sidebar" id="panel-sidebar">
         <div class="panel-sidebar-brand">
             <h2 class="panel-sidebar-title"><?= htmlspecialchars($store['name']) ?></h2>
             <p class="panel-sidebar-tagline">Painel da loja</p>
@@ -49,7 +50,20 @@ $__ic = static function (string $d): string {
         <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener"><span class="panel-store-link-icon" aria-hidden="true">↗</span> Ver vitrine</a></p>
     </aside>
     <main class="panel-main<?= !empty($panel_main_extra_class) ? ' ' . htmlspecialchars((string) $panel_main_extra_class, ENT_QUOTES, 'UTF-8') : '' ?>" data-store-slug="<?= htmlspecialchars($store['slug'] ?? '') ?>">
-        <?= $content ?? '' ?>
+        <header class="panel-mobile-topbar">
+            <button type="button" class="panel-mobile-menu-btn" id="panel-nav-toggle" aria-expanded="false" aria-controls="panel-sidebar" aria-label="Abrir menu do painel">
+                <svg class="panel-mobile-menu-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                    <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <div class="panel-mobile-topbar-text">
+                <span class="panel-mobile-topbar-title"><?= htmlspecialchars($store['name']) ?></span>
+                <span class="panel-mobile-topbar-tagline">Painel da loja</span>
+            </div>
+        </header>
+        <div class="panel-main-body">
+            <?= $content ?? '' ?>
+        </div>
     </main>
     <button type="button" id="panel-ai-fab" class="panel-ai-fab" aria-haspopup="dialog" aria-controls="panel-ai-dialog" aria-label="Assistente da loja" title="Assistente da loja">
         <span class="panel-ai-fab-inner" aria-hidden="true">
@@ -133,6 +147,7 @@ $__ic = static function (string $d): string {
     </div>
     <script>window.panelReadonly = <?= !empty($panel_readonly) ? 'true' : 'false' ?>;</script>
     <script src="<?= asset('js/app.js') ?>"></script>
+    <script src="<?= asset('js/panel-nav.js') ?>"></script>
     <script src="<?= asset('js/panel-ai-assistant.js') ?>"></script>
     <?php if (!empty($extra_js)): ?><?= $extra_js ?><?php endif; ?>
 </body>

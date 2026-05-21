@@ -31,11 +31,26 @@ class ProductRepository
     public function listByStore(int $storeId, bool $onlyWithStock = false): array
     {
         $sql = "SELECT * FROM products WHERE store_id = ?";
-        if ($onlyWithStock) $sql .= " AND stock_quantity > 0";
-        $sql .= " ORDER BY name";
+        if ($onlyWithStock) {
+            $sql .= ' AND stock_quantity > 0';
+        }
+        $sql .= ' ORDER BY name';
         $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$storeId]);
-        return $stmt->fetchAll();
+
+        return $stmt->execute([$storeId]) ? $stmt->fetchAll() : [];
+    }
+
+    public function listByStoreAndCategory(int $storeId, int $categoryId, bool $onlyWithStock = false): array
+    {
+        $sql = 'SELECT * FROM products WHERE store_id = ? AND vitrine_category_id = ?';
+        if ($onlyWithStock) {
+            $sql .= ' AND stock_quantity > 0';
+        }
+        $sql .= ' ORDER BY name';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$storeId, $categoryId]);
+
+        return $stmt->fetchAll() ?: [];
     }
 
     public function listLowStock(int $storeId): array
@@ -50,11 +65,15 @@ class ProductRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO products (store_id, name, description, cost_price, sale_price, stock_quantity, min_stock) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+            'INSERT INTO products (store_id, vitrine_category_id, name, description, cost_price, sale_price, stock_quantity, min_stock)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
+        $categoryId = isset($data['vitrine_category_id']) && $data['vitrine_category_id'] !== ''
+            ? (int) $data['vitrine_category_id']
+            : null;
         $stmt->execute([
             $data['store_id'],
+            $categoryId > 0 ? $categoryId : null,
             $data['name'],
             $data['description'] ?? null,
             $data['cost_price'] ?? 0,
@@ -62,14 +81,38 @@ class ProductRepository
             $data['stock_quantity'] ?? 0,
             $data['min_stock'] ?? 0,
         ]);
+
         return (int) $this->pdo->lastInsertId();
     }
 
     public function update(int $id, array $data): bool
     {
+        $categoryId = array_key_exists('vitrine_category_id', $data)
+            ? ($data['vitrine_category_id'] !== '' && $data['vitrine_category_id'] !== null
+                ? (int) $data['vitrine_category_id']
+                : null)
+            : null;
+        if (array_key_exists('vitrine_category_id', $data)) {
+            $stmt = $this->pdo->prepare(
+                'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, stock_quantity = ?, min_stock = ?, vitrine_category_id = ? WHERE id = ?'
+            );
+
+            return $stmt->execute([
+                $data['name'],
+                $data['description'] ?? null,
+                $data['cost_price'] ?? 0,
+                $data['sale_price'] ?? 0,
+                $data['stock_quantity'] ?? 0,
+                $data['min_stock'] ?? 0,
+                $categoryId > 0 ? $categoryId : null,
+                $id,
+            ]);
+        }
+
         $stmt = $this->pdo->prepare(
-            "UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, stock_quantity = ?, min_stock = ? WHERE id = ?"
+            'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, stock_quantity = ?, min_stock = ? WHERE id = ?'
         );
+
         return $stmt->execute([
             $data['name'],
             $data['description'] ?? null,
