@@ -123,6 +123,13 @@ class OrderRepository
         return $stmt->execute([$stage, $trackingCode, $orderId, $storeId]);
     }
 
+    /** Remove pedido da loja (itens e pagamentos em cascata). */
+    public function deleteByIdAndStore(int $orderId, int $storeId): bool
+    {
+        $stmt = $this->pdo->prepare("DELETE FROM orders WHERE id = ? AND store_id = ?");
+        return $stmt->execute([$orderId, $storeId]);
+    }
+
     /** Lista pedidos do cliente na loja que ainda não estão como entregues (para "Meus pedidos"). */
     public function listByCustomerNotDelivered(int $storeId, int $customerId): array
     {

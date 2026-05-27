@@ -109,6 +109,33 @@ class OrderApiController extends Controller
         $this->json(['success' => true, 'order' => $repo->findByIdAndStoreWithCustomer($id, $storeId)]);
     }
 
+    /** Exclui pedido do histórico de entregas (ex.: após produto removido). Apenas estágio "entregue". */
+    public function deleteFromEntregas(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireStorePanelAccess($storeId);
+        $repo = new OrderRepository();
+        $order = $repo->findByIdAndStore($id, $storeId);
+        if (!$order) {
+            $this->json(['error' => 'Pedido não encontrado'], 404);
+            return;
+        }
+        $stage = strtolower((string) ($order['delivery_stage'] ?? ''));
+        if ($stage !== 'entregue') {
+            $this->json(['error' => 'Só é possível remover pedidos já marcados como Entregue.'], 400);
+            return;
+        }
+        if (!$repo->deleteByIdAndStore($id, $storeId)) {
+            $this->json(['error' => 'Não foi possível remover o pedido.'], 400);
+            return;
+        }
+        $this->json(['success' => true]);
+    }
+
     public function create(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);

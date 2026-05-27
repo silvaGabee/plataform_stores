@@ -33,18 +33,6 @@ class AnalyzingBIService
         $prevStart = $firstPrevMonth->format('Y-m-d H:i:s');
         $prevEnd = $lastPrevMonth->format('Y-m-d H:i:s');
 
-        // Três meses corridos até ao fim do mês atual (inclui o mês em curso), para não ficar sem dados
-        // quando a loja só vendeu no mês atual.
-        $forecastPeriodStart = $firstThisMonth->modify('-2 months')->setTime(0, 0, 0)->format('Y-m-d H:i:s');
-        $forecastPeriodEnd = $lastThisMonth->format('Y-m-d H:i:s');
-
-        $monthKeys = [];
-        $d = $firstThisMonth;
-        for ($i = 0; $i < 3; $i++) {
-            $monthKeys[] = $d->format('Y-m');
-            $d = $d->modify('-1 month');
-        }
-
         $valorTotal = $this->repo->sumPaidOrdersTotal($storeId, null, null);
         $valorMensal = $this->repo->sumPaidOrdersTotal($storeId, $currStart, $currEnd);
         $valorMensalAnterior = $this->repo->sumPaidOrdersTotal($storeId, $prevStart, $prevEnd);
@@ -53,53 +41,29 @@ class AnalyzingBIService
         $lucroEstimado = $this->repo->sumEstimatedProfit($storeId, null, null);
 
         $salesRows = $this->repo->fetchProductSalesCurrentVsPrevious($storeId, $currStart, $currEnd, $prevStart, $prevEnd);
-        $monthlyRows = $this->repo->fetchProductMonthlyQuantities($storeId, $forecastPeriodStart, $forecastPeriodEnd);
-        $stockMap = $this->repo->fetchStockQuantitiesByProduct($storeId);
+        $lucroRows = $this->repo->fetchProductProfitByPeriod($storeId, $currStart, $currEnd);
         $critical = $this->repo->fetchCriticalStock($storeId);
 
-        $byProductMonth = [];
-        foreach ($monthlyRows as $row) {
-            $pid = (int) $row['product_id'];
-            $ym = (string) $row['ym'];
-            if (!isset($byProductMonth[$pid])) {
-                $byProductMonth[$pid] = ['name' => (string) $row['product_name'], 'months' => []];
+        $lucroProdutos = [];
+        foreach ($lucroRows as $row) {
+            $qty = (float) ($row['quantidade_vendida'] ?? 0);
+            $lucro = (float) ($row['lucro_total'] ?? 0);
+            if ($qty <= 0) {
+                continue;
             }
-            $byProductMonth[$pid]['months'][$ym] = (float) $row['qty'];
-        }
-
-        $previsaoProdutos = [];
-        foreach ($byProductMonth as $pid => $info) {
-            $sums = [];
-            foreach ($monthKeys as $mk) {
-                $sums[] = (float) ($info['months'][$mk] ?? 0);
-            }
-            $monthsWithData = 0;
-            $sumNonZeroMonths = 0.0;
-            foreach ($sums as $q) {
-                if ($q > 0) {
-                    $monthsWithData++;
-                    $sumNonZeroMonths += $q;
-                }
-            }
-            $media = $monthsWithData > 0 ? $sumNonZeroMonths / $monthsWithData : 0.0;
-            $previsao = $media;
-            $stock = (float) ($stockMap[$pid] ?? 0);
-            $margem = 0.1 * $previsao;
-            $sugestao = max(0.0, $previsao - $stock + $margem);
-            $previsaoProdutos[] = [
-                'produto_id' => $pid,
-                'nome' => $info['name'],
-                'media_movel' => round($media, 4),
-                'meses_com_dados' => $monthsWithData,
-                'previsao_proximo_mes' => round($previsao, 4),
-                'sugestao_reposicao' => round($sugestao, 4),
-                'estoque_atual' => round($stock, 4),
+            $custo = (float) ($row['custo_unitario'] ?? 0);
+            $precoMedio = (float) ($row['preco_venda_medio'] ?? 0);
+            $lucroProdutos[] = [
+                'produto_id' => (int) $row['product_id'],
+                'nome' => (string) $row['product_name'],
+                'quantidade_vendida' => round($qty, 4),
+                'custo_unitario' => round($custo, 2),
+                'preco_venda_medio' => round($precoMedio, 2),
+                'margem_unitaria' => round($precoMedio - $custo, 2),
+                'lucro_total' => round($lucro, 2),
             ];
         }
-        usort($previsaoProdutos, static function (array $a, array $b): int {
-            return ($b['previsao_proximo_mes'] <=> $a['previsao_proximo_mes']) ?: strcmp((string) $a['nome'], (string) $b['nome']);
-        });
-        $previsaoTop = $this->augmentForecastForChart($previsaoProdutos, $salesRows, $stockMap);
+        $lucroTop = array_slice($lucroProdutos, 0, 20);
 
         $produtoMais = new \stdClass();
         $produtoMenos = new \stdClass();
@@ -187,8 +151,7 @@ class AnalyzingBIService
             $produtoMenos,
             $produtosParados,
             $estoqueCritico,
-            $previsaoTop,
-            $stockMap
+            $lucroTop
         );
 
         $resumoIa = [
@@ -215,7 +178,7 @@ class AnalyzingBIService
             'quantidade_pedidos' => $quantidadePedidos,
             'ticket_medio' => round($ticketMedio, 2),
             'lucro_estimado' => round($lucroEstimado, 2),
-            'previsao_produtos' => $previsaoTop,
+            'lucro_produtos' => $lucroTop,
             'produto_mais_vendido' => $produtoMais,
             'produto_menos_vendido' => $produtoMenos,
             'produtos_parados' => $produtosParados,
@@ -235,8 +198,7 @@ class AnalyzingBIService
         $produtoMenos,
         array $produtosParados,
         array $estoqueCritico,
-        array $previsaoTop,
-        array $stockMap
+        array $lucroTop
     ): array {
         $ideias = [];
         $pctVendasMes = self::growthPercent($valorMensal, $valorMensalAnterior);
@@ -263,12 +225,10 @@ class AnalyzingBIService
             $ideias[] = '"' . ($e['nome'] ?? '') . '" está com estoque crítico. Reposição recomendada.';
         }
 
-        foreach (array_slice($previsaoTop, 0, 3) as $pr) {
-            $pid = (int) ($pr['produto_id'] ?? 0);
-            $est = (float) ($pr['estoque_atual'] ?? ($stockMap[$pid] ?? 0));
-            $prev = (float) ($pr['previsao_proximo_mes'] ?? 0);
-            if ($prev > 0 && $est < $prev) {
-                $ideias[] = '"' . ($pr['nome'] ?? '') . '" tem boa chance de venda no próximo mês (previsão ' . round($prev, 1) . ' un.). Reforce o estoque se estiver abaixo da previsão.';
+        foreach (array_slice($lucroTop, 0, 3) as $lp) {
+            $lucro = (float) ($lp['lucro_total'] ?? 0);
+            if ($lucro > 0) {
+                $ideias[] = '"' . ($lp['nome'] ?? '') . '" gerou R$ ' . number_format($lucro, 2, ',', '.') . ' de lucro neste mês. Vale manter estoque e destaque na vitrine.';
             }
         }
 
@@ -298,62 +258,6 @@ class AnalyzingBIService
         }
 
         return (($current - $previous) / $previous) * 100.0;
-    }
-
-    /**
-     * Garante entradas com previsão > 0 para o gráfico: se a média dos 3 meses deu tudo zero
-     * mas há vendas no mês atual ou anterior, usa esses valores como previsão simples.
-     *
-     * @param list<array<string, mixed>> $previsaoSorted
-     * @param list<array<string, mixed>> $salesRows
-     * @param array<int, float|int>      $stockMap
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function augmentForecastForChart(array $previsaoSorted, array $salesRows, array $stockMap): array
-    {
-        foreach ($previsaoSorted as $p) {
-            if ((float) ($p['previsao_proximo_mes'] ?? 0) > 0) {
-                return array_slice($previsaoSorted, 0, 20);
-            }
-        }
-
-        $byId = [];
-        foreach ($previsaoSorted as $p) {
-            $byId[(int) ($p['produto_id'] ?? 0)] = $p;
-        }
-
-        foreach ($salesRows as $row) {
-            $pid = (int) $row['product_id'];
-            $qc = (float) ($row['qty_curr'] ?? 0);
-            $qp = (float) ($row['qty_prev'] ?? 0);
-            $previsao = $qc > 0 || $qp > 0 ? max($qc, ($qc + $qp) / 2.0) : 0.0;
-            if ($previsao <= 0) {
-                continue;
-            }
-            $nome = (string) ($row['product_name'] ?? '');
-            $stock = (float) ($stockMap[$pid] ?? 0);
-            $margem = 0.1 * $previsao;
-            $sugestao = max(0.0, $previsao - $stock + $margem);
-            $byId[$pid] = [
-                'produto_id' => $pid,
-                'nome' => $nome !== '' ? $nome : ('Produto #' . $pid),
-                'media_movel' => round($previsao, 4),
-                'meses_com_dados' => ($qc > 0 ? 1 : 0) + ($qp > 0 ? 1 : 0),
-                'previsao_proximo_mes' => round($previsao, 4),
-                'sugestao_reposicao' => round($sugestao, 4),
-                'estoque_atual' => round($stock, 4),
-            ];
-        }
-
-        $merged = array_values(array_filter(array_values($byId), static function (array $r): bool {
-            return (float) ($r['previsao_proximo_mes'] ?? 0) > 0;
-        }));
-        usort($merged, static function (array $a, array $b): int {
-            return ($b['previsao_proximo_mes'] <=> $a['previsao_proximo_mes']) ?: strcmp((string) $a['nome'], (string) $b['nome']);
-        });
-
-        return array_slice($merged, 0, 20);
     }
 
     /**

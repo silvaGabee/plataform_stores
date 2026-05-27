@@ -15,6 +15,8 @@
 
     <?php require __DIR__ . '/_vitrine_categories_nav.php'; ?>
 
+    <?php require __DIR__ . '/_vitrine_search.php'; ?>
+
     <div id="store-vitrine-dynamic" class="container store-vitrine-body">
         <?php require __DIR__ . '/' . $dynamic_view . '.php'; ?>
     </div>

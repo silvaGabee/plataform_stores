@@ -8,8 +8,9 @@ $hasVariants = product_has_variants($p);
 $variantGroups = product_has_variants($p) ? product_variants_grouped($p) : [];
 $stockTotal = (int) ($p['stock_quantity'] ?? 0);
 $productUrl = base_url("loja/{$store['slug']}/produto/{$p['id']}");
+$productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['description'] ?? '')), 'UTF-8');
 ?>
-<article class="product-card product-card--v2">
+<article class="product-card product-card--v2" data-product-search="<?= htmlspecialchars($productSearchBlob, ENT_QUOTES, 'UTF-8') ?>">
     <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-media">
         <div class="product-card-img<?= $coverUrl ? '' : ' product-card-img--placeholder' ?>">
             <?php if ($coverUrl): ?>
@@ -31,7 +32,27 @@ $productUrl = base_url("loja/{$store['slug']}/produto/{$p['id']}");
     <div class="product-card-content">
         <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-info">
             <h3 class="product-card-name"><?= htmlspecialchars($p['name']) ?></h3>
-            <?php if ($hasVariants && $variantGroups !== []): ?>
+            <?php
+            $matrixForCard = $p['variants_matrix'] ?? product_variants_rows_to_matrix($variants);
+            $matrixColors = ($matrixForCard && !empty($matrixForCard['colors'])) ? $matrixForCard['colors'] : [];
+            ?>
+            <?php if ($matrixColors !== []): ?>
+                <div class="product-card-variants-preview product-card-variants-preview--colors" aria-label="Cores disponíveis">
+                    <div class="product-card-variant-group">
+                        <span class="product-card-variant-label">Cores</span>
+                        <div class="product-card-variant-pills product-card-variant-pills--swatches">
+                            <?php foreach ($matrixColors as $colorName):
+                                $hex = product_variant_matrix_color_hex($matrixForCard, $colorName);
+                                $isLight = in_array($colorName, ['Branco', 'Amarelo'], true);
+                                ?>
+                                <span class="product-card-color-swatch<?= $isLight ? ' product-card-color-swatch--light' : '' ?>"<?= $hex ? ' style="--swatch:' . htmlspecialchars($hex) . '"' : '' ?> title="<?= htmlspecialchars($colorName) ?>">
+                                    <span class="visually-hidden"><?= htmlspecialchars($colorName) ?></span>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            <?php elseif ($hasVariants && $variantGroups !== []): ?>
                 <div class="product-card-variants-preview" aria-label="Opções disponíveis">
                     <?php foreach ($variantGroups as $group):
                         $items = $group['items'];
@@ -67,7 +88,8 @@ $productUrl = base_url("loja/{$store['slug']}/produto/{$p['id']}");
                 <span class="btn btn-secondary btn-sm product-card-btn product-card-btn--disabled" aria-disabled="true">Indisponível</span>
             <?php elseif ($hasVariants): ?>
                 <a href="<?= htmlspecialchars($productUrl) ?>" class="btn btn-primary btn-sm product-card-btn product-card-btn--options">
-                    <span>Escolher opção</span>
+                    <span class="product-card-btn-label product-card-btn-label--long">Escolher opção</span>
+                    <span class="product-card-btn-label product-card-btn-label--short">Opções</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </a>
             <?php else: ?>

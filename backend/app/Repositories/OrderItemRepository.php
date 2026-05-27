@@ -26,11 +26,13 @@ class OrderItemRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)"
+            "INSERT INTO order_items (order_id, product_id, variant_key, quantity, price) VALUES (?, ?, ?, ?, ?)"
         );
+        $variantKey = isset($data['variant_key']) ? trim((string) $data['variant_key']) : '';
         $stmt->execute([
             $data['order_id'],
             $data['product_id'],
+            $variantKey !== '' ? $variantKey : null,
             $data['quantity'],
             $data['price'],
         ]);

@@ -252,4 +252,17 @@
         setMsg(err.message || String(err), true);
       });
   });
+
+  if (typeof CepLookup !== 'undefined') {
+    CepLookup.bind({
+      zipcode: '#meus-addr-zipcode',
+      street: '#meus-addr-street',
+      neighborhood: '#meus-addr-neighborhood',
+      city: '#meus-addr-city',
+      state: '#meus-addr-state',
+      number: '#meus-addr-number',
+      status: '#meus-addr-cep-status',
+      lookupOnInput: true
+    });
+  }
 })();

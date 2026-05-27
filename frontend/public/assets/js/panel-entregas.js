@@ -1,6 +1,14 @@
 (function () {
   if (typeof storeSlug === 'undefined') return;
 
+  var ENTREGUE_COLS = ['retira-entregue', 'entrega-entregue'];
+  var selectedByCol = {};
+  var removeModeByCol = {};
+  ENTREGUE_COLS.forEach(function (id) {
+    selectedByCol[id] = new Set();
+    removeModeByCol[id] = false;
+  });
+
   function getBase() {
     if (typeof window.PANEL_BASE_URL === 'string' && window.PANEL_BASE_URL) return window.PANEL_BASE_URL.replace(/\/$/, '');
     var meta = document.querySelector('meta[name="base-url"]');
@@ -28,6 +36,12 @@
       });
   }
 
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function getColId(type, stage) {
     var prefix = type === 'retirada' ? 'retira' : 'entrega';
     var s = stage === 'entregue_transportadora' ? 'transportadora' : (stage === 'em_rota' ? 'em-rota' : stage);
@@ -39,21 +53,163 @@
     var stage = order.delivery_stage || 'solicitado';
     var card = document.createElement('div');
     card.className = 'entregas-card';
-    card.draggable = true;
     card.dataset.orderId = order.id;
     card.dataset.type = type;
     card.dataset.stage = stage;
     var total = typeof order.total === 'number' ? order.total : parseFloat(order.total) || 0;
     var totalStr = 'R$ ' + total.toFixed(2).replace('.', ',');
-    card.innerHTML = '<strong>#' + order.id + '</strong> ' + (order.customer_name || 'Cliente') + ' — ' + totalStr +
-      (order.tracking_code ? '<br><small>Código: ' + escapeHtml(order.tracking_code) + '</small>' : '');
+    var isEntregue = String(stage).toLowerCase() === 'entregue';
+
+    if (isEntregue) {
+      card.classList.add('entregas-card--selectable');
+      card.draggable = false;
+      card.innerHTML =
+        '<label class="entregas-card-select" title="Selecionar pedido">' +
+          '<input type="checkbox" class="entregas-card-checkbox" value="' + order.id + '" aria-label="Selecionar pedido #' + order.id + '">' +
+          '<span class="entregas-card-checkmark" aria-hidden="true"></span>' +
+        '</label>' +
+        '<div class="entregas-card-body">' +
+          '<div class="entregas-card-line"><strong>#' + order.id + '</strong> ' + escapeHtml(order.customer_name || 'Cliente') + '</div>' +
+          '<div class="entregas-card-line entregas-card-total">' + totalStr + '</div>' +
+          (order.tracking_code ? '<small class="entregas-card-tracking">Código: ' + escapeHtml(order.tracking_code) + '</small>' : '') +
+        '</div>';
+    } else {
+      card.draggable = true;
+      card.innerHTML =
+        '<div class="entregas-card-body">' +
+          '<div class="entregas-card-line"><strong>#' + order.id + '</strong> ' + escapeHtml(order.customer_name || 'Cliente') + '</div>' +
+          '<div class="entregas-card-line entregas-card-total">' + totalStr + '</div>' +
+          (order.tracking_code ? '<small class="entregas-card-tracking">Código: ' + escapeHtml(order.tracking_code) + '</small>' : '') +
+        '</div>';
+    }
     return card;
   }
 
-  function escapeHtml(s) {
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
+  function getCardsColId(card) {
+    var list = card && card.closest('.entregas-cards');
+    return list ? list.id : '';
+  }
+
+  function enterRemoveMode(colId) {
+    removeModeByCol[colId] = true;
+    selectedByCol[colId] = new Set();
+    var col = document.querySelector('.entregas-col[data-entregue-col="' + colId + '"]');
+    if (col) col.classList.add('entregas-col--remove-mode');
+    var idle = document.querySelector('[data-toolbar-idle="' + colId + '"]');
+    var panel = document.querySelector('[data-toolbar-remove="' + colId + '"]');
+    if (idle) idle.classList.add('hidden');
+    if (panel) panel.classList.remove('hidden');
+    updateToolbar(colId);
+  }
+
+  function exitRemoveMode(colId) {
+    removeModeByCol[colId] = false;
+    selectedByCol[colId] = new Set();
+    var col = document.querySelector('.entregas-col[data-entregue-col="' + colId + '"]');
+    if (col) col.classList.remove('entregas-col--remove-mode');
+    var idle = document.querySelector('[data-toolbar-idle="' + colId + '"]');
+    var panel = document.querySelector('[data-toolbar-remove="' + colId + '"]');
+    if (idle) idle.classList.remove('hidden');
+    if (panel) panel.classList.add('hidden');
+    document.querySelectorAll('#' + colId + ' .entregas-card--selectable').forEach(function (card) {
+      card.classList.remove('entregas-card--selected');
+      var cb = card.querySelector('.entregas-card-checkbox');
+      if (cb) cb.checked = false;
+    });
+    updateToolbar(colId);
+  }
+
+  function updateToolbar(colId) {
+    if (!removeModeByCol[colId]) return;
+    var set = selectedByCol[colId] || new Set();
+    var n = set.size;
+    var countEl = document.querySelector('[data-count-for="' + colId + '"]');
+    var confirmBtn = document.querySelector('[data-confirm-remove-for="' + colId + '"]');
+    var selectAllBtn = document.querySelector('[data-select-all-for="' + colId + '"]');
+    if (countEl) {
+      countEl.textContent = n === 0
+        ? 'Nenhum selecionado'
+        : (n === 1 ? '1 pedido selecionado' : n + ' pedidos selecionados');
+    }
+    if (confirmBtn) confirmBtn.disabled = n === 0;
+    if (selectAllBtn) {
+      var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
+      selectAllBtn.textContent = n > 0 && n === total ? 'Desmarcar todos' : 'Selecionar todos';
+    }
+  }
+
+  function setCardSelected(card, selected) {
+    var colId = getCardsColId(card);
+    if (!colId || !selectedByCol[colId]) return;
+    var orderId = card.dataset.orderId;
+    var cb = card.querySelector('.entregas-card-checkbox');
+    if (selected) {
+      selectedByCol[colId].add(orderId);
+      card.classList.add('entregas-card--selected');
+      if (cb) cb.checked = true;
+    } else {
+      selectedByCol[colId].delete(orderId);
+      card.classList.remove('entregas-card--selected');
+      if (cb) cb.checked = false;
+    }
+    updateToolbar(colId);
+  }
+
+  function toggleCardSelected(card) {
+    var colId = getCardsColId(card);
+    if (!colId || !removeModeByCol[colId]) return;
+    var isOn = selectedByCol[colId].has(card.dataset.orderId);
+    setCardSelected(card, !isOn);
+  }
+
+  function selectAllInCol(colId, select) {
+    if (!removeModeByCol[colId]) return;
+    document.querySelectorAll('#' + colId + ' .entregas-card--selectable').forEach(function (card) {
+      setCardSelected(card, !!select);
+    });
+  }
+
+  function removeSelectedFromCol(colId) {
+    var ids = Array.from(selectedByCol[colId] || []);
+    if (!ids.length) {
+      alert('Selecione ao menos um pedido para remover.');
+      return;
+    }
+    var msg = ids.length === 1
+      ? 'Remover o pedido #' + ids[0] + ' do histórico? Esta ação não pode ser desfeita.'
+      : 'Remover ' + ids.length + ' pedidos do histórico? Esta ação não pode ser desfeita.';
+    if (!confirm(msg)) return;
+
+    var confirmBtn = document.querySelector('[data-confirm-remove-for="' + colId + '"]');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Removendo...';
+    }
+
+    var chain = Promise.resolve();
+    ids.forEach(function (orderId) {
+      chain = chain.then(function () {
+        return api('api/loja/' + storeSlug + '/orders/' + orderId + '/entregas/delete', {
+          method: 'POST',
+          body: JSON.stringify({})
+        });
+      });
+    });
+
+    chain.then(function () {
+      var removed = new Set(ids.map(String));
+      window._entregasOrders = (window._entregasOrders || []).filter(function (o) {
+        return !removed.has(String(o.id));
+      });
+      exitRemoveMode(colId);
+      placeCards(window._entregasOrders);
+      setupInteractions();
+    }).catch(function (err) {
+      alert('Erro: ' + (err.message || err));
+    }).finally(function () {
+      if (confirmBtn) confirmBtn.textContent = 'Confirmar remoção';
+      updateToolbar(colId);
+    });
   }
 
   function placeCards(orders) {
@@ -78,12 +234,68 @@
       var typeKey = type === 'retirada' ? 'retira' : type;
       var colId = (ids[typeKey] && ids[typeKey][stage]) ? ids[typeKey][stage] : (type === 'entrega' ? ids.entrega.solicitado : ids.retira.solicitado);
       var col = document.getElementById(colId);
-      if (col) col.appendChild(renderCard(order));
+      if (col) {
+        var card = renderCard(order);
+        if (colId && selectedByCol[colId] && selectedByCol[colId].has(String(order.id))) {
+          card.classList.add('entregas-card--selected');
+          var cb = card.querySelector('.entregas-card-checkbox');
+          if (cb) cb.checked = true;
+        }
+        col.appendChild(card);
+      }
+    });
+  }
+
+  function setupEntregueSelection() {
+    document.querySelectorAll('.entregas-card--selectable').forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        var colId = getCardsColId(card);
+        if (!removeModeByCol[colId]) return;
+        e.preventDefault();
+        toggleCardSelected(card);
+      });
+    });
+
+    document.querySelectorAll('.entregas-start-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var colId = btn.getAttribute('data-start-remove-for');
+        if (!colId) return;
+        var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
+        if (total === 0) {
+          alert('Não há pedidos no histórico desta coluna.');
+          return;
+        }
+        enterRemoveMode(colId);
+      });
+    });
+
+    document.querySelectorAll('.entregas-cancel-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var colId = btn.getAttribute('data-cancel-remove-for');
+        if (colId) exitRemoveMode(colId);
+      });
+    });
+
+    document.querySelectorAll('.entregas-select-all').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var colId = btn.getAttribute('data-select-all-for');
+        if (!colId) return;
+        var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
+        var n = (selectedByCol[colId] || new Set()).size;
+        selectAllInCol(colId, n < total);
+      });
+    });
+
+    document.querySelectorAll('.entregas-confirm-remove').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var colId = btn.getAttribute('data-confirm-remove-for');
+        if (colId) removeSelectedFromCol(colId);
+      });
     });
   }
 
   function setupDragAndDrop() {
-    document.querySelectorAll('.entregas-card').forEach(function (card) {
+    document.querySelectorAll('.entregas-card[draggable="true"]').forEach(function (card) {
       card.addEventListener('dragstart', function (e) {
         e.dataTransfer.setData('text/plain', card.dataset.orderId);
         e.dataTransfer.effectAllowed = 'move';
@@ -132,6 +344,11 @@
     });
   }
 
+  function setupInteractions() {
+    setupDragAndDrop();
+    setupEntregueSelection();
+  }
+
   function doUpdate(orderId, stage, trackingCode) {
     var payload = { stage: stage };
     if (trackingCode) payload.tracking_code = trackingCode;
@@ -142,20 +359,24 @@
       var orders = window._entregasOrders || [];
       var updated = res.order;
       if (!updated) return;
-      // Garantir que o pedido retornado tenha stage e type (backend pode vir com snake_case)
       updated.delivery_stage = updated.delivery_stage || updated.deliveryStage || stage;
       updated.delivery_type = updated.delivery_type || updated.deliveryType || 'retirada';
       var idx = orders.findIndex(function (o) { return String(o.id) === String(orderId); });
       if (idx >= 0) {
-        // Manter customer_name (e outros campos de exibição) se a resposta não trouxer
         if (!updated.customer_name && orders[idx].customer_name) updated.customer_name = orders[idx].customer_name;
         orders[idx] = updated;
       } else {
         orders.push(updated);
       }
+      if (String(stage).toLowerCase() === 'entregue') {
+        ENTREGUE_COLS.forEach(function (colId) {
+          selectedByCol[colId].delete(String(orderId));
+          if (removeModeByCol[colId]) exitRemoveMode(colId);
+        });
+      }
       window._entregasOrders = orders;
       placeCards(orders);
-      setupDragAndDrop();
+      setupInteractions();
     }).catch(function (err) {
       alert('Erro: ' + (err.message || err));
     });
@@ -186,7 +407,7 @@
     var orders = res.orders || [];
     window._entregasOrders = orders;
     placeCards(orders);
-    setupDragAndDrop();
+    setupInteractions();
   }).catch(function (err) {
     console.error(err);
     var msg = err && err.message ? err.message : 'Erro ao carregar.';

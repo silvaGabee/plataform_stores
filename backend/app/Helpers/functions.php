@@ -341,6 +341,38 @@ if (!function_exists('product_variant_value_is_valid')) {
     }
 }
 
+/** Cor, tamanho ou numeração personalizada (além do catálogo padrão). */
+if (!function_exists('product_variant_custom_value_is_valid')) {
+    function product_variant_custom_value_is_valid(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '' || mb_strlen($value) > 48) {
+            return false;
+        }
+        if (str_contains($value, '|')) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('product_variant_matrix_color_is_valid')) {
+    function product_variant_matrix_color_is_valid(string $color): bool
+    {
+        return product_variant_value_is_valid('cor', $color)
+            || product_variant_custom_value_is_valid($color);
+    }
+}
+
+if (!function_exists('product_variant_matrix_size_is_valid')) {
+    function product_variant_matrix_size_is_valid(string $size, string $axis): bool
+    {
+        return in_array($axis, ['tamanho', 'numeracao'], true)
+            && (product_variant_value_is_valid($axis, $size) || product_variant_custom_value_is_valid($size));
+    }
+}
+
 if (!function_exists('product_variant_type_label')) {
     function product_variant_type_label(string $type): string
     {
@@ -374,7 +406,7 @@ if (!function_exists('product_variants_matrix_to_rows')) {
         $colors = [];
         foreach ($matrix['colors'] ?? [] as $c) {
             $c = trim((string) $c);
-            if ($c !== '' && product_variant_value_is_valid('cor', $c)) {
+            if ($c !== '' && product_variant_matrix_color_is_valid($c)) {
                 $colors[$c] = true;
             }
         }
@@ -386,6 +418,7 @@ if (!function_exists('product_variants_matrix_to_rows')) {
         if ($colors === [] || $sizes === []) {
             return [];
         }
+        $colorMeta = product_variant_matrix_color_meta_normalize($matrix['color_meta'] ?? null, $colors);
         $stockMap = is_array($matrix['stock'] ?? null) ? $matrix['stock'] : [];
         $out = [
             [
@@ -394,6 +427,13 @@ if (!function_exists('product_variants_matrix_to_rows')) {
                 'stock_quantity' => 0,
             ],
         ];
+        foreach ($colorMeta as $colorName => $hex) {
+            $out[] = [
+                'variant_type' => '_meta',
+                'variant_value' => 'color_hex:' . $colorName . '|' . $hex,
+                'stock_quantity' => 0,
+            ];
+        }
         foreach ($sizes as $size) {
             $rowStock = is_array($stockMap[$size] ?? null) ? $stockMap[$size] : [];
             foreach ($colors as $color) {
@@ -418,6 +458,7 @@ if (!function_exists('product_variants_rows_to_matrix')) {
         $colors = [];
         $sizes = [];
         $stock = [];
+        $colorMeta = [];
         foreach ($rows as $row) {
             if (!is_array($row)) {
                 continue;
@@ -428,6 +469,16 @@ if (!function_exists('product_variants_rows_to_matrix')) {
                 $a = substr($value, 5);
                 if (in_array($a, ['tamanho', 'numeracao'], true)) {
                     $axis = $a;
+                }
+                continue;
+            }
+            if ($type === '_meta' && str_starts_with($value, 'color_hex:') && str_contains($value, '|')) {
+                $payload = substr($value, strlen('color_hex:'));
+                [$colorName, $hex] = explode('|', $payload, 2);
+                $colorName = trim($colorName);
+                $hexNorm = product_variant_hex_normalize(trim($hex));
+                if ($colorName !== '' && $hexNorm !== null && product_variant_matrix_color_is_valid($colorName)) {
+                    $colorMeta[$colorName] = $hexNorm;
                 }
                 continue;
             }
@@ -460,7 +511,7 @@ if (!function_exists('product_variants_rows_to_matrix')) {
                 continue;
             }
             foreach (array_keys($row) as $colorName) {
-                if ($colorName !== '' && product_variant_value_is_valid('cor', $colorName)) {
+                if ($colorName !== '' && product_variant_matrix_color_is_valid($colorName)) {
                     $colorsFromStock[$colorName] = true;
                 }
             }
@@ -482,12 +533,16 @@ if (!function_exists('product_variants_rows_to_matrix')) {
             return $ia <=> $ib ?: strcmp($a, $b);
         });
 
+        $matrixColors = $sortedColors;
+        $normalizedMeta = product_variant_matrix_color_meta_normalize($colorMeta, $matrixColors);
+
         return [
             'axis' => $axis,
             'axis_label' => product_variant_type_label($axis),
-            'colors' => $sortedColors,
+            'colors' => $matrixColors,
             'sizes' => array_values($sortedSizes),
             'stock' => $stock,
+            'color_meta' => $normalizedMeta,
         ];
     }
 }
@@ -503,7 +558,7 @@ if (!function_exists('product_variants_matrix_normalize_sizes')) {
             if ($s === '' || isset($seen[$s])) {
                 continue;
             }
-            if ($axis !== '' && !product_variant_value_is_valid($axis, $s)) {
+            if ($axis !== '' && !product_variant_matrix_size_is_valid($s, $axis)) {
                 continue;
             }
             $seen[$s] = true;
@@ -554,12 +609,28 @@ if (!function_exists('normalize_product_variants_input')) {
                             'stock_quantity' => 0,
                         ];
                     }
+                    continue;
+                }
+                if (preg_match('/^color_hex:(.+)\|(#?[0-9a-fA-F]{3,8})$/', $value, $m)) {
+                    $colorName = trim($m[1]);
+                    $hexNorm = product_variant_hex_normalize($m[2]);
+                    if ($colorName !== '' && $hexNorm !== null && product_variant_matrix_color_is_valid($colorName)) {
+                        $key = '_meta|color_hex:' . mb_strtolower($colorName);
+                        if (!isset($seen[$key])) {
+                            $seen[$key] = true;
+                            $out[] = [
+                                'variant_type' => '_meta',
+                                'variant_value' => 'color_hex:' . $colorName . '|' . $hexNorm,
+                                'stock_quantity' => 0,
+                            ];
+                        }
+                    }
                 }
                 continue;
             }
             if ($type === 'combinacao' && str_contains($value, '|')) {
                 [$color, $size] = explode('|', $value, 2);
-                if (!product_variant_value_is_valid('cor', trim($color))) {
+                if (!product_variant_matrix_color_is_valid(trim($color))) {
                     continue;
                 }
                 $key = 'combinacao|' . mb_strtolower($value);
@@ -641,6 +712,44 @@ if (!function_exists('product_variants_grouped')) {
     }
 }
 
+if (!function_exists('product_display_name')) {
+    /** Nome para exibição quando o cadastro está sem título. */
+    function product_display_name(array $product): string
+    {
+        $name = trim((string) ($product['name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+        $id = (int) ($product['id'] ?? 0);
+        $matrix = $product['variants_matrix'] ?? product_variants_rows_to_matrix($product['variants'] ?? []);
+        if (is_array($matrix) && !empty($matrix['colors'])) {
+            $colors = [];
+            foreach ($matrix['colors'] as $c) {
+                $c = trim((string) $c);
+                if ($c !== '') {
+                    $colors[] = $c;
+                }
+            }
+            if ($colors !== []) {
+                $preview = array_slice($colors, 0, 4);
+                $label = implode(', ', $preview);
+                if (count($colors) > count($preview)) {
+                    $label .= '…';
+                }
+                $axis = trim((string) ($matrix['axis_label'] ?? 'Tamanho'));
+
+                return 'Sem nome — ' . $label . ' (' . $axis . ')' . ($id > 0 ? ' #' . $id : '');
+            }
+        }
+        $desc = trim(strip_tags((string) ($product['description'] ?? '')));
+        if ($desc !== '') {
+            return mb_strlen($desc) > 80 ? mb_substr($desc, 0, 77) . '…' : $desc;
+        }
+
+        return 'Produto sem nome' . ($id > 0 ? ' #' . $id : '');
+    }
+}
+
 if (!function_exists('product_has_variants')) {
     function product_has_variants(array $product): bool
     {
@@ -683,10 +792,205 @@ if (!function_exists('product_variant_stock_for_combination')) {
     }
 }
 
-if (!function_exists('product_variant_color_hex')) {
-    function product_variant_color_hex(string $colorName): ?string
+if (!function_exists('store_cart_line_storage_key')) {
+    /** Chave no carrinho (session / sessionStorage): productId ou productId#variantKey */
+    function store_cart_line_storage_key(int $productId, ?string $variantKey): string
     {
-        $map = [
+        $vk = $variantKey !== null ? trim($variantKey) : '';
+        if ($vk === '') {
+            return (string) $productId;
+        }
+
+        return $productId . '#' . $vk;
+    }
+}
+
+if (!function_exists('store_cart_normalize_lines')) {
+    /**
+     * @param array<string|int, mixed> $cart
+     *
+     * @return list<array{product_id: int, quantity: int, variant_key: ?string}>
+     */
+    function store_cart_normalize_lines(array $cart): array
+    {
+        $lines = [];
+        foreach ($cart as $key => $val) {
+            if (is_array($val) && isset($val['product_id'])) {
+                $qty = (int) ($val['quantity'] ?? 0);
+                if ($qty <= 0) {
+                    continue;
+                }
+                $vk = isset($val['variant_key']) ? trim((string) $val['variant_key']) : '';
+                $lines[] = [
+                    'product_id' => (int) $val['product_id'],
+                    'quantity' => $qty,
+                    'variant_key' => $vk !== '' ? $vk : null,
+                ];
+                continue;
+            }
+            $qty = is_numeric($val) ? (int) $val : 0;
+            if ($qty <= 0) {
+                continue;
+            }
+            $key = (string) $key;
+            if (str_contains($key, '#')) {
+                [$pid, $vk] = explode('#', $key, 2);
+                $vk = trim($vk);
+                $lines[] = [
+                    'product_id' => (int) $pid,
+                    'quantity' => $qty,
+                    'variant_key' => $vk !== '' ? $vk : null,
+                ];
+            } else {
+                $lines[] = [
+                    'product_id' => (int) $key,
+                    'quantity' => $qty,
+                    'variant_key' => null,
+                ];
+            }
+        }
+
+        return $lines;
+    }
+}
+
+if (!function_exists('product_sale_available_stock')) {
+    function product_sale_available_stock(array $product, ?string $variantKey): int
+    {
+        if (!product_has_variants($product)) {
+            return max(0, (int) ($product['stock_quantity'] ?? 0));
+        }
+        $vk = $variantKey !== null ? trim($variantKey) : '';
+        if ($vk === '') {
+            return 0;
+        }
+        if (str_contains($vk, '|') && !str_contains($vk, ':')) {
+            $parts = explode('|', $vk, 2);
+            if (count($parts) === 2) {
+                return product_variant_stock_for_combination($product, $parts[0], $parts[1]);
+            }
+        }
+        if (str_contains($vk, ':')) {
+            [$type, $val] = explode(':', $vk, 2);
+            foreach ($product['variants'] ?? [] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                if (($row['variant_type'] ?? '') === $type && ($row['variant_value'] ?? '') === $val) {
+                    return max(0, (int) ($row['stock_quantity'] ?? 0));
+                }
+            }
+        }
+        foreach ($product['variants'] ?? [] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $type = (string) ($row['variant_type'] ?? '');
+            if ($type === '' || $type === '_meta') {
+                continue;
+            }
+            if ((string) ($row['variant_value'] ?? '') === $vk) {
+                return max(0, (int) ($row['stock_quantity'] ?? 0));
+            }
+        }
+
+        return 0;
+    }
+}
+
+if (!function_exists('product_variant_key_label')) {
+    function product_variant_key_label(array $product, ?string $variantKey): string
+    {
+        $vk = $variantKey !== null ? trim($variantKey) : '';
+        if ($vk === '') {
+            return '';
+        }
+        if (str_contains($vk, '|') && !str_contains($vk, ':')) {
+            $parts = explode('|', $vk, 2);
+            if (count($parts) === 2) {
+                $axis = $product['variants_matrix']['axis_label'] ?? 'Tamanho';
+
+                return $parts[0] . ' · ' . $axis . ' ' . $parts[1];
+            }
+        }
+        if (str_contains($vk, ':')) {
+            [$type, $val] = explode(':', $vk, 2);
+
+            return product_variant_type_label($type) . ': ' . $val;
+        }
+
+        return $vk;
+    }
+}
+
+if (!function_exists('product_apply_sale_stock_decrement')) {
+    /**
+     * Baixa estoque da variação vendida e recalcula o total do produto.
+     */
+    function product_apply_sale_stock_decrement(
+        array $product,
+        int $quantity,
+        ?string $variantKey,
+        \App\Repositories\ProductVariantRepository $variantRepo,
+        \App\Repositories\ProductRepository $productRepo
+    ): void {
+        $productId = (int) ($product['id'] ?? 0);
+        if ($productId < 1 || $quantity < 1) {
+            return;
+        }
+        $qty = $quantity;
+
+        if (!product_has_variants($product)) {
+            $newStock = max(0, (int) ($product['stock_quantity'] ?? 0) - $qty);
+            $productRepo->updateStock($productId, $newStock);
+
+            return;
+        }
+
+        $vk = $variantKey !== null ? trim($variantKey) : '';
+        if ($vk === '') {
+            return;
+        }
+
+        $type = null;
+        $value = null;
+        if (str_contains($vk, '|') && !str_contains($vk, ':')) {
+            $type = 'combinacao';
+            $value = $vk;
+        } elseif (str_contains($vk, ':')) {
+            [$type, $value] = explode(':', $vk, 2);
+            $type = trim($type);
+            $value = trim($value);
+        } else {
+            foreach ($product['variants'] ?? [] as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $rowType = (string) ($row['variant_type'] ?? '');
+                if ($rowType === '' || $rowType === '_meta') {
+                    continue;
+                }
+                if ((string) ($row['variant_value'] ?? '') === $vk) {
+                    $type = $rowType;
+                    $value = $vk;
+                    break;
+                }
+            }
+        }
+
+        if ($type !== null && $value !== null && $type !== '' && $value !== '') {
+            $variantRepo->decrementStock($productId, $type, $value, $qty);
+        }
+
+        $productRepo->updateStock($productId, $variantRepo->totalStock($productId));
+    }
+}
+
+if (!function_exists('product_variant_default_color_hex_map')) {
+    /** @return array<string, string> */
+    function product_variant_default_color_hex_map(): array
+    {
+        return [
             'Preto' => '#171717',
             'Branco' => '#f8fafc',
             'Azul' => '#2563eb',
@@ -696,8 +1000,90 @@ if (!function_exists('product_variant_color_hex')) {
             'Rosa' => '#ec4899',
             'Amarelo' => '#eab308',
         ];
+    }
+}
+
+if (!function_exists('product_variant_hex_normalize')) {
+    function product_variant_hex_normalize(string $hex): ?string
+    {
+        $hex = trim($hex);
+        if ($hex === '') {
+            return null;
+        }
+        if ($hex[0] !== '#') {
+            $hex = '#' . $hex;
+        }
+        if (!preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $hex)) {
+            return null;
+        }
+        if (strlen($hex) === 4) {
+            $r = $hex[1];
+            $g = $hex[2];
+            $b = $hex[3];
+            $hex = '#' . $r . $r . $g . $g . $b . $b;
+        }
+
+        return strtoupper($hex);
+    }
+}
+
+if (!function_exists('product_variant_color_hex')) {
+    function product_variant_color_hex(string $colorName): ?string
+    {
+        $map = product_variant_default_color_hex_map();
 
         return $map[trim($colorName)] ?? null;
+    }
+}
+
+if (!function_exists('product_variant_matrix_color_hex')) {
+    /** @param array<string, mixed> $matrix */
+    function product_variant_matrix_color_hex(array $matrix, string $colorName): ?string
+    {
+        $colorName = trim($colorName);
+        $meta = $matrix['color_meta'] ?? [];
+        if (is_array($meta) && isset($meta[$colorName])) {
+            $fromMeta = product_variant_hex_normalize((string) $meta[$colorName]);
+            if ($fromMeta !== null) {
+                return $fromMeta;
+            }
+        }
+
+        return product_variant_color_hex($colorName);
+    }
+}
+
+if (!function_exists('product_variant_matrix_color_meta_normalize')) {
+    /**
+     * @param mixed $raw
+     * @param list<string> $colors
+     * @return array<string, string>
+     */
+    function product_variant_matrix_color_meta_normalize($raw, array $colors): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+        $allowed = [];
+        foreach ($colors as $c) {
+            $c = trim((string) $c);
+            if ($c !== '' && product_variant_matrix_color_is_valid($c)) {
+                $allowed[$c] = true;
+            }
+        }
+        $out = [];
+        foreach ($raw as $name => $hex) {
+            $name = trim((string) $name);
+            if ($name === '' || !isset($allowed[$name])) {
+                continue;
+            }
+            $hexNorm = product_variant_hex_normalize((string) $hex);
+            if ($hexNorm !== null) {
+                $out[$name] = $hexNorm;
+            }
+        }
+
+        return $out;
     }
 }
 
@@ -1011,5 +1397,98 @@ if (!function_exists('is_funcionario_panel_readonly')) {
             return false;
         }
         return strtolower((string) ($user['user_type'] ?? '')) === 'funcionario';
+    }
+}
+
+if (!function_exists('card_digits_only')) {
+    function card_digits_only(string $value): string {
+        return preg_replace('/\D+/', '', $value) ?? '';
+    }
+}
+
+if (!function_exists('card_luhn_valid')) {
+    function card_luhn_valid(string $digits): bool {
+        $len = strlen($digits);
+        if ($len < 13 || $len > 19) {
+            return false;
+        }
+        $sum = 0;
+        $parity = $len % 2;
+        for ($i = 0; $i < $len; $i++) {
+            $d = (int) $digits[$i];
+            if ($i % 2 === $parity) {
+                $d *= 2;
+                if ($d > 9) {
+                    $d -= 9;
+                }
+            }
+            $sum += $d;
+        }
+        return $sum % 10 === 0;
+    }
+}
+
+if (!function_exists('card_detect_brand')) {
+    function card_detect_brand(string $digits): string {
+        if (preg_match('/^4/', $digits)) {
+            return 'visa';
+        }
+        if (preg_match('/^(5[1-5]|2[2-7])/', $digits)) {
+            return 'mastercard';
+        }
+        if (preg_match('/^3[47]/', $digits)) {
+            return 'amex';
+        }
+        if (preg_match('/^(636368|438935|504175|451416|636297|5067|4576|4011)/', $digits)) {
+            return 'elo';
+        }
+        if (preg_match('/^(606282|3841)/', $digits)) {
+            return 'hipercard';
+        }
+        return 'card';
+    }
+}
+
+if (!function_exists('card_validate_checkout_input')) {
+    /**
+     * @param array<string, mixed>|null $card
+     * @return array{holder: string, last4: string, brand: string}|null
+     */
+    function card_validate_checkout_input(?array $card): ?array {
+        if (!$card || !is_array($card)) {
+            return null;
+        }
+        $holder = trim((string) ($card['holder'] ?? ''));
+        $number = card_digits_only((string) ($card['number'] ?? ''));
+        $expiry = trim((string) ($card['expiry'] ?? ''));
+        $cvv = card_digits_only((string) ($card['cvv'] ?? ''));
+
+        if (strlen($holder) < 3) {
+            throw new \InvalidArgumentException('Informe o nome impresso no cartão.');
+        }
+        if (!card_luhn_valid($number)) {
+            throw new \InvalidArgumentException('Número do cartão inválido.');
+        }
+        if (!preg_match('/^(0[1-9]|1[0-2])\/([0-9]{2})$/', $expiry, $m)) {
+            throw new \InvalidArgumentException('Validade inválida. Use MM/AA.');
+        }
+        $month = (int) $m[1];
+        $year = 2000 + (int) $m[2];
+        $now = new \DateTimeImmutable('first day of this month');
+        $exp = \DateTimeImmutable::createFromFormat('Y-m-d', sprintf('%04d-%02d-01', $year, $month));
+        if (!$exp || $exp < $now) {
+            throw new \InvalidArgumentException('Cartão expirado.');
+        }
+        $brand = card_detect_brand($number);
+        $cvvLen = $brand === 'amex' ? 4 : 3;
+        if (strlen($cvv) !== $cvvLen) {
+            throw new \InvalidArgumentException('CVV inválido.');
+        }
+
+        return [
+            'holder' => $holder,
+            'last4'  => substr($number, -4),
+            'brand'  => $brand,
+        ];
     }
 }

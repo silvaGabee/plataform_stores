@@ -63,10 +63,10 @@ ob_start();
     </section>
 
     <section id="bi-chart-section" class="bi-chart-section hidden" aria-labelledby="bi-chart-title">
-        <h2 id="bi-chart-title" class="bi-section-title">Possível venda do próximo mês</h2>
-        <p class="bi-section-desc">Mostra, por produto, a quantidade prevista para o mês seguinte, com base na média das vendas nos últimos três meses (inclui o mês atual). Se ainda não houver histórico suficiente, usa as vendas recentes do mês atual.</p>
+        <h2 id="bi-chart-title" class="bi-section-title">Lucro por produto</h2>
+        <p class="bi-section-desc">Lucro do mês atual por produto: (preço de venda − custo cadastrado) × quantidade vendida em pedidos pagos. Ex.: custo R$ 4, venda R$ 6 → margem R$ 2; com 10 unidades vendidas, lucro R$ 20.</p>
         <div id="bi-chart-bars" class="bi-chart-root"></div>
-        <p id="bi-chart-empty" class="bi-muted hidden">Sem dados para o gráfico: ainda não há vendas pagas registadas por produto nesta loja.</p>
+        <p id="bi-chart-empty" class="bi-muted hidden">Sem dados para o gráfico: ainda não há vendas pagas com lucro positivo neste mês.</p>
     </section>
 
     <section id="bi-cards" class="bi-cards hidden" aria-label="Análises por produto">

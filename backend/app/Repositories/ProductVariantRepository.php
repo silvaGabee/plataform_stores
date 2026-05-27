@@ -55,4 +55,19 @@ class ProductVariantRepository
 
         return (int) $stmt->fetchColumn();
     }
+
+    public function decrementStock(int $productId, string $variantType, string $variantValue, int $quantity): bool
+    {
+        if ($quantity < 1) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare(
+            'UPDATE product_variants
+             SET stock_quantity = GREATEST(0, stock_quantity - ?)
+             WHERE product_id = ? AND variant_type = ? AND variant_value = ?'
+        );
+        $stmt->execute([$quantity, $productId, $variantType, $variantValue]);
+
+        return $stmt->rowCount() > 0;
+    }
 }

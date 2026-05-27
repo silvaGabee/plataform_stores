@@ -156,13 +156,23 @@
     return String(r).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
+  function formatAxisMoney(val) {
+    var v = val != null ? parseFloat(val) : 0;
+    if (isNaN(v)) v = 0;
+    var abs = Math.abs(v);
+    if (abs >= 1000) {
+      return 'R$ ' + formatAxisNumber(v);
+    }
+    return formatMoney(v);
+  }
+
   function renderChart(items) {
     var wrap = document.getElementById('bi-chart-bars');
     var empty = document.getElementById('bi-chart-empty');
     if (!wrap) return;
     wrap.innerHTML = '';
     var arr = (items || []).filter(function (x) {
-      return x && parseFloat(x.previsao_proximo_mes) > 0;
+      return x && parseFloat(x.lucro_total) > 0;
     });
     if (!arr.length) {
       if (empty) empty.classList.remove('hidden');
@@ -172,7 +182,7 @@
 
     var max = 0;
     arr.forEach(function (x) {
-      var v = parseFloat(x.previsao_proximo_mes) || 0;
+      var v = parseFloat(x.lucro_total) || 0;
       if (v > max) max = v;
     });
     if (max <= 0) max = 1;
@@ -182,7 +192,7 @@
     var ticks = [];
     for (var ti = tickSteps; ti >= 0; ti--) {
       var val = (yMax * ti) / tickSteps;
-      ticks.push(formatAxisNumber(val));
+      ticks.push(formatAxisMoney(val));
     }
 
     var slice = arr.slice(0, 12);
@@ -190,7 +200,7 @@
     var root = document.createElement('div');
     root.className = 'bi-chart-vchart';
     root.setAttribute('role', 'img');
-    root.setAttribute('aria-label', 'Gráfico de barras: quantidade prevista por produto');
+    root.setAttribute('aria-label', 'Gráfico de barras: lucro por produto no mês atual');
 
     var main = document.createElement('div');
     main.className = 'bi-chart-vchart-main';
@@ -229,13 +239,24 @@
     rowLabels.className = 'bi-chart-bars-row bi-chart-bars-labels-row';
 
     slice.forEach(function (x) {
-      var v = parseFloat(x.previsao_proximo_mes) || 0;
+      var v = parseFloat(x.lucro_total) || 0;
       var pct = yMax > 0 ? (v / yMax) * 100 : 0;
       if (v > 0 && pct < 2.5) {
         pct = 2.5;
       }
       if (pct > 100) {
         pct = 100;
+      }
+
+      var margem = parseFloat(x.margem_unitaria);
+      var qty = parseFloat(x.quantidade_vendida);
+      var tip =
+        (x.nome || '') +
+        ': ' +
+        formatMoney(v) +
+        ' de lucro';
+      if (!isNaN(margem) && !isNaN(qty) && qty > 0) {
+        tip += ' (' + formatMoney(margem) + ' × ' + formatQty(qty) + ' un.)';
       }
 
       var colPlot = document.createElement('div');
@@ -247,7 +268,7 @@
       var bar = document.createElement('div');
       bar.className = 'bi-chart-bar';
       bar.style.height = pct + '%';
-      bar.title = (x.nome || '') + ': ' + formatQty(v);
+      bar.title = tip;
 
       cell.appendChild(bar);
       colPlot.appendChild(cell);
@@ -258,7 +279,7 @@
 
       var qty = document.createElement('span');
       qty.className = 'bi-chart-bar-qty';
-      qty.textContent = formatQty(v);
+      qty.textContent = formatMoney(v);
 
       var xl = document.createElement('div');
       xl.className = 'bi-chart-x-label';
@@ -524,7 +545,7 @@
     var periodoInicial = (activeP && activeP.getAttribute('data-periodo')) || '30d';
     loadFaturamentoSeries(periodoInicial);
 
-    renderChart(data.previsao_produtos);
+    renderChart(data.lucro_produtos);
     renderProductCardBody('bi-card-top-body', data.produto_mais_vendido, 'crescimento_percentual', 'vs. mês anterior');
     renderProductCardBody('bi-card-bottom-body', data.produto_menos_vendido, 'variacao_percentual', 'Variação vs. mês anterior');
     renderStalled(data.produtos_parados);

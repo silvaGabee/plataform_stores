@@ -82,7 +82,7 @@ $content = ob_start();
                                         $colorTotal += (int) ($variantsMatrix['stock'][$sz][$color] ?? 0);
                                     }
                                     $disabled = $colorTotal <= 0;
-                                    $hex = product_variant_color_hex($color);
+                                    $hex = product_variant_matrix_color_hex($variantsMatrix, $color);
                                     $isLightColor = in_array($color, ['Branco', 'Amarelo'], true);
                                     ?>
                                     <button type="button"

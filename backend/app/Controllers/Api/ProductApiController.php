@@ -52,11 +52,11 @@ class ProductApiController extends Controller
         if (empty($input['name'])) {
             $this->json(['error' => 'Nome é obrigatório'], 400);
         }
-        $categoryError = $this->validateVitrineCategoryForStore($storeId, $input['vitrine_category_id'] ?? null);
+        $categoryError = $this->validateVitrineCategoriesForStore($storeId, $input);
         if ($categoryError !== null) {
             $this->json(['error' => $categoryError], 400);
         }
-        $input['vitrine_category_id'] = $this->normalizeVitrineCategoryId($input['vitrine_category_id'] ?? null);
+        $input = $this->normalizeVitrineCategoriesInput($input);
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         try {
             $imagePaths = $input['image_paths'] ?? [];
@@ -95,12 +95,12 @@ class ProductApiController extends Controller
         }
         $this->requireStorePanelAccess($storeId);
         $input = $this->getJsonInput();
-        if (array_key_exists('vitrine_category_id', $input)) {
-            $categoryError = $this->validateVitrineCategoryForStore($storeId, $input['vitrine_category_id']);
+        if (array_key_exists('vitrine_category_id', $input) || array_key_exists('vitrine_category_ids', $input)) {
+            $categoryError = $this->validateVitrineCategoriesForStore($storeId, $input);
             if ($categoryError !== null) {
                 $this->json(['error' => $categoryError], 400);
             }
-            $input['vitrine_category_id'] = $this->normalizeVitrineCategoryId($input['vitrine_category_id']);
+            $input = $this->normalizeVitrineCategoriesInput($input);
         }
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         $product = $service->update($id, $storeId, $input);
@@ -369,6 +369,57 @@ class ProductApiController extends Controller
         }
 
         return null;
+    }
+
+    /** @param array<string, mixed> $input */
+    private function validateVitrineCategoriesForStore(int $storeId, array $input): ?string
+    {
+        $ids = [];
+        if (array_key_exists('vitrine_category_ids', $input) && is_array($input['vitrine_category_ids'])) {
+            foreach ($input['vitrine_category_ids'] as $raw) {
+                $id = $this->normalizeVitrineCategoryId($raw);
+                if ($id !== null) {
+                    $ids[] = $id;
+                }
+            }
+        } elseif (array_key_exists('vitrine_category_id', $input)) {
+            $id = $this->normalizeVitrineCategoryId($input['vitrine_category_id']);
+            if ($id !== null) {
+                $ids[] = $id;
+            }
+        } else {
+            return null;
+        }
+        $repo = new StoreVitrineCategoryRepository();
+        foreach (array_unique($ids) as $id) {
+            if (!$repo->find($id, $storeId)) {
+                return 'Categoria da vitrine inválida.';
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $input */
+    private function normalizeVitrineCategoriesInput(array $input): array
+    {
+        $ids = [];
+        if (array_key_exists('vitrine_category_ids', $input) && is_array($input['vitrine_category_ids'])) {
+            foreach ($input['vitrine_category_ids'] as $raw) {
+                $id = $this->normalizeVitrineCategoryId($raw);
+                if ($id !== null) {
+                    $ids[] = $id;
+                }
+            }
+            $ids = array_values(array_unique($ids));
+        } elseif (array_key_exists('vitrine_category_id', $input)) {
+            $id = $this->normalizeVitrineCategoryId($input['vitrine_category_id']);
+            $ids = $id !== null ? [$id] : [];
+        }
+        $input['vitrine_category_ids'] = $ids;
+        $input['vitrine_category_id'] = $ids[0] ?? null;
+
+        return $input;
     }
 
     /** Lê dados do produto: JSON ou multipart (name, description, cost_price, sale_price, stock_quantity, min_stock, images). */

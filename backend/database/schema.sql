@@ -109,6 +109,16 @@ CREATE TABLE store_vitrine_categories (
     UNIQUE KEY uniq_store_name (store_id, name)
 ) ENGINE=InnoDB;
 
+-- 5.2) Produto em várias categorias da vitrine
+CREATE TABLE product_vitrine_categories (
+    product_id INT UNSIGNED NOT NULL,
+    vitrine_category_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (product_id, vitrine_category_id),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (vitrine_category_id) REFERENCES store_vitrine_categories(id) ON DELETE CASCADE,
+    INDEX idx_pvc_category (vitrine_category_id)
+) ENGINE=InnoDB;
+
 -- 6.0.1) Variações do produto (tamanho, numeração, cor + estoque por item)
 CREATE TABLE product_variants (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -176,6 +186,7 @@ CREATE TABLE order_items (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_id INT UNSIGNED NOT NULL,
     product_id INT UNSIGNED NOT NULL,
+    variant_key VARCHAR(80) DEFAULT NULL,
     quantity INT NOT NULL,
     price DECIMAL(12,2) NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
@@ -192,6 +203,9 @@ CREATE TABLE payments (
     status ENUM('pendente','confirmado','cancelado') NOT NULL DEFAULT 'pendente',
     amount DECIMAL(12,2) NOT NULL,
     pix_qr_code TEXT DEFAULT NULL,
+    card_holder VARCHAR(120) DEFAULT NULL,
+    card_last4 CHAR(4) DEFAULT NULL,
+    card_brand VARCHAR(20) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,

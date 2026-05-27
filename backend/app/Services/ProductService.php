@@ -5,20 +5,81 @@ namespace App\Services;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductVariantRepository;
+use App\Repositories\ProductVitrineCategoryRepository;
 use App\Repositories\StockMovementRepository;
 
 class ProductService
 {
     private ProductVariantRepository $variantRepo;
+    private ProductVitrineCategoryRepository $productCategoryRepo;
 
     public function __construct(
         private ProductRepository $productRepo,
         private StockMovementRepository $stockMovementRepo,
         ?ProductImageRepository $imageRepo = null,
-        ?ProductVariantRepository $variantRepo = null
+        ?ProductVariantRepository $variantRepo = null,
+        ?ProductVitrineCategoryRepository $productCategoryRepo = null
     ) {
         $this->imageRepo = $imageRepo ?? new ProductImageRepository();
         $this->variantRepo = $variantRepo ?? new ProductVariantRepository();
+        $this->productCategoryRepo = $productCategoryRepo ?? new ProductVitrineCategoryRepository();
+    }
+
+    private function attachVitrineCategories(array &$product): void
+    {
+        $productId = (int) ($product['id'] ?? 0);
+        if ($productId <= 0) {
+            $product['vitrine_category_ids'] = [];
+
+            return;
+        }
+        $ids = $this->productCategoryRepo->listIdsByProduct($productId);
+        if ($ids === [] && !empty($product['vitrine_category_id'])) {
+            $legacy = (int) $product['vitrine_category_id'];
+            if ($legacy > 0) {
+                $ids = [$legacy];
+            }
+        }
+        $product['vitrine_category_ids'] = $ids;
+        $product['vitrine_category_id'] = $ids[0] ?? null;
+    }
+
+    /** @param array<string, mixed> $data */
+    private function resolveVitrineCategoryIdsFromData(array $data): array
+    {
+        if (array_key_exists('vitrine_category_ids', $data) && is_array($data['vitrine_category_ids'])) {
+            $out = [];
+            foreach ($data['vitrine_category_ids'] as $id) {
+                $id = (int) $id;
+                if ($id > 0) {
+                    $out[] = $id;
+                }
+            }
+
+            return array_values(array_unique($out));
+        }
+        if (array_key_exists('vitrine_category_id', $data)) {
+            $single = $data['vitrine_category_id'];
+            if ($single === null || $single === '' || $single === false) {
+                return [];
+            }
+            $id = (int) $single;
+
+            return $id > 0 ? [$id] : [];
+        }
+
+        return [];
+    }
+
+    /** @param array<string, mixed> $data */
+    private function syncVitrineCategories(int $productId, array $data): void
+    {
+        if (!array_key_exists('vitrine_category_ids', $data) && !array_key_exists('vitrine_category_id', $data)) {
+            return;
+        }
+        $ids = $this->resolveVitrineCategoryIdsFromData($data);
+        $this->productCategoryRepo->replaceForProduct($productId, $ids);
+        $this->productRepo->updateVitrineCategoryId($productId, $ids[0] ?? null);
     }
 
     private function attachVariants(array &$product): void
@@ -26,6 +87,8 @@ class ProductService
         $productId = (int) ($product['id'] ?? 0);
         if ($productId <= 0) {
             $product['variants'] = [];
+            $product['variants_matrix'] = null;
+            $product['display_name'] = product_display_name($product);
 
             return;
         }
@@ -49,6 +112,7 @@ class ProductService
         }, $rows);
         $matrix = product_variants_rows_to_matrix($rows);
         $product['variants_matrix'] = $matrix;
+        $product['display_name'] = product_display_name($product);
     }
 
     public function listForStore(int $storeId, bool $onlyWithStock = false): array
@@ -58,6 +122,7 @@ class ProductService
             $p['images'] = $this->imageRepo->getByProductId((int) $p['id']);
             $this->attachImageUrls($p['images'], (int) $p['id']);
             $this->attachVariants($p);
+            $this->attachVitrineCategories($p);
         }
 
         return $products;
@@ -70,6 +135,7 @@ class ProductService
             $p['images'] = $this->imageRepo->getByProductId((int) $p['id']);
             $this->attachImageUrls($p['images'], (int) $p['id']);
             $this->attachVariants($p);
+            $this->attachVitrineCategories($p);
         }
 
         return $products;
@@ -84,6 +150,7 @@ class ProductService
         $product['images'] = $this->imageRepo->getByProductId((int) $product['id']);
         $this->attachImageUrls($product['images'], (int) $product['id']);
         $this->attachVariants($product);
+        $this->attachVitrineCategories($product);
 
         return $product;
     }
@@ -126,6 +193,10 @@ class ProductService
 
     public function create(int $storeId, array $data): array
     {
+        $data['name'] = trim((string) ($data['name'] ?? ''));
+        if ($data['name'] === '') {
+            throw new \InvalidArgumentException('Informe o nome do produto.');
+        }
         $rawVariants = $data['variants_matrix'] ?? $data['variants'] ?? [];
         unset($data['variants_matrix']);
         $variants = normalize_product_variants_input($rawVariants);
@@ -137,7 +208,13 @@ class ProductService
         } else {
             $data['stock_quantity'] = (int) ($data['stock_quantity'] ?? 0);
         }
+        $categoryIds = $this->resolveVitrineCategoryIdsFromData($data);
+        $data['vitrine_category_id'] = $categoryIds[0] ?? null;
         $id = $this->productRepo->create($data);
+        $this->syncVitrineCategories($id, [
+            'vitrine_category_ids' => $categoryIds,
+            'vitrine_category_id' => $data['vitrine_category_id'],
+        ]);
         if ($variants !== []) {
             $this->variantRepo->replaceForProduct($id, $variants);
         }
@@ -178,7 +255,27 @@ class ProductService
                 ? product_variants_total_stock($variants)
                 : (int) ($data['stock_quantity'] ?? $product['stock_quantity']);
         }
-        $this->productRepo->update($id, $data);
+        if (array_key_exists('name', $data)) {
+            $data['name'] = trim((string) $data['name']);
+            if ($data['name'] === '') {
+                throw new \InvalidArgumentException('Informe o nome do produto.');
+            }
+        }
+
+        // Atualização parcial (ex.: só variants_matrix no estoque) — não apagar nome nem outros campos.
+        $payload = [
+            'name'            => array_key_exists('name', $data) ? $data['name'] : (string) ($product['name'] ?? ''),
+            'description'     => array_key_exists('description', $data) ? $data['description'] : $product['description'],
+            'cost_price'      => array_key_exists('cost_price', $data) ? $data['cost_price'] : $product['cost_price'],
+            'sale_price'      => array_key_exists('sale_price', $data) ? $data['sale_price'] : $product['sale_price'],
+            'stock_quantity'  => array_key_exists('stock_quantity', $data) ? $data['stock_quantity'] : $product['stock_quantity'],
+            'min_stock'       => array_key_exists('min_stock', $data) ? $data['min_stock'] : $product['min_stock'],
+        ];
+        if (array_key_exists('vitrine_category_id', $data)) {
+            $payload['vitrine_category_id'] = $data['vitrine_category_id'];
+        }
+        $this->productRepo->update($id, $payload);
+        $this->syncVitrineCategories($id, $data);
 
         return $this->getByIdAndStore($id, $storeId);
     }

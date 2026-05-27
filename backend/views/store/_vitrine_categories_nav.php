@@ -2,7 +2,8 @@
     <nav class="store-vitrine-categories-wrap" aria-label="Categorias da loja">
         <div class="store-vitrine-categories-inner">
             <h2 class="store-vitrine-categories-title">Categorias</h2>
-            <div class="store-vitrine-categories-scroll">
+            <div class="h-scroll-mask h-scroll-mask--store-vitrine">
+                <div class="store-vitrine-categories-scroll h-scroll-mask__track">
                 <ul class="store-vitrine-categories">
                     <?php
                     $activeId = isset($active_category_id) ? (int) $active_category_id : 0;
@@ -20,6 +21,7 @@
                         </li>
                     <?php endforeach; ?>
                 </ul>
+                </div>
             </div>
         </div>
     </nav>

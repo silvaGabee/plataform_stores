@@ -92,6 +92,38 @@
   var qtyMinus = document.getElementById('qty-minus');
   var qtyPlus = document.getElementById('qty-plus');
   var addBtn = document.getElementById('product-add-cart');
+  var stockTypePriority = ['tamanho', 'numeracao', 'cor'];
+
+  function syncAddBtnVariantKey(variantKey) {
+    if (!addBtn) return;
+    var hasVariants = root.getAttribute('data-has-variants') === '1';
+    if (!hasVariants) {
+      addBtn.dataset.requireVariant = '0';
+      delete addBtn.dataset.variantKey;
+      return;
+    }
+    addBtn.dataset.requireVariant = '1';
+    var vk = variantKey ? String(variantKey).trim() : '';
+    if (vk) {
+      addBtn.dataset.variantKey = vk;
+    } else {
+      delete addBtn.dataset.variantKey;
+    }
+  }
+
+  function buildGroupedVariantKey(selectedMap) {
+    var i;
+    for (i = 0; i < stockTypePriority.length; i++) {
+      var t = stockTypePriority[i];
+      if (selectedMap[t]) {
+        return t + ':' + selectedMap[t].value;
+      }
+    }
+    var keys = Object.keys(selectedMap);
+    if (!keys.length) return '';
+    var t0 = keys[0];
+    return t0 + ':' + selectedMap[t0].value;
+  }
 
   function wireQty(stock) {
     var ready = stock > 0;
@@ -142,15 +174,18 @@
       if (!stockLabel) return;
       if (!selectedColor) {
         stockLabel.textContent = 'Selecione a cor';
+        syncAddBtnVariantKey('');
         wireQty(0);
         return;
       }
       if (!selectedSize) {
         stockLabel.textContent = 'Selecione o ' + (matrix.axis_label || 'tamanho').toLowerCase();
+        syncAddBtnVariantKey('');
         wireQty(0);
         return;
       }
       var stock = stockFor(selectedColor, selectedSize);
+      syncAddBtnVariantKey(selectedColor + '|' + selectedSize);
       if (stock <= 0) {
         stockLabel.textContent = 'Combinação indisponível';
         wireQty(0);
@@ -245,8 +280,6 @@
     return fieldsets.length > 0;
   }
 
-  var stockTypePriority = ['tamanho', 'numeracao', 'cor'];
-
   function getSelectedStock() {
     if (!allGroupsSelected()) return 0;
     var i;
@@ -265,10 +298,13 @@
 
     if (!allGroupsSelected()) {
       stockLabel.textContent = 'Selecione todas as opções para ver o estoque';
+      syncAddBtnVariantKey('');
     } else if (stock <= 0) {
       stockLabel.textContent = 'Opção indisponível no momento';
+      syncAddBtnVariantKey('');
     } else {
       stockLabel.textContent = stock === 1 ? '1 unidade disponível' : stock + ' unidades disponíveis';
+      syncAddBtnVariantKey(buildGroupedVariantKey(selected));
     }
 
     wireQty(ready ? stock : 0);

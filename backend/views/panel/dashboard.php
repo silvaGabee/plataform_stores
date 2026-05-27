@@ -32,9 +32,11 @@ ob_start();
             </div>
         </div>
         <div class="panel-section-body dashboard-vitrine-categories-body">
-            <div id="dashboard-categories-preview" class="dashboard-categories-preview" aria-live="polite">
-                <p id="dashboard-categories-empty" class="dashboard-categories-empty hidden">Ainda não há categorias. Adicione a primeira para organizar a vitrine.</p>
-                <ul id="dashboard-categories-list" class="dashboard-categories-list" role="list" hidden></ul>
+            <div id="dashboard-categories-preview" class="dashboard-categories-preview h-scroll-mask h-scroll-mask--panel" aria-live="polite">
+                <div class="h-scroll-mask__track dashboard-categories-preview-track">
+                    <p id="dashboard-categories-empty" class="dashboard-categories-empty hidden">Ainda não há categorias. Adicione a primeira para organizar a vitrine.</p>
+                    <ul id="dashboard-categories-list" class="dashboard-categories-list" role="list" hidden></ul>
+                </div>
             </div>
             <?php if (empty($panel_readonly)): ?>
             <div class="dashboard-categories-actions">
@@ -759,5 +761,5 @@ ob_start();
 </script>
 <?php
 $content = ob_get_clean();
-$extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script><script src="' . asset('js/panel-dashboard-categories.js') . '"></script>';
+$extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script><script src="' . asset('js/h-scroll-mask.js') . '"></script><script src="' . asset('js/panel-dashboard-categories.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';

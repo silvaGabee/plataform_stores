@@ -12,4 +12,5 @@
             <?php require __DIR__ . '/_product_card.php'; ?>
         <?php endforeach; ?>
     </section>
+    <p class="store-vitrine-search-no-results hidden" role="status" aria-live="polite"></p>
 <?php endif; ?>

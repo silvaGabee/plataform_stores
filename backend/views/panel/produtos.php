@@ -40,12 +40,14 @@
                             <label for="product-description">Descrição</label>
                             <textarea id="product-description" rows="3" placeholder="Detalhes, tamanhos, material…"></textarea>
                         </div>
-                        <div class="panel-config-field product-modal-field--full">
-                            <label for="product-vitrine-category">Categoria da vitrine</label>
-                            <select id="product-vitrine-category" name="vitrine_category_id">
-                                <option value="">Sem categoria</option>
-                            </select>
-                            <p class="panel-field-hint" id="product-vitrine-category-hint">O produto aparece na página desta categoria na loja.</p>
+                        <div class="panel-config-field product-modal-field--full product-vitrine-categories-field">
+                            <span class="panel-config-label">Categorias da vitrine</span>
+                            <div id="product-vitrine-categories-list" class="product-vitrine-categories-list"></div>
+                            <button type="button" class="btn btn-secondary btn-sm product-vitrine-category-add" id="product-vitrine-category-add">
+                                <?= btn_icon_plus() ?>
+                                Adicionar categoria
+                            </button>
+                            <p class="panel-field-hint" id="product-vitrine-category-hint">O produto pode aparecer em várias páginas de categoria na loja.</p>
                         </div>
                     </div>
                 </section>
@@ -102,7 +104,8 @@
                     <div class="variant-matrix-block">
                         <div class="variant-matrix-step">
                             <p class="variant-matrix-step-label">Cores do produto</p>
-                            <div class="product-variant-value-chips" id="variant-color-chips"></div>
+                            <p class="panel-field-hint">Defina o código da cor para a bolinha aparecer certa na vitrine.</p>
+                            <div class="variant-color-config-list" id="variant-color-config-list" role="list"></div>
                             <button type="button" class="btn btn-secondary btn-sm variant-matrix-add-color" id="variant-toggle-color-picker">
                                 <?= btn_icon_plus() ?>
                                 Adicionar cor
@@ -110,6 +113,10 @@
                             <div id="variant-color-picker" class="variant-color-picker hidden" aria-hidden="true">
                                 <p class="panel-field-hint">Selecione uma ou mais cores</p>
                                 <div class="product-variant-value-chips" id="variant-color-picker-chips"></div>
+                                <div class="variant-custom-value-row">
+                                    <input type="text" id="variant-custom-color-input" class="variant-custom-value-input" placeholder="Ex.: Bordô, Off-white" maxlength="48" autocomplete="off">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="variant-add-custom-color"><?= btn_icon_plus() ?> Nova cor</button>
+                                </div>
                             </div>
                         </div>
 
@@ -122,6 +129,10 @@
                             <p class="variant-matrix-step-label" id="variant-sizes-label">Tamanhos / numeração</p>
                             <p class="panel-field-hint">Marque quais opções este produto possui</p>
                             <div class="product-variant-value-chips" id="variant-size-chips"></div>
+                            <div class="variant-custom-value-row">
+                                <input type="text" id="variant-custom-size-input" class="variant-custom-value-input" placeholder="Ex.: XXL ou 46" maxlength="48" autocomplete="off">
+                                <button type="button" class="btn btn-secondary btn-sm" id="variant-add-custom-size"><?= btn_icon_plus() ?> <span id="variant-add-custom-size-label">Novo tamanho</span></button>
+                            </div>
                         </div>
 
                         <div id="variant-stock-block" class="variant-matrix-step hidden" aria-hidden="true">
@@ -143,11 +154,39 @@
             </form>
         </div>
     </div>
+
+    <div id="variant-color-advanced-modal" class="variant-color-advanced-modal hidden" role="dialog" aria-modal="true" aria-labelledby="variant-color-advanced-title" aria-hidden="true">
+        <div class="variant-color-advanced-backdrop" data-close-advanced-color></div>
+        <div class="variant-color-advanced-card">
+            <header class="variant-color-advanced-head">
+                <h3 id="variant-color-advanced-title">Cor na vitrine</h3>
+                <button type="button" class="variant-color-advanced-close" data-close-advanced-color aria-label="Fechar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </button>
+            </header>
+            <p class="panel-field-hint">Selecione a tonalidade exata de <strong id="variant-color-advanced-name"></strong> para exibir na loja.</p>
+            <div class="variant-color-advanced-preview">
+                <span class="variant-color-swatch variant-color-swatch--lg" id="variant-color-advanced-swatch" aria-hidden="true"></span>
+                <div class="variant-color-advanced-hex-wrap">
+                    <label for="variant-color-advanced-hex">Código hex</label>
+                    <input type="text" id="variant-color-advanced-hex" class="variant-color-hex-input" maxlength="7" placeholder="#000000" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+            <div class="variant-color-palette-wrap">
+                <div class="variant-color-palette-grid" id="variant-color-palette-grid" role="listbox" aria-label="Paleta de cores"></div>
+            </div>
+            <footer class="variant-color-advanced-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-close-advanced-color>Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="variant-color-advanced-apply">Aplicar cor</button>
+            </footer>
+        </div>
+    </div>
 </div>
 <?php
 $content = ob_get_clean();
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script>
 <script>window.productVariantCatalog = ' . json_encode(product_variant_type_catalog(), JSON_UNESCAPED_UNICODE) . ';</script>
+<script>window.productVariantDefaultColorHex = ' . json_encode(product_variant_default_color_hex_map(), JSON_UNESCAPED_UNICODE) . ';</script>
 <script>window.panelProductsReadonly = false;</script>
 <script>
 (function() {

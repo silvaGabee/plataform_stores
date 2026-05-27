@@ -110,6 +110,11 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                             <input type="text" id="meus-addr-label" placeholder="Ex.: Casa, Trabalho" maxlength="120">
                         </div>
                         <div class="checkout-field">
+                            <label for="meus-addr-zipcode">CEP *</label>
+                            <input type="text" id="meus-addr-zipcode" required placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" maxlength="9">
+                            <p id="meus-addr-cep-status" class="cep-lookup-status" role="status" aria-live="polite"></p>
+                        </div>
+                        <div class="checkout-field">
                             <label for="meus-addr-street">Rua *</label>
                             <input type="text" id="meus-addr-street" required placeholder="Rua, avenida" autocomplete="street-address">
                         </div>
@@ -127,18 +132,14 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                             <label for="meus-addr-neighborhood">Bairro</label>
                             <input type="text" id="meus-addr-neighborhood" placeholder="Bairro">
                         </div>
-                        <div class="checkout-address-row checkout-address-row--triple">
+                        <div class="checkout-address-row checkout-address-row--double">
                             <div class="checkout-field">
                                 <label for="meus-addr-city">Cidade *</label>
                                 <input type="text" id="meus-addr-city" required placeholder="Cidade" autocomplete="address-level2">
                             </div>
                             <div class="checkout-field">
                                 <label for="meus-addr-state">UF *</label>
-                                <input type="text" id="meus-addr-state" required placeholder="SC" maxlength="2" autocomplete="address-level1">
-                            </div>
-                            <div class="checkout-field">
-                                <label for="meus-addr-zipcode">CEP *</label>
-                                <input type="text" id="meus-addr-zipcode" required placeholder="00000-000" autocomplete="postal-code">
+                                <input type="text" id="meus-addr-state" required placeholder="SC" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
                             </div>
                         </div>
                         <p id="meus-enderecos-form-msg" class="meus-enderecos-form-msg text-muted" role="status"></p>
@@ -158,6 +159,7 @@ $extra_js = '';
 if ($can_add_address) {
     $baseUrl = rtrim(base_url(), '/');
     $extra_js = '<script>window.BASE_URL = ' . json_encode($baseUrl) . ';</script>'
+        . '<script src="' . asset('js/cep-lookup.js') . '"></script>'
         . '<script src="' . asset('js/meus-enderecos.js') . '"></script>';
 }
 require __DIR__ . '/layout_store.php';

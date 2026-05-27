@@ -67,6 +67,8 @@ return [
     'GET /api/loja/{slug}/orders/{id}' => [OrderApiController::class, 'get'],
     'POST /api/loja/{slug}/orders' => [OrderApiController::class, 'create'],
     'POST /api/loja/{slug}/orders/{id}/delivery-stage' => [OrderApiController::class, 'updateDeliveryStage'],
+    'DELETE /api/loja/{slug}/orders/{id}/entregas' => [OrderApiController::class, 'deleteFromEntregas'],
+    'POST /api/loja/{slug}/orders/{id}/entregas/delete' => [OrderApiController::class, 'deleteFromEntregas'],
 
     'POST /api/loja/{slug}/payments' => [PaymentApiController::class, 'create'],
     'GET /api/loja/{slug}/payments/pending' => [PaymentApiController::class, 'listPending'],

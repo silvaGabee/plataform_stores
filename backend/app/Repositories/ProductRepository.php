@@ -42,15 +42,27 @@ class ProductRepository
 
     public function listByStoreAndCategory(int $storeId, int $categoryId, bool $onlyWithStock = false): array
     {
-        $sql = 'SELECT * FROM products WHERE store_id = ? AND vitrine_category_id = ?';
+        $sql = 'SELECT DISTINCT p.* FROM products p
+            INNER JOIN product_vitrine_categories pvc ON pvc.product_id = p.id
+            WHERE p.store_id = ? AND pvc.vitrine_category_id = ?';
         if ($onlyWithStock) {
-            $sql .= ' AND stock_quantity > 0';
+            $sql .= ' AND p.stock_quantity > 0';
         }
-        $sql .= ' ORDER BY name';
+        $sql .= ' ORDER BY p.name';
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([$storeId, $categoryId]);
 
         return $stmt->fetchAll() ?: [];
+    }
+
+    public function updateVitrineCategoryId(int $id, ?int $categoryId): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE products SET vitrine_category_id = ? WHERE id = ?');
+
+        return $stmt->execute([
+            $categoryId !== null && $categoryId > 0 ? $categoryId : null,
+            $id,
+        ]);
     }
 
     public function listLowStock(int $storeId): array

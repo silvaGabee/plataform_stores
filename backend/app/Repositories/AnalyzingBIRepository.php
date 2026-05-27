@@ -78,6 +78,51 @@ class AnalyzingBIRepository
     }
 
     /**
+     * Lucro por produto no período: (preço do item − custo do produto) × quantidade vendida.
+     *
+     * @return list<array{
+     *     product_id: int,
+     *     product_name: string,
+     *     quantidade_vendida: float,
+     *     custo_unitario: float,
+     *     preco_venda_medio: float,
+     *     lucro_total: float
+     * }>
+     */
+    public function fetchProductProfitByPeriod(int $storeId, ?string $fromDatetime, ?string $toDatetime): array
+    {
+        $sql = 'SELECT oi.product_id,
+            MAX(p.name) AS product_name,
+            SUM(oi.quantity) AS quantidade_vendida,
+            MAX(COALESCE(p.cost_price, 0)) AS custo_unitario,
+            CASE WHEN SUM(oi.quantity) > 0
+                THEN SUM(oi.quantity * oi.price) / SUM(oi.quantity)
+                ELSE 0 END AS preco_venda_medio,
+            SUM(oi.quantity * (oi.price - COALESCE(p.cost_price, 0))) AS lucro_total
+            FROM order_items oi
+            INNER JOIN orders o ON o.id = oi.order_id AND o.store_id = ? AND o.status = ?
+            INNER JOIN products p ON p.id = oi.product_id AND p.store_id = o.store_id
+            WHERE 1=1';
+        $params = [$storeId, 'pago'];
+        if ($fromDatetime !== null) {
+            $sql .= ' AND o.created_at >= ?';
+            $params[] = $fromDatetime;
+        }
+        if ($toDatetime !== null) {
+            $sql .= ' AND o.created_at <= ?';
+            $params[] = $toDatetime;
+        }
+        $sql .= ' GROUP BY oi.product_id
+            HAVING SUM(oi.quantity) > 0
+            ORDER BY lucro_total DESC, product_name ASC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Vendas por produto no mês atual vs mês anterior (quantidades).
      *
      * @return list<array{product_id: int, product_name: string, qty_curr: float, qty_prev: float}>

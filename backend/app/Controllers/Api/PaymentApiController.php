@@ -48,9 +48,29 @@ class PaymentApiController extends Controller
             $this->requireStorePanelAccess($storeId);
         }
         $method = $input['method'] ?? 'pix';
-        if (!in_array($method, ['pix', 'dinheiro', 'cartao'])) {
+        if (!in_array($method, ['pix', 'dinheiro', 'cartao'], true)) {
             $this->json(['error' => 'Método inválido'], 400);
             return;
+        }
+        if ($method === 'dinheiro' && $orderType !== 'pdv') {
+            $this->json(['error' => 'Pagamento em dinheiro não está disponível na loja online.'], 400);
+            return;
+        }
+        $cardMeta = null;
+        $autoConfirmCard = false;
+        $deliveryType = strtolower((string) ($order['delivery_type'] ?? 'retirada'));
+        if ($method === 'cartao' && $orderType !== 'pdv' && $deliveryType === 'entrega') {
+            try {
+                $cardMeta = card_validate_checkout_input(is_array($input['card'] ?? null) ? $input['card'] : null);
+            } catch (\InvalidArgumentException $e) {
+                $this->json(['error' => $e->getMessage()], 400);
+                return;
+            }
+            if ($cardMeta === null) {
+                $this->json(['error' => 'Informe os dados do cartão para concluir o pagamento.'], 400);
+                return;
+            }
+            $autoConfirmCard = true;
         }
         $amount = (float) $order['total'];
         $pixQr = null;
@@ -71,7 +91,10 @@ class PaymentApiController extends Controller
             }
         }
         try {
-            $payment = $this->orderService()->addPayment($orderId, $storeId, $method, $amount, $pixQr);
+            $payment = $this->orderService()->addPayment($orderId, $storeId, $method, $amount, $pixQr, $cardMeta);
+            if ($autoConfirmCard) {
+                $payment = $this->orderService()->confirmPayment((int) $payment['id'], $storeId);
+            }
             if ($pixManual !== null) {
                 $payment['pix_manual'] = $pixManual;
             }

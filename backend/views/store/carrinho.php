@@ -1,16 +1,6 @@
 <?php
-$cartItems = [];
-$productRepo = new \App\Repositories\ProductRepository();
-foreach ($cart as $productId => $qty) {
-    $p = $productRepo->findByIdAndStore($productId, $store['id']);
-    if ($p) {
-        $cartItems[] = ['product' => $p, 'quantity' => $qty];
-    }
-}
-$total = 0;
-foreach ($cartItems as $item) {
-    $total += $item['product']['sale_price'] * $item['quantity'];
-}
+require __DIR__ . '/_cart_items_build.php';
+$total = $cartTotal;
 ob_start();
 ?>
 <div class="store-subpage store-cart-page cart-page" data-store-id="<?= (int) $store['id'] ?>">
@@ -40,10 +30,15 @@ ob_start();
                                 $p = $item['product'];
                                 $sub = $p['sale_price'] * $item['quantity'];
                                 ?>
-                                <tr data-product-id="<?= $p['id'] ?>">
-                                    <td data-label="Produto"><?= htmlspecialchars($p['name']) ?></td>
+                                <tr data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">
+                                    <td data-label="Produto">
+                                        <?= htmlspecialchars($p['name']) ?>
+                                        <?php if (!empty($item['variant_label'])): ?>
+                                            <span class="cart-line-variant"><?= htmlspecialchars($item['variant_label']) ?></span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td data-label="Qtd">
-                                        <div class="cart-qty-control" data-max="<?= (int) $p['stock_quantity'] ?>">
+                                        <div class="cart-qty-control" data-max="<?= (int) $item['line_stock'] ?>">
                                             <button type="button" class="cart-qty-btn cart-qty-minus" aria-label="Diminuir">−</button>
                                             <span class="cart-qty-value"><?= $item['quantity'] ?></span>
                                             <button type="button" class="cart-qty-btn cart-qty-plus" aria-label="Aumentar">+</button>
@@ -52,7 +47,7 @@ ob_start();
                                     <td data-label="Preço">R$ <?= number_format($p['sale_price'], 2, ',', '.') ?></td>
                                     <td class="subtotal" data-label="Subtotal">R$ <?= number_format($sub, 2, ',', '.') ?></td>
                                     <td class="store-cart-actions" data-label="">
-                                        <button type="button" class="btn btn-sm btn-danger remove-from-cart" data-product-id="<?= $p['id'] ?>">Remover</button>
+                                        <button type="button" class="btn btn-sm btn-danger remove-from-cart" data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">Remover</button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

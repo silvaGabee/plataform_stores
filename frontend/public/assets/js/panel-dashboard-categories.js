@@ -70,17 +70,23 @@
           '<span class="vitrine-category-icon vitrine-category-icon--panel">' +
           '<img src="' +
           esc(c.icon_url) +
-          '" alt="" width="34" height="34" decoding="async" loading="lazy" referrerpolicy="no-referrer">' +
+          '" alt="" width="26" height="26" decoding="async" loading="lazy" referrerpolicy="no-referrer">' +
           '</span>' +
           del +
           '</div>' +
-          '<span class="dashboard-category-chip-name">' +
+          '<span class="dashboard-category-chip-name" title="' +
+          esc(c.name) +
+          '">' +
           esc(c.name) +
           '</span>' +
           '</li>'
         );
       })
       .join('');
+
+    if (typeof window.initHScrollMask === 'function') {
+      window.initHScrollMask(section);
+    }
 
     listEl.querySelectorAll('.dashboard-category-remove').forEach(function (btn) {
       btn.addEventListener('click', function () {

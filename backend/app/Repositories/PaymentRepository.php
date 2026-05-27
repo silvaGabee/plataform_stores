@@ -48,7 +48,8 @@ class PaymentRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO payments (order_id, store_id, method, status, amount, pix_qr_code) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO payments (order_id, store_id, method, status, amount, pix_qr_code, card_holder, card_last4, card_brand)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $data['order_id'],
@@ -57,6 +58,9 @@ class PaymentRepository
             $data['status'] ?? 'pendente',
             $data['amount'],
             $data['pix_qr_code'] ?? null,
+            $data['card_holder'] ?? null,
+            $data['card_last4'] ?? null,
+            $data['card_brand'] ?? null,
         ]);
         return (int) $this->pdo->lastInsertId();
     }
