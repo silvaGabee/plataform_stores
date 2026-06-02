@@ -118,4 +118,6 @@ return [
     'POST /api/ai/chat' => [AiController::class, 'chatGlobal'],
     'POST /api/loja/{slug}/ai/chat' => [AiController::class, 'chat'],
     'POST /api/loja/{slug}/ai/descricao-produto' => [AiController::class, 'descricaoProduto'],
+    'GET /api/loja/{slug}/ai/reports/last30' => [AiController::class, 'last30Report'],
+    'GET /api/loja/{slug}/ai/snapshot' => [AiController::class, 'storeSnapshot'],
 ];

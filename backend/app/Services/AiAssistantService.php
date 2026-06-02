@@ -212,8 +212,15 @@ class AiAssistantService
         }
         $today = date('Y-m-d');
         $weekStart = date('Y-m-d', strtotime('monday this week'));
+    $monthStart = date('Y-m-01');
+    $monthEnd = date('Y-m-t');
+    // últimos 30 dias (inclui hoje)
+    $last30Start = date('Y-m-d', strtotime('-29 days'));
+    $last30End = $today;
         $hojeRev = $this->reports->storeRevenueByType($storeId, $today, $today);
         $semRev = $this->reports->storeRevenueByType($storeId, $weekStart, $today);
+    $monthRev = $this->reports->storeRevenueByType($storeId, $monthStart, $monthEnd);
+    $last30Rev = $this->reports->storeRevenueByType($storeId, $last30Start, $last30End);
         $topSem = $this->reports->topProducts($storeId, $weekStart, $today, 5);
         $low = $this->reports->lowStockProducts($storeId);
         $pendentes = $this->contarPedidosPendentes($storeId);
@@ -222,8 +229,10 @@ class AiAssistantService
         $lines = [];
         $lines[] = 'Loja: ' . ($store['name'] ?? '');
         $lines[] = 'Categoria: ' . (string) ($store['category'] ?? '(não informada)');
-        $lines[] = 'Vendas hoje (pedidos pagos): ' . $this->fmtBrl($hojeRev['total']);
-        $lines[] = 'Vendas na semana (segunda a hoje, pedidos pagos): ' . $this->fmtBrl($semRev['total']);
+    $lines[] = 'Vendas hoje (pedidos pagos): ' . $this->fmtBrl($hojeRev['total']);
+    $lines[] = 'Vendas na semana (segunda a hoje, pedidos pagos): ' . $this->fmtBrl($semRev['total']);
+    $lines[] = 'Vendas no mês (pedidos pagos): ' . $this->fmtBrl($monthRev['total']);
+    $lines[] = 'Vendas últimos 30 dias (pedidos pagos): ' . $this->fmtBrl($last30Rev['total']);
         $lines[] = 'Produtos mais vendidos (semana): ' . $this->formatarTopProdutos($topSem);
         $lines[] = 'Pedidos pendentes (status pendente): ' . $pendentes;
         $lines[] = 'Produtos com estoque baixo: ' . count($low) . $this->nomesEstoqueBaixo($low);

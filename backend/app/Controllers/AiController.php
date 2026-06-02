@@ -84,4 +84,77 @@ class AiController extends Controller
             'descricao_completa' => $out['descricao_completa'],
         ]);
     }
+
+    /** GET /api/loja/{slug}/ai/reports/last30 */
+    public function last30Report(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireStorePanelAccess($storeId);
+        $service = new \App\Services\ReportService();
+        $end = date('Y-m-d');
+        $start = date('Y-m-d', strtotime('-29 days'));
+        $revenue = $service->storeRevenueByType($storeId, $start, $end);
+        $sales = $service->salesByPeriod($storeId, $start, $end);
+        $this->json([
+            'period_start' => $start,
+            'period_end' => $end,
+            'revenue' => $revenue['total'],
+            'revenue_fisico' => $revenue['revenue_fisico'],
+            'revenue_online' => $revenue['revenue_online'],
+            'daily' => $sales,
+        ]);
+    }
+
+    /** GET /api/loja/{slug}/ai/snapshot — retorna snapshot sanitizado da loja */
+    public function storeSnapshot(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireStorePanelAccess($storeId);
+        $pdo = \App\Database\Database::getConnection();
+
+        // Produtos (limitados)
+        $prodStmt = $pdo->prepare('SELECT id, name, sale_price, stock_quantity, min_stock FROM products WHERE store_id = ? ORDER BY name LIMIT 200');
+        $prodStmt->execute([$storeId]);
+        $products = $prodStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Usuários (sem senhas)
+        $userStmt = $pdo->prepare('SELECT id, name, email, user_type FROM users WHERE store_id = ? ORDER BY name LIMIT 200');
+        $userStmt->execute([$storeId]);
+        $users = $userStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Pedidos recentes (sem dados sensíveis)
+        $orderStmt = $pdo->prepare("SELECT id, customer_id, status, total, created_at FROM orders WHERE store_id = ? ORDER BY created_at DESC LIMIT 200");
+        $orderStmt->execute([$storeId]);
+        $orders = $orderStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Itens de pedido (para os pedidos retornados)
+        $orderIds = array_map(function($o){ return (int)$o['id']; }, $orders);
+        $items = [];
+        if (!empty($orderIds)) {
+            $in = implode(',', array_fill(0, count($orderIds), '?'));
+            $itStmt = $pdo->prepare("SELECT oi.order_id, oi.product_id, oi.quantity, oi.price, p.name as product_name FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id IN ($in)");
+            $itStmt->execute($orderIds);
+            $items = $itStmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+
+        // Pagamentos (sem campos sensíveis)
+        $payStmt = $pdo->prepare('SELECT id, order_id, method, status, amount, card_brand, card_last4 FROM payments WHERE store_id = ? ORDER BY created_at DESC LIMIT 200');
+        $payStmt->execute([$storeId]);
+        $payments = $payStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $this->json([
+            'store_id' => $storeId,
+            'products' => $products,
+            'users' => $users,
+            'orders' => $orders,
+            'order_items' => $items,
+            'payments' => $payments,
+        ]);
+    }
 }
