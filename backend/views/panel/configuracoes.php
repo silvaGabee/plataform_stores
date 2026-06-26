@@ -55,6 +55,116 @@ $content = ob_start();
             </div>
         </section>
 
+        <section id="config-store-background-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-background-title">
+            <div class="panel-section-head">
+                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3v18 M3 12h18') ?></span>
+                <div class="panel-section-head-text">
+                    <h2 id="config-store-background-title" class="panel-section-title">Cor de fundo da vitrine</h2>
+                    <p class="panel-section-desc">Cor de fundo que será aplicada na vitrine pública da loja.</p>
+                </div>
+            </div>
+            <div class="panel-section-body panel-config-card-body">
+                <form id="config-store-background-form" class="panel-config-form">
+                    <div class="panel-config-field panel-config-field--narrow">
+                        <label for="config-store-background-color-input">Cor</label>
+                        <div class="panel-color-chooser" data-target="config-store-background-color-input" data-large-grid="true">
+                            <input type="hidden" id="config-store-background-color-input" name="background_color" value="<?= htmlspecialchars($store['background_color'] ?? '#ffffff') ?>">
+                            <button type="button" id="config-store-background-color-trigger" class="panel-color-trigger" aria-label="Selecionar cor de fundo" style="background: <?= htmlspecialchars($store['background_color'] ?? '#ffffff') ?>"></button>
+                            <div class="panel-color-palette" aria-hidden="true">
+                                <!-- small defaults (kept for quick picks) -->
+                                <button type="button" class="panel-color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#000000" style="background:#000000"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff385c" style="background:#ff385c"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff8a00" style="background:#ff8a00"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ffd400" style="background:#ffd400"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#06b6d4" style="background:#06b6d4"></button>
+                            </div>
+                                <div class="panel-color-advanced hidden" aria-hidden="true">
+                                <input type="text" class="panel-color-hex-input" placeholder="#RRGGBB">
+                                <div class="panel-color-rgb">
+                                    <label>R <input type="range" min="0" max="255" class="panel-color-r panel-color-range"></label>
+                                    <label>G <input type="range" min="0" max="255" class="panel-color-g panel-color-range"></label>
+                                    <label>B <input type="range" min="0" max="255" class="panel-color-b panel-color-range"></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-config-actions">
+                        <button type="submit" class="btn btn-primary btn-sm" id="config-store-background-save">Alterar cor</button>
+                    </div>
+                </form>
+                <p id="config-store-background-msg" class="panel-form-msg panel-config-feedback" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section id="config-store-appearance-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-appearance-title">
+            <div class="panel-section-head">
+                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3v18 M3 12h18') ?></span>
+                <div class="panel-section-head-text">
+                    <h2 id="config-store-appearance-title" class="panel-section-title">Aparência da vitrine</h2>
+                    <p class="panel-section-desc">Personalize a cor de fundo das categorias e o fundo do banner (se houver).</p>
+                </div>
+            </div>
+            <div class="panel-section-body panel-config-card-body">
+                <form id="config-store-appearance-form" class="panel-config-form">
+                    <div class="panel-config-field panel-config-field--narrow">
+                        <label for="config-store-categories-color-input">Cor das categorias</label>
+                        <div class="panel-color-chooser" data-target="config-store-categories-color-input" data-large-grid="true">
+                            <input type="hidden" id="config-store-categories-color-input" name="categories_background_color" value="<?= htmlspecialchars(trim((string) ($appearanceInitial['categories_background_color'] ?? ''))) ?>">
+                            <button type="button" id="config-store-categories-color-trigger" class="panel-color-trigger" aria-label="Selecionar cor das categorias" style="background: <?= htmlspecialchars(trim((string) ($appearanceInitial['categories_background_color'] ?? '#ffffff'))); ?>"></button>
+                            <div class="panel-color-palette" aria-hidden="true">
+                                <button type="button" class="panel-color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#000000" style="background:#000000"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff385c" style="background:#ff385c"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff8a00" style="background:#ff8a00"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ffd400" style="background:#ffd400"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#06b6d4" style="background:#06b6d4"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#10b981" style="background:#10b981"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#7c3aed" style="background:#7c3aed"></button>
+                            </div>
+                            <div class="panel-color-advanced hidden" aria-hidden="true">
+                                <input type="text" class="panel-color-hex-input" placeholder="#RRGGBB">
+                                <div class="panel-color-rgb">
+                                    <label>R <input type="range" min="0" max="255" class="panel-color-r panel-color-range"></label>
+                                    <label>G <input type="range" min="0" max="255" class="panel-color-g panel-color-range"></label>
+                                    <label>B <input type="range" min="0" max="255" class="panel-color-b panel-color-range"></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-config-field panel-config-field--narrow">
+                        <label for="config-store-banner-bg-color-input">Cor do fundo do banner</label>
+                        <div class="panel-color-chooser" data-target="config-store-banner-bg-color-input" data-large-grid="true">
+                            <input type="hidden" id="config-store-banner-bg-color-input" name="banner_background_color" value="<?= htmlspecialchars(trim((string) ($appearanceInitial['banner_background_color'] ?? ''))) ?>">
+                            <button type="button" id="config-store-banner-bg-color-trigger" class="panel-color-trigger" aria-label="Selecionar cor do fundo do banner" style="background: <?= htmlspecialchars(trim((string) ($appearanceInitial['banner_background_color'] ?? '#ffffff'))); ?>"></button>
+                            <div class="panel-color-palette" aria-hidden="true">
+                                <button type="button" class="panel-color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#000000" style="background:#000000"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff385c" style="background:#ff385c"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ff8a00" style="background:#ff8a00"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#ffd400" style="background:#ffd400"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#06b6d4" style="background:#06b6d4"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#10b981" style="background:#10b981"></button>
+                                <button type="button" class="panel-color-swatch" data-color="#7c3aed" style="background:#7c3aed"></button>
+                            </div>
+                            <div class="panel-color-advanced hidden" aria-hidden="true">
+                                <input type="text" class="panel-color-hex-input" placeholder="#RRGGBB">
+                                <div class="panel-color-rgb">
+                                    <label>R <input type="range" min="0" max="255" class="panel-color-r panel-color-range"></label>
+                                    <label>G <input type="range" min="0" max="255" class="panel-color-g panel-color-range"></label>
+                                    <label>B <input type="range" min="0" max="255" class="panel-color-b panel-color-range"></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-config-actions">
+                        <button type="submit" class="btn btn-primary btn-sm" id="config-store-appearance-save">Alterar aparência</button>
+                    </div>
+                </form>
+                <p id="config-store-appearance-msg" class="panel-form-msg panel-config-feedback" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
         <section id="config-store-photo-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-photo-title">
             <div class="panel-section-head">
                 <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M4 5h16v14H4z M9 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z M20 15l-4-4-3 3-2-2-5 5') ?></span>
@@ -135,5 +245,14 @@ $content = ob_start();
 </div>
 <?php
 $content = ob_get_clean();
-$extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . '; const storeNameInitial = ' . json_encode($store['name']) . '; const storeSloganInitial = ' . json_encode(trim((string) ($store['slogan'] ?? ''))) . ';</script><script src="' . asset('js/panel-configuracoes.js') . '"></script>';
+// load existing appearance settings (categories/banner) from dashboard config
+$appearanceInitial = [];
+try {
+    $cfgRepo = new \App\Repositories\StoreDashboardConfigRepository();
+    $appearanceInitial = $cfgRepo->getConfig((int) ($store['id'] ?? 0))['appearance'] ?? [];
+} catch (\Throwable $e) {
+    $appearanceInitial = [];
+}
+
+$extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . '; const storeNameInitial = ' . json_encode($store['name']) . '; const storeSloganInitial = ' . json_encode(trim((string) ($store['slogan'] ?? ''))) . '; const storeBackgroundColorInitial = ' . json_encode(trim((string) ($store['background_color'] ?? ''))) . '; const storeAppearanceInitial = ' . json_encode($appearanceInitial) . ';</script><script src="' . asset('js/panel-configuracoes.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';

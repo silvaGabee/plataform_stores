@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Repositories;
 
 use App\Database\Database;
@@ -109,4 +108,11 @@ class StoreRepository
         $stmt = $this->pdo->prepare('UPDATE stores SET slogan = ? WHERE id = ?');
         return $stmt->execute([$slogan, $id]);
     }
+
+    public function updateBackgroundColor(int $id, ?string $color): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET background_color = ? WHERE id = ?');
+        return $stmt->execute([$color, $id]);
+    }
 }
+

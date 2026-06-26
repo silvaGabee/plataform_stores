@@ -33,6 +33,33 @@ class StoreDashboardConfigRepository
         return $row;
     }
 
+    /**
+     * Return full decoded config (associative array) from widgets_config column.
+     */
+    public function getConfig(int $storeId): array
+    {
+        $stmt = $this->pdo->prepare("SELECT widgets_config FROM store_dashboard_config WHERE store_id = ?");
+        $stmt->execute([$storeId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['widgets_config'])) {
+            return [];
+        }
+        $cfg = json_decode($row['widgets_config'], true);
+        return is_array($cfg) ? $cfg : [];
+    }
+
+    /**
+     * Save full config array into widgets_config column (upsert).
+     */
+    public function setConfig(int $storeId, array $config): void
+    {
+        $json = json_encode($config, JSON_UNESCAPED_UNICODE);
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO store_dashboard_config (store_id, widgets_config) VALUES (?, ?)\n             ON DUPLICATE KEY UPDATE widgets_config = VALUES(widgets_config)"
+        );
+        $stmt->execute([$storeId, $json]);
+    }
+
     public function setWidgets(int $storeId, array $widgets): void
     {
         $json = json_encode($widgets, JSON_UNESCAPED_UNICODE);

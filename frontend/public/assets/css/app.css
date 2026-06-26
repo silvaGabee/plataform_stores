@@ -1395,6 +1395,16 @@ html[data-theme="light"] .store-header {
   transition: opacity 0.2s;
   min-width: 0;
 }
+
+/* When a store defines a custom background color, make header/footer transparent
+   so the color shows across the entire storefront. */
+.store-front.store-custom-bg .store-header,
+.store-front.store-custom-bg .store-footer {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
 .store-brand:hover { opacity: 0.92; }
 .store-brand-icon {
   display: block;
@@ -2087,6 +2097,26 @@ html[data-theme="light"] .panel-link:hover {
   flex-direction: column;
   min-height: 0;
 }
+
+/* Use store-defined appearance variables when present */
+.store-vitrine-categories-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Make the categories section full-bleed when a store sets a categories background */
+.store-vitrine-categories-wrap {
+  background-color: var(--store-categories-bg, transparent);
+  width: 100%;
+  display: block;
+  padding: 0.9rem 0;
+}
+
+.store-vitrine-banner-frame {
+  background-color: var(--store-banner-bg, transparent);
+}
+.store-vitrine-banner-img { display: block; width: 100%; height: auto; }
 .store-vitrine-hero {
   position: relative;
   padding: 2.75rem 0 3.25rem;
@@ -2206,15 +2236,32 @@ html[data-theme="light"] .panel-link:hover {
   position: relative;
   aspect-ratio: 15 / 4;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 0;
   line-height: 0;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 /* Vitrine: faixa quase a toda a largura do ecrã */
 .store-vitrine-banner-frame {
   width: 100%;
   max-height: none;
   margin: 0;
+}
+
+/* When a store sets a custom background, remove banner rounding and border */
+.store-front.store-custom-bg .store-vitrine-banner-frame {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+/* Remove padding and gutter on the wrap so no background or border appears */
+.store-front.store-custom-bg .store-vitrine-banner-wrap {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
 }
 /* Painel: pré-visualização compacta, mesma proporção */
 .dashboard-banner-preview-frame {
@@ -2252,6 +2299,111 @@ html[data-theme="light"] .dashboard-banner-preview-frame {
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
   flex-shrink: 0;
 }
+
+/* Panel color chooser styles */
+.panel-color-chooser{
+  display:flex;
+  align-items:center;
+  gap:0.75rem;
+}
+.panel-color-trigger{
+  width:2.4rem;
+  height:2.4rem;
+  border-radius:100px;
+  border:1px solid rgba(255,255,255,0.14);
+  box-shadow:0 10px 25px rgba(0,0,0,0.12);
+  cursor:pointer;
+  transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.panel-color-trigger:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,0.24);
+}
+.panel-color-palette{
+  display:none;
+  gap:0.35rem;
+  align-items:center;
+}
+.panel-color-chooser:focus-within .panel-color-palette{
+  display:flex;
+}
+.panel-color-swatch{
+  width:24px;
+  height:24px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.12);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,0.08);
+  cursor:pointer;
+  padding:0;
+  transition:border-color .18s ease, transform .18s ease;
+}
+.panel-color-swatch:hover,
+.panel-color-swatch.is-selected{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,0.36);
+}
+.panel-color-advanced{
+  display:flex;
+  flex-direction:column;
+  gap:0.75rem;
+  margin-top:1rem;
+  padding-top:1rem;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.panel-color-advanced .panel-color-hex-input{
+  width:100%;
+  min-width:180px;
+  padding:0.85rem 0.9rem;
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:14px;
+  background:rgba(255,255,255,0.06);
+  color:inherit;
+}
+.panel-color-rgb{
+  display:grid;
+  gap:0.65rem;
+}
+.panel-color-rgb label{
+  display:flex;
+  align-items:center;
+  gap:0.5rem;
+  font-size:0.82rem;
+  color:var(--text-muted);
+}
+.panel-color-range{
+  width:100%;
+}
+.panel-color-advanced.hidden{display:none}
+
+/* Large color card */
+.panel-color-card{
+  min-width:340px;
+  max-width:420px;
+  padding:18px;
+  border-radius:22px;
+  background:rgba(15,23,42,0.96);
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 30px 80px rgba(0,0,0,0.28);
+  backdrop-filter:blur(14px);
+}
+.panel-color-card-grid{
+  padding:6px;
+  display:grid;
+  grid-template-columns:repeat(10, minmax(0,1fr));
+  gap:7px;
+}
+.panel-color-card-swatch{
+  width:100%;
+  aspect-ratio:1;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.08);
+}
+.panel-color-card-swatch:hover{
+  transform:translateY(-1px);
+}
+.panel-color-card-adv{
+  display:none;
+}
 .vitrine-category-icon img {
   width: var(--vitrine-cat-icon-img);
   height: var(--vitrine-cat-icon-img);
@@ -2288,6 +2440,12 @@ html[data-theme="light"] .dashboard-banner-preview-frame {
 html[data-theme="light"] .store-vitrine-categories-wrap {
   background: linear-gradient(180deg, #f1f5f9 0%, #e8eef5 100%);
   border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+/* Force categories background when store has chosen a custom color */
+.store-front.store-custom-bg .store-vitrine-categories-wrap {
+  background: var(--store-categories-bg, transparent) !important;
+  border-bottom: none !important;
 }
 .store-vitrine-categories-inner {
   position: relative;
@@ -3569,13 +3727,26 @@ html[data-theme="light"] .store-vitrine-category-name {
 }
 @media (min-width: 900px) {
   .product-detail--v2 {
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-    gap: 3rem;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+    gap: 2.5rem;
     align-items: start;
   }
 }
 .product-detail-gallery {
   min-width: 0;
+  max-width: 750px;
+  margin: 0 auto;
+}
+.product-gallery-carousel {
+  max-width: 750px;
+  width: 100%;
+  margin: 0 auto;
+}
+.product-gallery-carousel--v2 .carousel-slide {
+  min-height: 0;
+}
+.product-gallery-carousel--v2 .carousel-slide img {
+  max-height: 420px;
 }
 .product-gallery-grid {
   display: grid;
@@ -4018,16 +4189,15 @@ html[data-theme="light"] .store-vitrine-category-name {
 .product-gallery-placeholder { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.9rem; border-radius: 20px; border: 1px dashed var(--border); }
 .product-gallery-img { width: 100%; max-height: 360px; object-fit: contain; display: block; }
 .product-gallery-carousel { position: relative; max-width: 100%; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); }
+.product-gallery-carousel--v2 .carousel-track { display: flex; transition: transform 0.35s ease; will-change: transform; }
+.product-gallery-carousel .carousel-slide { flex: 0 0 100%; width: 100%; }
 .product-gallery-carousel--v2 .carousel-slide img {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
+  object-fit: contain;
   max-height: none;
   display: block;
 }
-.product-gallery-carousel .carousel-track { display: flex; transition: transform 0.3s ease; }
-.product-gallery-carousel .carousel-slide { flex: 0 0 100%; }
-.product-gallery-carousel .carousel-slide img { width: 100%; max-height: 360px; object-fit: contain; display: block; }
 .product-gallery-carousel .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: none; border-radius: 50%; background: rgba(0,0,0,.5); color: #fff; font-size: 1.5rem; cursor: pointer; z-index: 2; line-height: 1; padding: 0; }
 .product-gallery-carousel .carousel-btn:hover { background: rgba(0,0,0,.7); }
 .product-gallery-carousel .carousel-prev { left: 8px; }

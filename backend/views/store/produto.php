@@ -32,23 +32,27 @@ $content = ob_start();
                     <div class="product-gallery-placeholder">Sem foto</div>
                 </div>
             <?php else: ?>
-                <div class="product-gallery-grid" id="product-gallery-grid" role="region" aria-label="Fotos do produto">
-                    <?php foreach ($images as $i => $img): ?>
-                        <figure class="product-gallery-cell<?= ($cover && (int) ($img['id'] ?? 0) === (int) ($cover['id'] ?? -1)) || ($i === 0 && !$cover) ? ' product-gallery-cell--cover' : '' ?>">
-                            <img
-                                src="<?= htmlspecialchars($img['url']) ?>"
-                                alt="<?= htmlspecialchars($product['name']) ?> — foto <?= $i + 1 ?>"
-                                loading="<?= $i < 2 ? 'eager' : 'lazy' ?>"
-                                decoding="async">
-                        </figure>
-                    <?php endforeach; ?>
-                </div>
-                <?php if (count($images) > 1): ?>
-                    <div class="product-gallery-mobile-ui" id="product-gallery-mobile-ui" aria-hidden="true">
-                        <div class="product-gallery-dots" id="product-gallery-dots" role="tablist" aria-label="Ir para foto"></div>
-                        <p class="product-gallery-counter" id="product-gallery-counter" aria-live="polite"></p>
+                <div class="product-gallery-carousel product-gallery-carousel--v2" id="product-gallery-carousel" role="region" aria-label="Fotos do produto">
+                    <div class="carousel-track">
+                        <?php foreach ($images as $i => $img): ?>
+                            <figure class="carousel-slide product-gallery-cell<?= ($cover && (int) ($img['id'] ?? 0) === (int) ($cover['id'] ?? -1)) || ($i === 0 && !$cover) ? ' product-gallery-cell--cover' : '' ?>">
+                                <img
+                                    src="<?= htmlspecialchars($img['url']) ?>"
+                                    alt="<?= htmlspecialchars($product['name']) ?> — foto <?= $i + 1 ?>"
+                                    loading="<?= $i < 2 ? 'eager' : 'lazy' ?>"
+                                    decoding="async">
+                            </figure>
+                        <?php endforeach; ?>
                     </div>
-                <?php endif; ?>
+                    <?php if (count($images) > 1): ?>
+                        <button type="button" class="carousel-btn carousel-prev" id="product-gallery-prev" aria-label="Foto anterior">‹</button>
+                        <button type="button" class="carousel-btn carousel-next" id="product-gallery-next" aria-label="Próxima foto">›</button>
+                        <div class="product-gallery-mobile-ui" id="product-gallery-mobile-ui" aria-label="Controle de fotos">
+                            <div class="product-gallery-dots" id="product-gallery-dots" role="tablist" aria-label="Ir para foto"></div>
+                            <p class="product-gallery-counter" id="product-gallery-counter" aria-live="polite"></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
         </div>
 

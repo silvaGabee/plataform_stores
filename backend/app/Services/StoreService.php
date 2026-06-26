@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\StoreRepository;
 use App\Repositories\StorePixConfigRepository;
 use App\Repositories\UserRepository;
+use App\Repositories\StoreDashboardConfigRepository;
 
 class StoreService
 {
@@ -119,5 +120,51 @@ class StoreService
         }
         $updated = $this->storeRepo->find($storeId);
         return $updated ?: array_merge($store, ['slogan' => $value]);
+    }
+
+    public function updateStoreBackgroundColor(int $storeId, ?string $color): array
+    {
+        $color = trim((string) $color);
+        if ($color !== '' && !preg_match('/^#[0-9A-Fa-f]{6}$/', $color)) {
+            throw new \InvalidArgumentException('Informe uma cor em formato hexadecimal válido: #RRGGBB.');
+        }
+        $store = $this->storeRepo->find($storeId);
+        if (!$store) {
+            throw new \InvalidArgumentException('Loja não encontrada.');
+        }
+        $value = $color === '' ? null : $color;
+        if (! $this->storeRepo->updateBackgroundColor($storeId, $value)) {
+            throw new \RuntimeException('Não foi possível guardar a cor de fundo.');
+        }
+        $updated = $this->storeRepo->find($storeId);
+        return $updated ?: array_merge($store, ['background_color' => $value]);
+    }
+
+    /**
+     * Update appearance settings (categories/banner colors) stored in dashboard config.
+     * Returns the saved appearance array.
+     */
+    public function updateStoreAppearance(int $storeId, array $appearance): array
+    {
+        $store = $this->storeRepo->find($storeId);
+        if (!$store) {
+            throw new \InvalidArgumentException('Loja não encontrada.');
+        }
+        $repo = new StoreDashboardConfigRepository();
+        $cfg = $repo->getConfig($storeId);
+        if (!is_array($cfg)) $cfg = [];
+        $cfg['appearance'] = $cfg['appearance'] ?? [];
+        // validate hex colors (allow empty to unset)
+        foreach (['categories_background_color', 'banner_background_color'] as $k) {
+            if (array_key_exists($k, $appearance)) {
+                $val = trim((string) ($appearance[$k] ?? ''));
+                if ($val !== '' && !preg_match('/^#[0-9A-Fa-f]{6}$/', $val)) {
+                    throw new \InvalidArgumentException('Cor inválida para ' . $k . '. Use #RRGGBB.');
+                }
+                $cfg['appearance'][$k] = $val === '' ? null : $val;
+            }
+        }
+        $repo->setConfig($storeId, $cfg);
+        return $cfg['appearance'];
     }
 }

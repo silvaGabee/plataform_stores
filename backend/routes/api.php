@@ -30,6 +30,8 @@ return [
     'POST /api/loja/{slug}/store/delete' => [StoreApiController::class, 'deleteStore'],
     'POST /api/loja/{slug}/store/name' => [StoreApiController::class, 'updateStoreName'],
     'POST /api/loja/{slug}/store/slogan' => [StoreApiController::class, 'updateStoreSlogan'],
+    'POST /api/loja/{slug}/store/background-color' => [StoreApiController::class, 'updateStoreBackgroundColor'],
+    'POST /api/loja/{slug}/store/appearance' => [StoreApiController::class, 'updateStoreAppearance'],
     'GET /api/loja/{slug}/pix-config' => [StoreApiController::class, 'getPixConfig'],
     'POST /api/loja/{slug}/pix-config' => [StoreApiController::class, 'updatePixConfig'],
     'GET /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'getDashboardConfig'],

@@ -306,6 +306,67 @@ class StoreApiController extends Controller
         }
     }
 
+    public function updateStoreBackgroundColor(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireGerenteOfStore($storeId);
+        $input = $this->getJsonInput();
+        $color = isset($input['background_color']) ? (string) $input['background_color'] : '';
+        $service = new StoreService(
+            new StoreRepository(),
+            new StorePixConfigRepository(),
+            new UserRepository()
+        );
+        try {
+            $store = $service->updateStoreBackgroundColor($storeId, $color);
+            $saved = trim((string) ($store['background_color'] ?? ''));
+            $this->json([
+                'success' => true,
+                'background_color' => $saved,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            $this->json(['error' => 'Não foi possível guardar a cor de fundo.'], 500);
+        }
+    }
+
+    /**
+     * POST JSON: { "appearance": { "categories_background_color": "#RRGGBB", "banner_background_color": "#RRGGBB" } }
+     * Saves appearance settings (categories and banner background colors) for the store.
+     */
+    public function updateStoreAppearance(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->requireGerenteOfStore($storeId);
+        $input = $this->getJsonInput();
+        $appearance = isset($input['appearance']) && is_array($input['appearance']) ? $input['appearance'] : [];
+        $service = new StoreService(
+            new StoreRepository(),
+            new StorePixConfigRepository(),
+            new UserRepository()
+        );
+        try {
+            $saved = $service->updateStoreAppearance($storeId, $appearance);
+            $this->json([
+                'success' => true,
+                'appearance' => $saved,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            $this->json(['error' => 'Não foi possível guardar as configurações de aparência.'], 500);
+        }
+    }
+
     /**
      * Exclui a loja e todos os dados vinculados (irreversível). Apenas gerente.
      * Corpo JSON: { "confirmation": "Excluir" } (texto exato).

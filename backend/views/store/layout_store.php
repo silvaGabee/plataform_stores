@@ -10,7 +10,32 @@
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
 </head>
-<body class="store-front">
+<?php
+$storeBackgroundColor = (isset($store['background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $store['background_color'])) ? $store['background_color'] : null;
+$storeCategoriesBg = null;
+$storeBannerBg = null;
+try {
+    $cfgRepo = new \App\Repositories\StoreDashboardConfigRepository();
+    $cfg = $cfgRepo->getConfig((int) ($store['id'] ?? 0));
+    if (!empty($cfg['appearance']) && is_array($cfg['appearance'])) {
+        $storeCategoriesBg = isset($cfg['appearance']['categories_background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $cfg['appearance']['categories_background_color']) ? $cfg['appearance']['categories_background_color'] : null;
+        $storeBannerBg = isset($cfg['appearance']['banner_background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $cfg['appearance']['banner_background_color']) ? $cfg['appearance']['banner_background_color'] : null;
+    }
+} catch (\Throwable $e) {
+    // ignore
+}
+$bodyStyle = '';
+if ($storeBackgroundColor) {
+    $bodyStyle .= 'background-color: ' . htmlspecialchars($storeBackgroundColor, ENT_QUOTES, 'UTF-8') . ';';
+}
+if ($storeCategoriesBg) {
+    $bodyStyle .= " --store-categories-bg: " . htmlspecialchars($storeCategoriesBg, ENT_QUOTES, 'UTF-8') . ";";
+}
+if ($storeBannerBg) {
+    $bodyStyle .= " --store-banner-bg: " . htmlspecialchars($storeBannerBg, ENT_QUOTES, 'UTF-8') . ";";
+}
+?>
+<body class="store-front<?= $storeBackgroundColor ? ' store-custom-bg' : '' ?>"<?= $bodyStyle ? ' style="' . $bodyStyle . '"' : '' ?>>
     <?php $storeSlogan = trim((string) ($store['slogan'] ?? '')); ?>
     <header class="store-header">
         <div class="container store-header-inner">
