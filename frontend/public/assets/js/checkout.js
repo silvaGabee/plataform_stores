@@ -40,6 +40,8 @@
   }
 
   var lastCreatedAddressId = null;
+  // Token do pedido recém-criado, usado para montar o link do comprovante.
+  var lastOrderToken = null;
 
   function getBaseUrl() {
     var base = (typeof window.BASE_URL !== 'undefined' && window.BASE_URL) ? String(window.BASE_URL) : '';
@@ -341,18 +343,15 @@
     hideNewAddressForm();
   }
 
-  function loadAddresses(email) {
+  // Sem parâmetro de e-mail: o servidor devolve os endereços da conta logada.
+  // O checkout exige login, então não há mais o caso "e-mail não informado".
+  function loadAddresses() {
     if (!addressSelect) return Promise.resolve({ addresses: [] });
-    email = (email || '').trim();
-    if (!email) {
-      renderAddressUi([], true);
-      return Promise.resolve({ addresses: [] });
-    }
     addressSelect.innerHTML = '<option value="">Carregando endereços...</option>';
     if (addressPicker) addressPicker.classList.remove('hidden');
     if (addressEmpty) addressEmpty.classList.add('hidden');
     hideNewAddressForm();
-    var url = 'api/loja/' + encodeURIComponent(storeSlug) + '/checkout/addresses?email=' + encodeURIComponent(email);
+    var url = 'api/loja/' + encodeURIComponent(storeSlug) + '/checkout/addresses';
     return api(url).then(function (res) {
       var list = res.addresses || [];
       renderAddressUi(list, false);
@@ -370,8 +369,7 @@
         showAddressBlock(isEntrega);
         updateCardBlockVisibility();
         if (isEntrega) {
-          var email = form.customer_email.value.trim();
-          loadAddresses(email);
+          loadAddresses();
         }
       });
     });
@@ -434,21 +432,9 @@
     });
   }
 
-  if (form.customer_email) {
-    form.customer_email.addEventListener('blur', function () {
-      if (getDeliveryType() === 'entrega') loadAddresses(form.customer_email.value.trim());
-    });
-  }
-
   function bindAddAddress(btn) {
     if (!btn) return;
     btn.addEventListener('click', function () {
-      var email = form.customer_email.value.trim();
-      if (!email) {
-        alert('Informe o e-mail acima para cadastrar um endereço.');
-        form.customer_email.focus();
-        return;
-      }
       showNewAddressForm();
     });
   }
@@ -464,12 +450,6 @@
 
   if (saveAddressBtn && addressForm) {
     saveAddressBtn.addEventListener('click', function () {
-      var email = form.customer_email.value.trim();
-      var name = form.customer_name.value.trim();
-      if (!email) {
-        alert('Informe o e-mail acima.');
-        return;
-      }
       var street = document.getElementById('addr-street') && document.getElementById('addr-street').value.trim();
       var number = document.getElementById('addr-number') && document.getElementById('addr-number').value.trim();
       var city = document.getElementById('addr-city') && document.getElementById('addr-city').value.trim();
@@ -483,8 +463,6 @@
       var saveLabel = saveAddressBtn.textContent;
       saveAddressBtn.textContent = 'Salvando...';
       var payload = {
-        email: email,
-        customer_name: name,
         street: street,
         number: number,
         complement: (document.getElementById('addr-complement') && document.getElementById('addr-complement').value.trim()) || '',
@@ -500,7 +478,7 @@
         if (res.address) {
           lastCreatedAddressId = res.address.id;
         }
-        return loadAddresses(email);
+        return loadAddresses();
       }).then(function () {
         saveAddressBtn.disabled = false;
         saveAddressBtn.textContent = saveLabel || 'Salvar e usar este endereço';
@@ -546,10 +524,10 @@
       if (btnLabel) btnLabel.textContent = 'Processando...';
       else btn.textContent = 'Processando...';
     }
+    // customer_name/customer_email saíram do corpo: o servidor usa a sessão.
+    // Enquanto vinham daqui, dava para lançar pedido no nome de outra pessoa.
     var payload = {
       order_type: 'online',
-      customer_name: name,
-      customer_email: email,
       delivery_type: deliveryType,
       items: cartData
     };
@@ -580,6 +558,7 @@
         return;
       }
       var order = res.order;
+      lastOrderToken = order.access_token || null;
       var payBody = { order_id: order.id, method: method };
       if (method === 'cartao' && deliveryType === 'entrega') {
         payBody.card = getCardPayload();
@@ -689,7 +668,14 @@
     var redirect = function () {
       clearLocalCart();
       if (orderId) {
-        window.location.href = getBaseUrl() + '/loja/' + storeSlug + '/pedido/' + orderId;
+        // O token acompanha o link do comprovante: é o que deixa a pessoa
+        // rever o pedido depois, sem que ids sequenciais exponham os pedidos
+        // dos outros.
+        var url = getBaseUrl() + '/loja/' + storeSlug + '/pedido/' + orderId;
+        if (lastOrderToken) {
+          url += '?t=' + encodeURIComponent(lastOrderToken);
+        }
+        window.location.href = url;
       }
     };
     api('api/loja/' + storeSlug + '/cart/clear', { method: 'POST' })

@@ -147,24 +147,19 @@ class OrderApiController extends Controller
         $orderType = $input['order_type'] ?? 'online';
         if ($orderType === 'pdv') {
             $this->requireStorePanelAccess($storeId);
+            // No PDV quem escolhe o cliente é o operador autenticado.
+            $customerId = (int) ($input['customer_id'] ?? 0);
+        } else {
+            // Compra pela vitrine: o cliente é sempre quem está logado.
+            //
+            // Antes, customer_id e customer_email vinham do corpo da requisição
+            // — dava para lançar pedido no nome de qualquer pessoa, e um e-mail
+            // desconhecido criava uma conta silenciosamente. Os dois campos
+            // agora são ignorados.
+            $me = $this->requireLogin();
+            $customerId = (int) $me['id'];
         }
         $items = $input['items'] ?? [];
-        $customerId = (int) ($input['customer_id'] ?? $_SESSION['user_id'] ?? 0);
-        if ($orderType === 'online' && !$customerId && !empty($input['customer_email'])) {
-            $userRepo = new UserRepository();
-            $user = $userRepo->findByEmailAndStore($input['customer_email'], $storeId);
-            if (!$user) {
-                $customerId = $userRepo->create([
-                    'store_id'   => $storeId,
-                    'name'       => $input['customer_name'] ?? 'Cliente',
-                    'email'      => $input['customer_email'],
-                    'password'   => password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT),
-                    'user_type'  => 'cliente',
-                ]);
-            } else {
-                $customerId = (int) $user['id'];
-            }
-        }
         $createdBy = $this->resolveOrderCreatedBy($storeId, $orderType);
         $deliveryType = isset($input['delivery_type']) ? strtolower(trim($input['delivery_type'])) : 'retirada';
         if (!in_array($deliveryType, ['retirada', 'entrega'], true)) {
@@ -177,7 +172,8 @@ class OrderApiController extends Controller
                 return;
             }
             $addrRepo = new UserAddressRepository();
-            if (!$addrRepo->belongsToUser($addressId, $customerId)) {
+            $ownerIds = $orderType === 'pdv' ? [$customerId] : $this->currentUserIdentityIds();
+            if (!$addrRepo->belongsToAnyUser($addressId, $ownerIds)) {
                 $this->json(['error' => 'Endereço inválido para este cliente.'], 400);
                 return;
             }
@@ -188,8 +184,8 @@ class OrderApiController extends Controller
             $this->json(['error' => 'Adicione itens ao pedido'], 400);
             return;
         }
-        if ($orderType === 'online' && !$customerId) {
-            $this->json(['error' => 'Informe o e-mail do cliente'], 400);
+        if (!$customerId) {
+            $this->json(['error' => 'Informe o cliente do pedido.'], 400);
             return;
         }
         try {

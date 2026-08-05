@@ -1,0 +1,29 @@
+# Raiz do projeto — NÃO é a raiz pública da aplicação.
+#
+# A entrada real é frontend/public/index.php (alcançada via public/).
+# O ideal em produção é apontar o DocumentRoot direto para frontend/public/;
+# enquanto o projeto vive dentro de C:\xampp\htdocs, este arquivo é o que
+# impede que código-fonte, credenciais e o histórico do Git sejam baixados.
+
+# Segredos, dumps de banco, documentação e logs nunca são servidos.
+<FilesMatch "\.(env|sql|md|log|lock|ini|bak|dist|example)$">
+    Require all denied
+</FilesMatch>
+
+# Arquivos que começam com ponto (.env, .gitignore, ...).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Histórico do Git.
+#
+# RewriteRule (e não RedirectMatch) porque em .htaccess o padrão é casado
+# contra o caminho RELATIVO a esta pasta. RedirectMatch casaria contra a URL
+# inteira e derrubaria uma vitrine cujo slug fosse ".git"-like em qualquer
+# nível — as pastas backend/, storage/ e docs/ se protegem sozinhas, cada uma
+# com seu próprio .htaccess, pelo mesmo motivo.
+RewriteEngine On
+RewriteRule ^\.git(/|$) - [F,L]
+
+# Sem listagem de diretório em nenhum nível.
+Options -Indexes

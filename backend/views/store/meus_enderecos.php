@@ -1,6 +1,8 @@
 <?php
 ob_start();
-$can_add_address = !empty($email_searched) && ($email ?? '') !== '';
+// A página só é servida para quem está logado (StoreFrontController::meusEnderecos),
+// então cadastrar endereço está sempre disponível aqui.
+$can_add_address = true;
 ?>
 <div class="store-subpage store-meus-enderecos-page">
     <div class="store-subpage-inner container">
@@ -9,26 +11,11 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                 <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill">Voltar à loja</a>
             </div>
             <h1 id="store-meus-enderecos-title" class="store-subpage-title">Meus endereços</h1>
-            <?php if (!empty($logged_in_used)): ?>
-                <p class="store-subpage-lead">Endereços cadastrados na sua conta (<strong><?= htmlspecialchars($email ?? '') ?></strong>).</p>
-            <?php else: ?>
-                <p class="store-subpage-lead">Informe o e-mail usado nas compras para ver os endereços. Ou <a href="<?= base_url() ?>">faça login</a> para acessar pela sua conta.</p>
-            <?php endif; ?>
+            <p class="store-subpage-lead">Endereços cadastrados na sua conta (<strong><?= htmlspecialchars($email ?? '') ?></strong>).</p>
         </header>
 
         <div class="store-subpage-body">
-            <?php if (empty($logged_in_used)): ?>
-                <form method="get" action="<?= base_url("loja/{$store['slug']}/meus-enderecos") ?>" class="store-subpage-card store-meus-enderecos-form" aria-labelledby="store-meus-enderecos-search-title">
-                    <h2 id="store-meus-enderecos-search-title" class="store-subpage-card-title">Buscar por e-mail</h2>
-                    <label for="meus-enderecos-email">E-mail</label>
-                    <input type="email" id="meus-enderecos-email" name="email" value="<?= htmlspecialchars($email ?? '') ?>" placeholder="seu@email.com" required autocomplete="email">
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Buscar endereços</button>
-                    </div>
-                </form>
-            <?php endif; ?>
-
-            <?php if ($email_searched ?? false): ?>
+            <?php // O formulário de busca por e-mail saiu: a lista é sempre da conta logada. ?>
                 <?php if (empty($addresses)): ?>
                     <div class="store-empty-state store-empty-state--compact store-meus-enderecos-empty" role="status">
                         <div class="store-empty-state-icon" aria-hidden="true">
@@ -85,7 +72,6 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                         <button type="button" id="meus-enderecos-toggle" class="btn btn-secondary meus-enderecos-toggle-btn">+ Adicionar outro endereço</button>
                     </div>
                 <?php endif; ?>
-            <?php endif; ?>
 
             <?php if ($can_add_address): ?>
                 <div
@@ -96,7 +82,7 @@ $can_add_address = !empty($email_searched) && ($email ?? '') !== '';
                     <h2 id="meus-enderecos-form-heading" class="store-subpage-card-title meus-enderecos-add-title">Adicionar endereço</h2>
                     <div class="meus-enderecos-add-panel-fields">
                         <input type="hidden" id="meus-addr-id" value="">
-                        <input type="hidden" id="meus-addr-email" value="<?= htmlspecialchars($email) ?>">
+                        <?php // O campo oculto de e-mail saiu: a API identifica o cliente pela sessão. ?>
                         <?php if (($customer_name ?? '') !== ''): ?>
                             <input type="hidden" id="meus-addr-customer-name" value="<?= htmlspecialchars($customer_name) ?>">
                         <?php else: ?>

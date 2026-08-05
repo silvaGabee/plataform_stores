@@ -24,24 +24,6 @@ class StoreApiController extends Controller
         $this->json($store);
     }
 
-    public function create(): void
-    {
-        $input = $this->getJsonInput();
-        $required = ['name', 'manager_name', 'manager_email', 'manager_password'];
-        foreach ($required as $k) {
-            if (empty($input[$k])) {
-                $this->json(['error' => "Campo obrigatório: {$k}"], 400);
-            }
-        }
-        $service = new StoreService(new StoreRepository(), new StorePixConfigRepository(), new \App\Repositories\UserRepository());
-        try {
-            $store = $service->createStore($input);
-            $this->json(['success' => true, 'store' => $store, 'redirect' => base_url("painel/{$store['slug']}")]);
-        } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
-        }
-    }
-
     public function getPixConfig(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);

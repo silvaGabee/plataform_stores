@@ -1,7 +1,12 @@
-# Arquivo com chaves e senhas (não versionar)
-.env
-.env.example
+# Arquivo com chaves e senhas (não versionar).
+# .env.example É versionado de propósito: é o modelo, sem segredos, que diz
+# quais variáveis precisam existir para o projeto subir.
+.env*
+!.env.example
 
 # Storage e cache
 storage/logs/*
+!storage/logs/.gitkeep
 !storage/.gitkeep
+storage/backups/*
+!storage/backups/.gitkeep

@@ -40,10 +40,8 @@ class HomeController extends Controller
         $candidates = $userRepo->findAllByEmail($email);
         foreach ($candidates as $user) {
             if (password_verify($password, $user['password'])) {
-                $_SESSION['logged_user_id'] = (int) $user['id'];
-                $_SESSION['logged_store_id'] = $user['store_id'] ? (int) $user['store_id'] : null;
-                $_SESSION['user_id'] = (int) $user['id'];
-                redirect(base_url('lojas'));
+                login_user($user);
+                redirect($this->consumeAfterLoginUrl() ?? base_url('lojas'));
             }
         }
         $_SESSION['_old'] = ['email' => $email];
@@ -196,13 +194,18 @@ class HomeController extends Controller
                 'manager_password' => $managerPassword,
                 'existing_manager_user_id' => (int) $me['id'],
             ]);
-            $_SESSION['store_slug'] = $store['slug'];
+            // Criar a loja troca a identidade em uso (a conta de plataforma dá
+            // lugar à linha de gerente da loja), então a sessão é renovada como
+            // num login novo.
             $user = (new UserRepository())->findByEmailAndStore($managerEmail, $store['id']);
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['logged_user_id'] = (int) $user['id'];
-            $_SESSION['logged_store_id'] = (int) $store['id'];
+            if ($user === null) {
+                throw new \RuntimeException('Loja criada, mas não foi possível associar o gerente.');
+            }
+            login_user($user);
+            $_SESSION['store_slug'] = $store['slug'];
             redirect(base_url("loja/{$store['slug']}"));
         } catch (\Throwable $e) {
+            log_exception($e, ['acao' => 'criar-loja', 'user_id' => (int) $me['id']]);
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = $e->getMessage();
             redirect(base_url('criar-loja'));
@@ -267,6 +270,26 @@ class HomeController extends Controller
             $_SESSION['_error'] = $e->getMessage();
             redirect(base_url('?auth=cadastro'));
         }
+    }
+
+    /**
+     * Destino gravado antes de mandar a pessoa para o login (ex.: ela clicou em
+     * "Finalizar compra" sem estar logada). Consome e devolve, ou null.
+     *
+     * A URL é sempre gerada pelo próprio servidor via base_url(), mas a
+     * comparação com o prefixo continua aqui: se um dia algo escrever nesta
+     * chave a partir de entrada do usuário, isto impede um open redirect.
+     */
+    private function consumeAfterLoginUrl(): ?string
+    {
+        $url = (string) ($_SESSION['_after_login'] ?? '');
+        unset($_SESSION['_after_login']);
+        if ($url === '') {
+            return null;
+        }
+        $base = rtrim(base_url(), '/');
+
+        return strpos($url, $base . '/') === 0 ? $url : null;
     }
 
     private function render(string $view, array $data = []): void

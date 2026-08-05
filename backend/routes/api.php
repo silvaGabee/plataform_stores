@@ -26,7 +26,9 @@ return [
     'DELETE /api/loja/{slug}/checkout/addresses/{id}' => [CheckoutApiController::class, 'deleteAddress'],
 
     'GET /api/store/slug/{slug}' => [StoreApiController::class, 'getBySlug'],
-    'POST /api/store' => [StoreApiController::class, 'create'],
+    // 'POST /api/store' foi removida: criava loja + usuário gerente sem
+    // autenticação nenhuma e nada no front a chamava. O caminho suportado é o
+    // formulário web POST /criar-loja, que exige login e confirmação de senha.
     'POST /api/loja/{slug}/store/delete' => [StoreApiController::class, 'deleteStore'],
     'POST /api/loja/{slug}/store/name' => [StoreApiController::class, 'updateStoreName'],
     'POST /api/loja/{slug}/store/slogan' => [StoreApiController::class, 'updateStoreSlogan'],

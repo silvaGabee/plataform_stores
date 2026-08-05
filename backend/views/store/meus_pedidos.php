@@ -15,26 +15,11 @@ $deliveryLabels = [
         </div>
         <header class="store-subpage-head">
             <h1 id="store-subpage-title" class="store-subpage-title">Meus pedidos</h1>
-            <?php if (!empty($logged_in_used)): ?>
-                <p class="store-subpage-lead">Acompanhe pedidos em andamento da conta <strong><?= htmlspecialchars($email ?? '') ?></strong>. Pedidos já entregues não aparecem nesta lista.</p>
-            <?php else: ?>
-                <p class="store-subpage-lead">Consulte pedidos em andamento pelo e-mail usado na compra. Você também pode <a href="<?= base_url() ?>">entrar na plataforma</a> com sua conta.</p>
-            <?php endif; ?>
+            <p class="store-subpage-lead">Acompanhe pedidos em andamento da conta <strong><?= htmlspecialchars($email ?? '') ?></strong>. Pedidos já entregues não aparecem nesta lista.</p>
         </header>
 
         <div class="store-subpage-body">
-            <?php if (empty($logged_in_used)): ?>
-                <form method="get" action="<?= base_url("loja/{$store['slug']}/meus-pedidos") ?>" class="store-subpage-card store-meus-pedidos-form" aria-labelledby="store-meus-pedidos-form-title">
-                    <h2 id="store-meus-pedidos-form-title" class="store-subpage-card-title">Buscar por e-mail</h2>
-                    <label for="meus-pedidos-email">E-mail</label>
-                    <input type="email" id="meus-pedidos-email" name="email" value="<?= htmlspecialchars($email ?? '') ?>" placeholder="seu@email.com" required autocomplete="email">
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Buscar pedidos</button>
-                    </div>
-                </form>
-            <?php endif; ?>
-
-            <?php if ($email_searched ?? false): ?>
+            <?php // O formulário de busca por e-mail saiu: a lista é sempre da conta logada. ?>
                 <?php if (empty($orders)): ?>
                     <div class="store-empty-state store-empty-state--compact" role="status">
                         <div class="store-empty-state-icon" aria-hidden="true">
@@ -45,7 +30,7 @@ $deliveryLabels = [
                             </svg>
                         </div>
                         <h2 class="store-empty-state-title">Nenhum pedido em andamento</h2>
-                        <p class="store-empty-state-text">Não encontramos pedidos em aberto para este e-mail nesta loja. Se acabou de comprar, aguarde alguns instantes ou confira o e-mail informado.</p>
+                        <p class="store-empty-state-text">Você não tem pedidos em aberto nesta loja. Se acabou de comprar, aguarde alguns instantes.</p>
                     </div>
                 <?php else: ?>
                     <ul class="meus-pedidos-list">
@@ -55,7 +40,7 @@ $deliveryLabels = [
                             $isRetirada = isset($o['delivery_type']) && strtolower($o['delivery_type']) === 'retirada';
                             ?>
                             <li class="meus-pedidos-item">
-                                <a href="<?= base_url("loja/{$store['slug']}/pedido/{$o['id']}") ?>" class="meus-pedidos-card-link">
+                                <a href="<?= htmlspecialchars($o['order_url'] ?? base_url("loja/{$store['slug']}/pedido/{$o['id']}"), ENT_QUOTES, 'UTF-8') ?>" class="meus-pedidos-card-link">
                                     <div class="meus-pedidos-card-main">
                                         <span class="meus-pedidos-card-id">Pedido #<?= (int) $o['id'] ?></span>
                                         <span class="meus-pedidos-card-price">R$ <?= number_format($o['total'], 2, ',', '.') ?></span>
@@ -73,7 +58,6 @@ $deliveryLabels = [
                         <?php endforeach; ?>
                     </ul>
                 <?php endif; ?>
-            <?php endif; ?>
         </div>
     </div>
 </div>

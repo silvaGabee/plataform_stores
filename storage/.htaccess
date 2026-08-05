@@ -1,0 +1,2 @@
+# Logs e artefatos internos. Nunca servidos por HTTP.
+Require all denied

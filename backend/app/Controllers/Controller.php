@@ -45,6 +45,111 @@ abstract class Controller
         }
     }
 
+    /** Registro completo do usuário logado, ou null se não há sessão. */
+    protected function currentUser(): ?array
+    {
+        if (!logged_in()) {
+            return null;
+        }
+        $userId = (int) ($_SESSION['logged_user_id'] ?? 0);
+        if ($userId < 1) {
+            return null;
+        }
+
+        return (new \App\Repositories\UserRepository())->find($userId);
+    }
+
+    /** Exige sessão iniciada. Retorna 401 JSON se não houver. */
+    protected function requireLogin(): array
+    {
+        $user = $this->currentUser();
+        if ($user === null) {
+            $this->json(['error' => 'Faça login para continuar.', 'login_required' => true], 401);
+            exit;
+        }
+
+        return $user;
+    }
+
+    /**
+     * Todos os ids de `users` que representam a pessoa logada.
+     *
+     * Enquanto a mesma pessoa tiver uma linha por loja, seus endereços e
+     * pedidos ficam espalhados entre esses ids. O e-mail usado na busca vem do
+     * registro da SESSÃO — nunca da requisição.
+     *
+     * @return int[]
+     */
+    protected function currentUserIdentityIds(): array
+    {
+        $me = $this->currentUser();
+        if ($me === null) {
+            return [];
+        }
+        $ids = [(int) $me['id']];
+        $email = trim((string) ($me['email'] ?? ''));
+        if ($email === '') {
+            return $ids;
+        }
+        foreach ((new \App\Repositories\UserRepository())->findAllByEmail($email) as $row) {
+            $ids[] = (int) $row['id'];
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * O pedido pertence a quem está logado?
+     *
+     * A comparação por e-mail existe porque hoje a mesma pessoa tem uma linha
+     * em `users` por loja (ver Fase 3 do plano em docs/): o pedido pode apontar
+     * para a linha "da loja" enquanto a sessão está na linha "de plataforma".
+     *
+     * Note a diferença para o que havia no checkout: aqui o e-mail sai do
+     * registro carregado pela SESSÃO, nunca de um parâmetro da requisição —
+     * quem chama não escolhe de quem é o e-mail. Esta função some quando a
+     * identidade for unificada.
+     */
+    protected function userOwnsOrder(array $order): bool
+    {
+        $me = $this->currentUser();
+        if ($me === null) {
+            return false;
+        }
+        $customerId = (int) ($order['customer_id'] ?? 0);
+        if ($customerId < 1) {
+            return false;
+        }
+        if ($customerId === (int) $me['id']) {
+            return true;
+        }
+        $customer = (new \App\Repositories\UserRepository())->find($customerId);
+        if ($customer === null) {
+            return false;
+        }
+        $mine = trim((string) ($me['email'] ?? ''));
+
+        return $mine !== ''
+            && strcasecmp(trim((string) ($customer['email'] ?? '')), $mine) === 0;
+    }
+
+    /**
+     * Exige ser o dono do pedido OU ter acesso ao painel da loja.
+     * Responde 404 (e não 403) para quem não passa: confirmar que o pedido
+     * existe já entregaria informação a quem está varrendo ids.
+     */
+    protected function requireOrderAccess(array $order, int $storeId): void
+    {
+        if (logged_in() && can_access_store_panel($storeId)) {
+            return;
+        }
+        if ($this->userOwnsOrder($order)) {
+            return;
+        }
+        $this->json(['error' => 'Pedido não encontrado'], 404);
+        exit;
+    }
+
     /**
      * Normaliza De/Até para relatórios (YYYY-MM-DD). Strings vazias ou inválidas viram intervalo padrão (últimos 30 dias).
      *

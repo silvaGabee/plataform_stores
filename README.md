@@ -87,14 +87,34 @@ flowchart LR
 ## Instalação passo a passo
 
 1. Copie a pasta do projeto para `htdocs` (ou o diretório público do seu servidor).
-2. Crie a base de dados executando **`backend/database/schema.sql`** no MySQL (phpMyAdmin ou cliente SQL).
-3. Execute as migrações em **`backend/database/migrations/`**, **por ordem alfabética dos nomes** (ex.: `add_delivery_and_addresses.sql` antes de `add_delivery_stage_tracking.sql` se ainda não tiver essas tabelas/colunas).
+2. Crie a base de dados executando **`backend/database/schema.sql`**:
+
+   ```
+   mysql -u root < backend/database/schema.sql
+   ```
+
+   O `schema.sql` é o **retrato completo** do schema atual e já regista as migrações como aplicadas — uma instalação nova não precisa de mais nada. **Num banco que já existe, não execute este arquivo**; use o passo 3.
+3. Confirme (ou atualize) o estado das migrações:
+
+   ```
+   php backend/scripts/migrate.php --status    lista o que falta
+   php backend/scripts/migrate.php             aplica as pendentes
+   ```
+
+   Numa instalação nova deve dizer *0 pendentes*. Antes de aplicar qualquer coisa a um banco com dados, o runner gera sozinho um dump em `storage/backups/`.
 4. Configure **`backend/config/database.php`**: `host`, `dbname`, `username`, `password`, `charset`.
 5. Configure **`backend/config/app.php`**: especialmente **`url`** (URL base pública; usada como *fallback* — em muitos casos o sistema infere host e pasta a partir do pedido HTTP).
 6. Ajuste **`RewriteBase`** em **`public/.htaccess`** para o caminho **após** `htdocs` (ex.: `/plataform_stores/public/`). Se apontar o DocumentRoot diretamente para **`frontend/public/`**, ajuste também **`frontend/public/.htaccess`** da mesma forma.
-7. Opcional: na **raiz do projeto**, crie **`.env`** com `RAPIDAPI_KEY=sua_chave` para PIX via RapidAPI (pode usar `.env.example` como modelo de variáveis — **não commite chaves reais**).
-8. Garanta permissão de escrita em **`frontend/public/uploads/products/`** (criada automaticamente em muitos casos ao subir imagens).
-9. Aceda no navegador à URL configurada (ex.: `http://localhost/plataform_stores/public/`).
+7. Na **raiz do projeto**, copie **`.env.example`** para **`.env`** e preencha. `APP_DEBUG=true` só na máquina de desenvolvimento; `RAPIDAPI_KEY` e `OPENROUTER_API_KEY` são opcionais. **Nunca commite chaves reais** — o `.env` é ignorado pelo Git e bloqueado por HTTP.
+8. Garanta permissão de escrita em **`frontend/public/uploads/products/`** e em **`storage/logs/`** (destino dos erros registados).
+9. Opcional, mas recomendado para começar: popule com uma loja de exemplo.
+
+   ```
+   php backend/scripts/seed.php
+   ```
+
+   Cria uma loja com 7 produtos (3 com matriz de cor/tamanho), categorias da vitrine, metas e três contas — gerente, funcionário e cliente — com senha `gerente123`. **Troque essas senhas** antes de expor a instalação a qualquer rede.
+10. Aceda no navegador à URL configurada (ex.: `http://localhost/plataform_stores/public/`).
 
 ---
 
@@ -111,14 +131,21 @@ Ligação PDO ao MySQL: host, nome da base, utilizador, senha.
 | `name` | Nome da aplicação |
 | `url` | URL base (ex.: `http://localhost/plataform_stores/public`) — *fallback* quando não há `SCRIPT_NAME` útil (ex.: CLI) |
 | `timezone` | Fuso horário PHP (ex.: `America/Sao_Paulo`) |
-| `debug` | Em produção deve ser `false` |
+| `debug` | Lida de `APP_DEBUG` no `.env`. Ausente = `false`. Ligada, junta o campo `debug` às respostas de erro |
 | `rapidapi_key` | Preenchida a partir da variável de ambiente `RAPIDAPI_KEY` |
+
+Nenhuma destas chaves se edita no ficheiro: `url` e `debug` vêm do `.env`, para que publicar não dependa de alguém lembrar de alterar um ficheiro versionado.
 
 ### `.env` (raiz do repositório)
 
-Carregado em `backend/bootstrap.php`. Variável típica:
+Carregado em `backend/bootstrap.php`. Use **`.env.example`** como modelo:
 
-- `RAPIDAPI_KEY` — chave RapidAPI para geração de QR Code PIX.
+| Variável | Função |
+|----------|--------|
+| `APP_DEBUG` | `true` expõe mensagens de exceção nas respostas e no HTML. **`false` fora de desenvolvimento** |
+| `APP_URL` | URL base pública (*fallback*) |
+| `RAPIDAPI_KEY` | Chave RapidAPI para geração de QR Code PIX (opcional) |
+| `OPENROUTER_API_KEY` | Chave do assistente de IA do painel (opcional) |
 
 ### Apache (`RewriteBase`)
 
@@ -210,18 +237,51 @@ Respostas de erro da API costumam vir em JSON com campo `error`. Pedidos a `/api
 
 ## Utilizadores e sessões
 
-- **Plataforma:** sessão com `logged_user_id`, etc., após login em `/`. Cabeçalho com **Minha conta** e **Sair** quando autenticado.
-- **Loja (vitrine):** o mesmo e-mail pode existir em `users` com `store_id` diferentes; na vitrine o contexto é sempre a loja do `slug` na URL.
+- **Plataforma:** sessão com `logged_user_id`, etc., após login em `/`. Cabeçalho com **Minha conta** e **Sair** quando autenticado. O cookie é `httponly`/`samesite=Lax` e o id é renovado a cada login e logout.
+- **Loja (vitrine):** navegar e adicionar ao carrinho não exige conta. **Finalizar compra, ver "Meus pedidos" e "Meus endereços" exigem login** — a identidade sai sempre da sessão, nunca de um parâmetro `email`.
+- **Comprovante do pedido:** `/loja/{slug}/pedido/{id}` abre para a equipa da loja, para o dono logado, ou para quem tiver o link com `?t={access_token}`. Sem um dos três, responde 404.
 - **Painel:** acesso de **gerente** ou **funcionário** daquela loja; várias ações da API verificam permissões no controller.
+- **Nota:** o mesmo e-mail ainda existe em `users` com `store_id` diferentes — uma linha por loja mais uma de plataforma. É dívida conhecida, com plano de unificação em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md) (Fase 3).
 
 ---
 
 ## Base de dados
 
-- **Schema inicial:** `backend/database/schema.sql` (cria base `plataform_stores` se usar o script completo).
-- **Migrações:** `backend/database/migrations/*.sql` — executar conforme necessidade e ordem dos ficheiros.
+Tabelas principais: `stores`, `users`, `products`, `product_variants`, `orders`, `order_items`, `payments`, `user_addresses`, `cash_registers`, `roles`, `employee_roles`, metas (`store_goals`, `employee_goals`), `schema_migrations`.
 
-Tabelas principais (schema): `stores`, `users`, `products`, `orders`, `payments`, `cash_registers`, `roles`, `employee_roles`, metas (`store_goals`, `employee_goals`), etc.
+### Os dois caminhos
+
+| Situação | O que executar |
+|----------|----------------|
+| Instalação nova | `mysql -u root < backend/database/schema.sql` — retrato completo, já em dia |
+| Banco que já existe | `php backend/scripts/migrate.php` — aplica só o que falta |
+
+Os dois produzem o mesmo schema. Nunca execute o `schema.sql` sobre um banco com dados: ele contém `DROP TABLE IF EXISTS`.
+
+### Scripts
+
+| Comando | Função |
+|---------|--------|
+| `php backend/scripts/migrate.php` | Aplica as migrações pendentes (faz dump antes, se houver dados) |
+| `php backend/scripts/migrate.php --status` | Lista aplicadas e pendentes, sem alterar nada |
+| `php backend/scripts/migrate.php --baseline` | Marca todas como aplicadas **sem executar** — para um banco que já recebeu as alterações à mão |
+| `php backend/scripts/backup.php [rótulo]` | Dump para `storage/backups/` |
+| `php backend/scripts/seed.php [--force]` | Popula com a loja de exemplo |
+| `php backend/tools/concurrency_check.php` | Verifica estoque, transações e confirmação de pagamento contra o banco |
+
+### Migrações novas
+
+Crie `backend/database/migrations/NNNN_descricao.sql` com o próximo número — a ordem de execução é a alfabética do nome. Sem `DELIMITER` e sem `CREATE PROCEDURE`: `DELIMITER` é diretiva do cliente `mysql`, não do servidor, e migração que a use não pode ser executada por PDO. Para DDL condicional, use o padrão `SET @sql = IF(...); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;` (veja `0007_stores_banner_path.sql`).
+
+Depois de criar uma migração, regenere o `schema.sql` para que os dois caminhos continuem equivalentes:
+
+```
+mysqldump -u root --no-data --skip-comments plataform_stores
+```
+
+### Antes de mexer no schema
+
+`log_bin` está desligado no XAMPP por padrão: **não há como desfazer um `DROP`**. Rode `php backend/scripts/backup.php` antes de qualquer operação destrutiva, e teste recriação de schema num banco descartável, nunca no de trabalho. O `migrate.php` já faz o dump sozinho — mas ele só cobre o que passa por ele.
 
 ---
 
@@ -247,8 +307,11 @@ Tabelas principais (schema): `stores`, `users`, `products`, `orders`, `payments`
 
 ## Segurança e produção
 
-- Use **HTTPS**, senhas fortes no MySQL, **`debug` => false** em `backend/config/app.php`.
+- Use **HTTPS**, senhas fortes no MySQL, **`APP_DEBUG=false`** no `.env`.
 - Não publique **`.env`** nem credenciais no repositório.
+- **Raiz pública:** aponte o `DocumentRoot` para **`frontend/public/`**. Enquanto o projeto vive dentro de `htdocs`, quem protege `.env`, `backend/`, `storage/`, `docs/` e `.git/` são os `.htaccess` — se mudar de servidor (nginx) ou desligar `AllowOverride`, essa proteção some e o código-fonte volta a ser descarregável.
+- **Pagamento é simulação.** Não há gateway: um cartão que passe no Luhn marca o pedido como pago, baixa estoque e conta como receita no BI. Antes de qualquer cobrança real, integre um PSP — ver [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md).
+- **Dívida técnica conhecida e priorizada** está em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md): falta de transações no fluxo de pedido, corrida no estoque, restrição de funcionário aplicada só na interface, ausência de CSRF.
 - Revise permissões de ficheiros, backups e conformidade (LGPD, pagamentos, termos de uso) antes de uso real.
 
 ---

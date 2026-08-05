@@ -1,4 +1,12 @@
 <?php
+/** Uso: php backend/scripts/generate_category_icons.php — regrava os SVGs do catálogo. */
+
+// Script de manutenção: escreve arquivos em disco. Não pode ser disparado por HTTP.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 $dir = dirname(__DIR__, 2) . '/frontend/public/assets/images/category-icons';
 if (!is_dir($dir)) {
     mkdir($dir, 0755, true);

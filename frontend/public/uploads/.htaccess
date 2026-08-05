@@ -1,0 +1,9 @@
+# Conteúdo enviado por usuários. As imagens continuam públicas (a vitrine
+# depende disso), mas nada aqui pode ser executado: se um dia a validação de
+# upload falhar e um .php for gravado, ele é servido como download, não roda.
+<FilesMatch "\.(php|php[0-9]|phtml|phar|htaccess)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes -ExecCGI
+AddType text/plain .php .phtml .phar

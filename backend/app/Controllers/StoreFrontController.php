@@ -5,7 +5,6 @@ namespace App\Controllers;
 use App\Repositories\StoreRepository;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductImageRepository;
-use App\Repositories\UserRepository;
 use App\Services\ProductService;
 use App\Repositories\OrderRepository;
 use App\Repositories\OrderItemRepository;
@@ -113,18 +112,17 @@ class StoreFrontController extends Controller
         if (empty($cart)) {
             redirect(base_url("loja/{$slug}/carrinho"));
         }
-        $checkoutCustomerName = '';
-        $checkoutCustomerEmail = '';
-        if (logged_in()) {
-            $userId = (int) ($_SESSION['logged_user_id'] ?? $_SESSION['user_id'] ?? 0);
-            if ($userId > 0) {
-                $user = (new UserRepository())->find($userId);
-                if ($user) {
-                    $checkoutCustomerName = (string) ($user['name'] ?? '');
-                    $checkoutCustomerEmail = (string) ($user['email'] ?? '');
-                }
-            }
+        // Finalizar compra exige conta. O checkout antes identificava a pessoa
+        // pelo e-mail digitado no formulário — e esse mesmo e-mail dava acesso
+        // aos endereços e pedidos de qualquer cliente.
+        $me = $this->currentUser();
+        if ($me === null) {
+            $_SESSION['_error'] = 'Entre na sua conta para finalizar a compra.';
+            $_SESSION['_after_login'] = base_url("loja/{$slug}/checkout");
+            redirect(base_url('?auth=login'));
         }
+        $checkoutCustomerName = (string) ($me['name'] ?? '');
+        $checkoutCustomerEmail = (string) ($me['email'] ?? '');
         $this->render('store/checkout', [
             'store' => $store,
             'cart' => $cart,
@@ -139,7 +137,9 @@ class StoreFrontController extends Controller
         $store = $this->getStore($slug);
         $orderRepo = new OrderRepository();
         $order = $orderRepo->findByIdAndStore((int) $id, $store['id']);
-        if (!$order) {
+        if (!$order || !$this->canViewOrder($order, (int) $store['id'])) {
+            // 404 e não 403: confirmar que o pedido existe já é informação útil
+            // para quem está varrendo ids sequenciais.
             http_response_code(404);
             echo 'Pedido não encontrado';
             return;
@@ -153,83 +153,89 @@ class StoreFrontController extends Controller
         $this->render('store/pedido', ['store' => $store, 'order' => $order, 'order_address' => $orderAddress, 'title' => 'Pedido #' . $order['id']]);
     }
 
+    /**
+     * "Meus pedidos" e "Meus endereços" aceitavam ?email= e listavam os dados
+     * de quem quer que fosse aquele e-mail. Agora dependem exclusivamente da
+     * sessão; sem login, vão para a tela de entrada.
+     */
     public function meusPedidos(string $slug): void
     {
         $store = $this->getStore($slug);
-        $loginEmail = $this->getEmailForStoreCustomer($store);
-        $email = $loginEmail !== null ? $loginEmail : trim((string) ($_GET['email'] ?? ''));
-        $orders = [];
-        $emailSearched = false;
-        $logged_in_used = $loginEmail !== null;
-        if ($email !== '') {
-            $emailSearched = true;
-            $user = (new UserRepository())->findByEmailAndStore($email, (int) $store['id']);
-            if ($user) {
-                $orders = (new OrderRepository())->listByCustomerNotDelivered((int) $store['id'], (int) $user['id']);
-            }
+        $me = $this->requireCustomerLogin($slug, 'meus-pedidos');
+        $orders = (new OrderRepository())->listByCustomersNotDelivered(
+            (int) $store['id'],
+            $this->currentUserIdentityIds()
+        );
+        // O link do comprovante precisa levar o token junto.
+        foreach ($orders as &$order) {
+            $order['order_url'] = $this->orderUrl($store, $order);
         }
+        unset($order);
         $this->render('store/meus_pedidos', [
             'store' => $store,
             'title' => 'Meus pedidos',
-            'email' => $email,
-            'email_searched' => $emailSearched,
+            'email' => (string) ($me['email'] ?? ''),
             'orders' => $orders,
-            'logged_in_used' => $logged_in_used,
         ]);
     }
 
     public function meusEnderecos(string $slug): void
     {
         $store = $this->getStore($slug);
-        $loginEmail = $this->getEmailForStoreCustomer($store);
-        $email = $loginEmail !== null ? $loginEmail : trim((string) ($_GET['email'] ?? ''));
-        $addresses = [];
-        $emailSearched = false;
-        $logged_in_used = $loginEmail !== null;
-        $user = null;
-        if ($email !== '') {
-            $emailSearched = true;
-            $user = (new UserRepository())->findByEmailAndStore($email, (int) $store['id']);
-            if ($user) {
-                $addresses = (new UserAddressRepository())->getByUserId((int) $user['id']);
-            }
-        }
-        $customerName = '';
-        if ($loginEmail !== null) {
-            $userId = (int) ($_SESSION['logged_user_id'] ?? $_SESSION['user_id'] ?? 0);
-            if ($userId > 0) {
-                $loggedUser = (new UserRepository())->find($userId);
-                if ($loggedUser) {
-                    $customerName = (string) ($loggedUser['name'] ?? '');
-                }
-            }
-        }
-        if ($customerName === '' && $user) {
-            $customerName = (string) ($user['name'] ?? '');
-        }
+        $me = $this->requireCustomerLogin($slug, 'meus-enderecos');
+        $addresses = (new UserAddressRepository())->getByUserIds($this->currentUserIdentityIds());
         $this->render('store/meus_enderecos', [
             'store' => $store,
             'title' => 'Meus endereços',
-            'email' => $email,
-            'email_searched' => $emailSearched,
+            'email' => (string) ($me['email'] ?? ''),
             'addresses' => $addresses,
-            'logged_in_used' => $logged_in_used,
-            'customer_name' => $customerName,
+            'customer_name' => (string) ($me['name'] ?? ''),
         ]);
     }
 
-    /** Retorna o e-mail do usuário logado (para validar Meus pedidos/endereços) ou null se não logado. */
-    private function getEmailForStoreCustomer(array $store): ?string
+    /** Exige sessão de cliente; sem ela manda para o login e volta depois. */
+    private function requireCustomerLogin(string $slug, string $path): array
     {
-        if (!logged_in()) {
-            return null;
+        $me = $this->currentUser();
+        if ($me === null) {
+            $_SESSION['_error'] = 'Entre na sua conta para ver esta página.';
+            $_SESSION['_after_login'] = base_url("loja/{$slug}/{$path}");
+            redirect(base_url('?auth=login'));
         }
-        $userId = (int) ($_SESSION['logged_user_id'] ?? $_SESSION['user_id'] ?? 0);
-        if ($userId <= 0) {
-            return null;
+
+        return $me;
+    }
+
+    /**
+     * Quem pode abrir a página de um pedido.
+     *
+     * Três caminhos, nesta ordem: quem trabalha na loja; quem está logado e é o
+     * dono; e quem tem o link com o token (o comprovante que o cliente recebe
+     * ao finalizar a compra, que continua funcionando depois do logout).
+     */
+    private function canViewOrder(array $order, int $storeId): bool
+    {
+        if (logged_in() && can_access_store_panel($storeId)) {
+            return true;
         }
-        $user = (new UserRepository())->find($userId);
-        return $user && !empty($user['email']) ? trim((string) $user['email']) : null;
+        if ($this->userOwnsOrder($order)) {
+            return true;
+        }
+        $expected = (string) ($order['access_token'] ?? '');
+        $given = trim((string) ($_GET['t'] ?? ''));
+
+        // hash_equals: comparação em tempo constante, para o tempo de resposta
+        // não revelar quantos caracteres do token estão certos.
+        return $expected !== '' && $given !== '' && hash_equals($expected, $given);
+    }
+
+    /** URL do comprovante já com o token, para os links internos. */
+    private function orderUrl(array $store, array $order): string
+    {
+        $url = base_url("loja/{$store['slug']}/pedido/{$order['id']}");
+        $token = (string) ($order['access_token'] ?? '');
+
+        return $token !== '' ? $url . '?t=' . rawurlencode($token) : $url;
     }
 
     private function getStore(string $slug): array

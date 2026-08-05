@@ -280,27 +280,45 @@ class ProductService
         return $this->getByIdAndStore($id, $storeId);
     }
 
+    /**
+     * Ajuste manual de estoque pelo painel, com o movimento correspondente.
+     *
+     * Em transação e com escrita atômica: eram duas escritas soltas em cima de
+     * um valor lido antes (ler 10, gravar 8). Dois ajustes simultâneos se
+     * sobrescreviam, e uma falha ao gravar o movimento deixava o estoque
+     * alterado sem rastro de quem alterou.
+     */
     public function adjustStock(int $productId, int $storeId, int $quantity, string $type, ?int $userId, ?string $reason = null): bool
     {
-        $product = $this->productRepo->findByIdAndStore($productId, $storeId);
-        if (!$product) return false;
-        $current = (int) $product['stock_quantity'];
-        if ($type === 'saida' || $type === 'ajuste') {
-            $newQty = $current - abs($quantity);
-            if ($newQty < 0) return false;
-        } else {
-            $newQty = $current + abs($quantity);
+        $qty = abs($quantity);
+        if ($qty < 1) {
+            return false;
         }
-        $this->productRepo->updateStock($productId, $newQty);
-        $this->stockMovementRepo->create([
-            'store_id'   => $storeId,
-            'product_id' => $productId,
-            'user_id'    => $userId,
-            'type'       => $type,
-            'quantity'   => abs($quantity),
-            'reason'     => $reason,
-        ]);
-        return true;
+
+        return \App\Database\Database::transaction(function () use ($productId, $storeId, $qty, $type, $userId, $reason): bool {
+            $product = $this->productRepo->findByIdAndStore($productId, $storeId);
+            if (!$product) {
+                return false;
+            }
+            $isSaida = $type === 'saida' || $type === 'ajuste';
+            $ok = $isSaida
+                ? $this->productRepo->decrementStock($productId, $qty)
+                : $this->productRepo->incrementStock($productId, $qty);
+            if (!$ok) {
+                // Saída maior que o saldo: o UPDATE não casa nenhuma linha.
+                return false;
+            }
+            $this->stockMovementRepo->create([
+                'store_id'   => $storeId,
+                'product_id' => $productId,
+                'user_id'    => $userId,
+                'type'       => $type,
+                'quantity'   => $qty,
+                'reason'     => $reason,
+            ]);
+
+            return true;
+        });
     }
 
     public function listLowStock(int $storeId): array

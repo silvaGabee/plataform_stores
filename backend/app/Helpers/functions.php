@@ -66,6 +66,46 @@ if (!function_exists('redirect')) {
     }
 }
 
+if (!function_exists('log_message')) {
+    /** Escreve uma linha em storage/logs/app-AAAA-MM-DD.log. Nunca lança. */
+    function log_message(string $level, string $message, array $context = []): void {
+        $dir = PLATAFORM_ROOT . '/storage/logs';
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true)) {
+            return;
+        }
+        $line = '[' . date('Y-m-d H:i:s') . '] ' . strtoupper($level) . ': ' . $message;
+        if ($context !== []) {
+            $line .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        @file_put_contents($dir . '/app-' . date('Y-m-d') . '.log', $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
+}
+
+if (!function_exists('log_exception')) {
+    /**
+     * Registra a exceção completa e devolve um id curto.
+     *
+     * O id é a ponte entre o que o usuário vê ("ref: a1b2c3d4") e o stack trace
+     * no log: permite esconder o detalhe da exceção na resposta — que é o que
+     * vazava nome de tabela e trecho de SQL — sem tornar o erro impossível de
+     * investigar depois.
+     */
+    function log_exception(\Throwable $e, array $context = []): string {
+        $id = bin2hex(random_bytes(4));
+        log_message('error', sprintf(
+            '[%s] %s: %s @ %s:%d',
+            $id,
+            get_class($e),
+            $e->getMessage(),
+            $e->getFile(),
+            $e->getLine()
+        ), $context);
+        log_message('error', '[' . $id . '] trace: ' . $e->getTraceAsString());
+
+        return $id;
+    }
+}
+
 if (!function_exists('csrf_token')) {
     function csrf_token(): string {
         if (empty($_SESSION['_csrf'])) {
@@ -926,6 +966,12 @@ if (!function_exists('product_variant_key_label')) {
 if (!function_exists('product_apply_sale_stock_decrement')) {
     /**
      * Baixa estoque da variação vendida e recalcula o total do produto.
+     *
+     * Devolve false quando a baixa NÃO pôde ser feita — saldo insuficiente ou
+     * variação que não existe. Antes esta função devolvia void e seguia adiante
+     * de qualquer jeito: o estoque era cortado em zero e o pedido saía como se
+     * a mercadoria existisse. Quem chama deve tratar o false como falha da
+     * venda e desfazer a transação.
      */
     function product_apply_sale_stock_decrement(
         array $product,
@@ -933,23 +979,20 @@ if (!function_exists('product_apply_sale_stock_decrement')) {
         ?string $variantKey,
         \App\Repositories\ProductVariantRepository $variantRepo,
         \App\Repositories\ProductRepository $productRepo
-    ): void {
+    ): bool {
         $productId = (int) ($product['id'] ?? 0);
         if ($productId < 1 || $quantity < 1) {
-            return;
+            return false;
         }
         $qty = $quantity;
 
         if (!product_has_variants($product)) {
-            $newStock = max(0, (int) ($product['stock_quantity'] ?? 0) - $qty);
-            $productRepo->updateStock($productId, $newStock);
-
-            return;
+            return $productRepo->decrementStock($productId, $qty);
         }
 
         $vk = $variantKey !== null ? trim($variantKey) : '';
         if ($vk === '') {
-            return;
+            return false;
         }
 
         $type = null;
@@ -978,11 +1021,20 @@ if (!function_exists('product_apply_sale_stock_decrement')) {
             }
         }
 
-        if ($type !== null && $value !== null && $type !== '' && $value !== '') {
-            $variantRepo->decrementStock($productId, $type, $value, $qty);
+        if ($type === null || $value === null || $type === '' || $value === '') {
+            // Chave de variação que não casa com nenhuma linha: não dá para
+            // saber o que baixar, então a venda não pode prosseguir.
+            return false;
+        }
+        if (!$variantRepo->decrementStock($productId, $type, $value, $qty)) {
+            return false;
         }
 
+        // products.stock_quantity é o total derivado das variações — recalculado
+        // a partir do banco, já com a baixa aplicada.
         $productRepo->updateStock($productId, $variantRepo->totalStock($productId));
+
+        return true;
     }
 }
 
@@ -1119,7 +1171,40 @@ if (!function_exists('logged_in')) {
 
 if (!function_exists('logout')) {
     function logout(): void {
-        unset($_SESSION['logged_user_id'], $_SESSION['logged_store_id'], $_SESSION['user_id']);
+        unset(
+            $_SESSION['logged_user_id'],
+            $_SESSION['logged_store_id'],
+            $_SESSION['user_id'],
+            $_SESSION['store_slug'],
+            // O carrinho é da pessoa, não do navegador: sem isto ele sobrevive
+            // ao logout e aparece para quem usar a máquina em seguida.
+            $_SESSION['cart']
+        );
+        // Novo id: o identificador usado enquanto havia sessão autenticada não
+        // deve continuar válido. Mantém $_SESSION (as mensagens flash gravadas
+        // logo depois desta chamada continuam funcionando) e apaga o registro antigo.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+    }
+}
+
+if (!function_exists('login_user')) {
+    /**
+     * Marca a sessão como autenticada.
+     *
+     * O session_regenerate_id() é o que impede fixação de sessão: sem ele, um
+     * id capturado antes do login continua valendo depois — quem plantou o
+     * cookie passa a estar logado como a vítima.
+     */
+    function login_user(array $user): void {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        $storeId = $user['store_id'] ?? null;
+        $_SESSION['logged_user_id'] = (int) $user['id'];
+        $_SESSION['logged_store_id'] = $storeId !== null && $storeId !== '' ? (int) $storeId : null;
+        $_SESSION['user_id'] = (int) $user['id'];
     }
 }
 

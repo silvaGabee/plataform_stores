@@ -1,5 +1,15 @@
 <?php
 /** Uso: php backend/tools/check_openrouter_env.php — não commita segredos; só comprimentos. */
+
+// Este script faz uma chamada real (e paga) à OpenRouter. Servido por HTTP, ele
+// vira um jeito de qualquer visitante queimar crédito da API. backend/.htaccess
+// já fecha a pasta; esta guarda é a rede de segurança para quando o .htaccess
+// não valer (nginx, DocumentRoot diferente, AllowOverride desligado).
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
 require dirname(__DIR__) . '/bootstrap.php';
 
 $key = trim((string) (getenv('OPENROUTER_API_KEY') ?: ($_ENV['OPENROUTER_API_KEY'] ?? '')));

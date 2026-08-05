@@ -155,16 +155,11 @@
         if (!aid || !window.confirm('Excluir este endereço? Esta ação não pode ser desfeita.')) {
           return;
         }
-        var emailEl = document.getElementById('meus-addr-email');
-        var email = emailEl ? emailEl.value.trim() : '';
-        if (!email) {
-          alert('E-mail não encontrado.');
-          return;
-        }
         delBtn.disabled = true;
+        // Sem e-mail no corpo: o servidor identifica o cliente pela sessão.
         api('api/loja/' + encodeURIComponent(storeSlug) + '/checkout/addresses/' + encodeURIComponent(aid), {
           method: 'DELETE',
-          body: JSON.stringify({ email: email })
+          body: JSON.stringify({})
         })
           .then(function () {
             window.location.reload();
@@ -195,12 +190,6 @@
   }
 
   submitBtn.addEventListener('click', function () {
-    var emailEl = document.getElementById('meus-addr-email');
-    var email = emailEl ? emailEl.value.trim() : '';
-    if (!email) {
-      setMsg('E-mail não encontrado. Recarregue a página ou faça login.', true);
-      return;
-    }
     var nameEl = document.getElementById('meus-addr-customer-name');
     var customerName = nameEl ? nameEl.value.trim() : '';
     if (nameEl && nameEl.hasAttribute('required') && !customerName) {
@@ -222,7 +211,6 @@
     submitBtn.textContent = 'Salvando...';
     var editingId = idInput && idInput.value.trim();
     var payload = {
-      email: email,
       customer_name: customerName,
       label: val('meus-addr-label') || '',
       street: street,

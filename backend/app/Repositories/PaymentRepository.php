@@ -21,6 +21,26 @@ class PaymentRepository
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Lê o pagamento travando a linha até o fim da transação (SELECT ... FOR UPDATE).
+     *
+     * É o que torna a confirmação idempotente sob concorrência: dois pedidos de
+     * confirmação simultâneos não conseguem ler "pendente" ao mesmo tempo — o
+     * segundo espera o primeiro terminar e então enxerga "confirmado". Sem o
+     * lock, ambos passavam pela checagem de status e o estoque era baixado duas
+     * vezes para a mesma venda.
+     *
+     * Só faz sentido dentro de Database::transaction(); fora dela o InnoDB
+     * libera o lock no fim da própria instrução.
+     */
+    public function findForUpdate(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM payments WHERE id = ? FOR UPDATE");
+        $stmt->execute([$id]);
+
+        return $stmt->fetch() ?: null;
+    }
+
     public function findByOrder(int $orderId): array
     {
         $stmt = $this->pdo->prepare("SELECT * FROM payments WHERE order_id = ? ORDER BY id");

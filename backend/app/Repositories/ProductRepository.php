@@ -136,10 +136,50 @@ class ProductRepository
         ]);
     }
 
+    /**
+     * Grava um valor absoluto de estoque.
+     *
+     * Use apenas para ajuste manual do painel ou para recalcular o total a
+     * partir das variações. Para venda, use decrementStock(): esta função lê e
+     * escreve em momentos diferentes, e duas vendas simultâneas se sobrescrevem.
+     */
     public function updateStock(int $id, int $quantity): bool
     {
         $stmt = $this->pdo->prepare("UPDATE products SET stock_quantity = ? WHERE id = ?");
-        return $stmt->execute([$quantity, $id]);
+        return $stmt->execute([max(0, $quantity), $id]);
+    }
+
+    /**
+     * Baixa estoque do produto sem variações. Devolve false se faltava saldo.
+     *
+     * Decisão e escrita na mesma instrução: o banco só atualiza a linha se ela
+     * ainda tiver o saldo, então duas requisições concorrentes disputando as
+     * mesmas unidades resultam em uma vitoriosa e uma recusada — nunca duas.
+     */
+    public function decrementStock(int $id, int $quantity): bool
+    {
+        if ($quantity < 1) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare(
+            'UPDATE products SET stock_quantity = stock_quantity - ?
+              WHERE id = ? AND stock_quantity >= ?'
+        );
+        $stmt->execute([$quantity, $id, $quantity]);
+
+        return $stmt->rowCount() === 1;
+    }
+
+    /** Devolve estoque ao produto (estorno). Sem guarda: repor não pode falhar. */
+    public function incrementStock(int $id, int $quantity): bool
+    {
+        if ($quantity < 1) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?');
+        $stmt->execute([$quantity, $id]);
+
+        return $stmt->rowCount() === 1;
     }
 
     public function delete(int $id): bool

@@ -3,15 +3,20 @@
 namespace App\Controllers\Api;
 
 use App\Controllers\Controller;
-use App\Repositories\UserRepository;
 use App\Repositories\UserAddressRepository;
 
 /**
- * APIs públicas do checkout (sem exigir login no painel).
+ * Endereços do cliente no checkout.
+ *
+ * Estes endpoints já aceitaram o e-mail como credencial: qualquer pessoa lia,
+ * alterava e apagava o endereço de qualquer cliente passando ?email=, e o POST
+ * ainda criava uma conta para o e-mail informado. A identidade agora vem
+ * exclusivamente da sessão — o corpo e a query string não têm mais voz sobre
+ * "de quem" é o endereço.
  */
 class CheckoutApiController extends Controller
 {
-    /** Lista endereços do cliente pelo e-mail (na loja). GET ?email= */
+    /** GET — endereços do cliente logado. */
     public function addresses(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
@@ -19,23 +24,12 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $email = trim((string) ($_GET['email'] ?? ''));
-        if ($email === '') {
-            $this->json(['addresses' => []]);
-            return;
-        }
-        $userRepo = new UserRepository();
-        $user = $userRepo->findByEmailAndStore($email, $storeId);
-        if (!$user) {
-            $this->json(['addresses' => [], 'has_user' => false]);
-            return;
-        }
-        $addrRepo = new UserAddressRepository();
-        $addresses = $addrRepo->getByUserId((int) $user['id']);
+        $this->requireLogin();
+        $addresses = (new UserAddressRepository())->getByUserIds($this->currentUserIdentityIds());
         $this->json(['addresses' => $addresses, 'has_user' => true]);
     }
 
-    /** Cadastra um endereço para o cliente (encontra ou cria usuário pelo e-mail). */
+    /** POST — cadastra um endereço para o cliente logado. */
     public function createAddress(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
@@ -43,50 +37,18 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
+        $me = $this->requireLogin();
         $input = $this->getJsonInput();
-        $email = trim($input['email'] ?? '');
-        $name = trim($input['customer_name'] ?? $input['name'] ?? '');
-        if ($email === '') {
-            $this->json(['error' => 'E-mail é obrigatório'], 400);
+        $fields = $this->validateAddressInput($input);
+        if ($fields === null) {
             return;
         }
-        $userRepo = new UserRepository();
-        $user = $userRepo->findByEmailAndStore($email, $storeId);
-        if (!$user) {
-            $userId = $userRepo->create([
-                'store_id'  => $storeId,
-                'name'      => $name ?: 'Cliente',
-                'email'     => $email,
-                'password'  => password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT),
-                'user_type' => 'cliente',
-            ]);
-        } else {
-            $userId = (int) $user['id'];
-        }
-        $required = ['street', 'number', 'city', 'state', 'zipcode'];
-        foreach ($required as $field) {
-            if (empty(trim($input[$field] ?? ''))) {
-                $this->json(['error' => 'Preencha: ' . $field], 400);
-                return;
-            }
-        }
         $addrRepo = new UserAddressRepository();
-        $id = $addrRepo->create([
-            'user_id'      => $userId,
-            'label'        => $input['label'] ?? null,
-            'street'       => trim($input['street']),
-            'number'       => trim($input['number']),
-            'complement'   => trim($input['complement'] ?? '') ?: null,
-            'neighborhood' => trim($input['neighborhood'] ?? '') ?: null,
-            'city'         => trim($input['city']),
-            'state'        => strtoupper(substr(trim($input['state']), 0, 2)),
-            'zipcode'      => preg_replace('/\D/', '', trim($input['zipcode'])),
-        ]);
-        $address = $addrRepo->find($id);
-        $this->json(['success' => true, 'address' => $address]);
+        $id = $addrRepo->create(['user_id' => (int) $me['id']] + $fields);
+        $this->json(['success' => true, 'address' => $addrRepo->find($id)]);
     }
 
-    /** Atualiza endereço do cliente (e-mail deve ser do dono do endereço na loja). */
+    /** PUT — atualiza endereço do cliente logado. */
     public function updateAddress(string $slug, string $id): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
@@ -94,51 +56,26 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
+        $this->requireLogin();
         $addressId = (int) $id;
         if ($addressId <= 0) {
             $this->json(['error' => 'Endereço inválido'], 400);
             return;
         }
-        $input = $this->getJsonInput();
-        $email = trim($input['email'] ?? '');
-        if ($email === '') {
-            $this->json(['error' => 'E-mail é obrigatório'], 400);
-            return;
-        }
-        $userRepo = new UserRepository();
-        $user = $userRepo->findByEmailAndStore($email, $storeId);
-        if (!$user) {
-            $this->json(['error' => 'Cliente não encontrado'], 404);
-            return;
-        }
         $addrRepo = new UserAddressRepository();
-        if (!$addrRepo->belongsToUser($addressId, (int) $user['id'])) {
+        if (!$addrRepo->belongsToAnyUser($addressId, $this->currentUserIdentityIds())) {
             $this->json(['error' => 'Endereço não encontrado'], 404);
             return;
         }
-        $required = ['street', 'number', 'city', 'state', 'zipcode'];
-        foreach ($required as $field) {
-            if (empty(trim($input[$field] ?? ''))) {
-                $this->json(['error' => 'Preencha: ' . $field], 400);
-                return;
-            }
+        $fields = $this->validateAddressInput($this->getJsonInput());
+        if ($fields === null) {
+            return;
         }
-        $label = trim((string) ($input['label'] ?? ''));
-        $addrRepo->update($addressId, [
-            'label'        => $label !== '' ? $label : null,
-            'street'       => trim($input['street']),
-            'number'       => trim($input['number']),
-            'complement'   => trim($input['complement'] ?? '') ?: null,
-            'neighborhood' => trim($input['neighborhood'] ?? '') ?: null,
-            'city'         => trim($input['city']),
-            'state'        => strtoupper(substr(trim($input['state']), 0, 2)),
-            'zipcode'      => preg_replace('/\D/', '', trim($input['zipcode'])),
-        ]);
-        $address = $addrRepo->find($addressId);
-        $this->json(['success' => true, 'address' => $address]);
+        $addrRepo->update($addressId, $fields);
+        $this->json(['success' => true, 'address' => $addrRepo->find($addressId)]);
     }
 
-    /** Remove endereço do cliente (e-mail deve ser do dono na loja). */
+    /** DELETE — remove endereço do cliente logado. */
     public function deleteAddress(string $slug, string $id): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
@@ -146,25 +83,14 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
+        $this->requireLogin();
         $addressId = (int) $id;
         if ($addressId <= 0) {
             $this->json(['error' => 'Endereço inválido'], 400);
             return;
         }
-        $input = $this->getJsonInput();
-        $email = trim($input['email'] ?? '');
-        if ($email === '') {
-            $this->json(['error' => 'E-mail é obrigatório'], 400);
-            return;
-        }
-        $userRepo = new UserRepository();
-        $user = $userRepo->findByEmailAndStore($email, $storeId);
-        if (!$user) {
-            $this->json(['error' => 'Cliente não encontrado'], 404);
-            return;
-        }
         $addrRepo = new UserAddressRepository();
-        if (!$addrRepo->belongsToUser($addressId, (int) $user['id'])) {
+        if (!$addrRepo->belongsToAnyUser($addressId, $this->currentUserIdentityIds())) {
             $this->json(['error' => 'Endereço não encontrado'], 404);
             return;
         }
@@ -173,5 +99,34 @@ class CheckoutApiController extends Controller
             return;
         }
         $this->json(['success' => true]);
+    }
+
+    /**
+     * Valida e normaliza os campos do endereço.
+     * Responde 400 e devolve null quando falta campo obrigatório.
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, string|null>|null
+     */
+    private function validateAddressInput(array $input): ?array
+    {
+        foreach (['street', 'number', 'city', 'state', 'zipcode'] as $field) {
+            if (trim((string) ($input[$field] ?? '')) === '') {
+                $this->json(['error' => 'Preencha: ' . $field], 400);
+                return null;
+            }
+        }
+        $label = trim((string) ($input['label'] ?? ''));
+
+        return [
+            'label'        => $label !== '' ? $label : null,
+            'street'       => trim((string) $input['street']),
+            'number'       => trim((string) $input['number']),
+            'complement'   => trim((string) ($input['complement'] ?? '')) ?: null,
+            'neighborhood' => trim((string) ($input['neighborhood'] ?? '')) ?: null,
+            'city'         => trim((string) $input['city']),
+            'state'        => strtoupper(substr(trim((string) $input['state']), 0, 2)),
+            'zipcode'      => preg_replace('/\D/', '', trim((string) $input['zipcode'])),
+        ];
     }
 }

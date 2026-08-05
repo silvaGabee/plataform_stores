@@ -19,16 +19,23 @@ $content = ob_start();
             </div>
             <form id="checkout-form" class="checkout-form">
                 <input type="hidden" name="store_slug" value="<?= htmlspecialchars($store['slug']) ?>">
+                <?php
+                // Nome e e-mail vêm da conta logada e são só exibidos: o pedido
+                // é sempre lançado para quem está na sessão, então editá-los
+                // aqui não mudaria nada no servidor. Alterar os dados é na
+                // página "Minha conta".
+                ?>
                 <section class="checkout-form-section">
                     <h2 class="checkout-form-section-title">Seus dados</h2>
                     <div class="checkout-field">
-                        <label for="checkout-name">Seu nome *</label>
-                        <input type="text" id="checkout-name" name="customer_name" required placeholder="Nome completo" value="<?= htmlspecialchars($checkout_customer_name ?? '') ?>">
+                        <label for="checkout-name">Seu nome</label>
+                        <input type="text" id="checkout-name" name="customer_name" readonly value="<?= htmlspecialchars($checkout_customer_name ?? '') ?>">
                     </div>
                     <div class="checkout-field">
-                        <label for="checkout-email">E-mail *</label>
-                        <input type="email" id="checkout-email" name="customer_email" required placeholder="seu@email.com" value="<?= htmlspecialchars($checkout_customer_email ?? '') ?>">
+                        <label for="checkout-email">E-mail</label>
+                        <input type="email" id="checkout-email" name="customer_email" readonly value="<?= htmlspecialchars($checkout_customer_email ?? '') ?>">
                     </div>
+                    <p class="checkout-field-hint">Comprando como <strong><?= htmlspecialchars($checkout_customer_email ?? '') ?></strong>. Para alterar, edite em <a href="<?= base_url('minha-conta') ?>">Minha conta</a>.</p>
                 </section>
                 <section class="checkout-form-section">
                     <h2 class="checkout-form-section-title">Entrega</h2>

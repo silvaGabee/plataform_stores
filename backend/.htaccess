@@ -1,0 +1,5 @@
+# Nada em backend/ é servido por HTTP: são classes, config, views, migrations
+# e scripts de manutenção, todos carregados via require pelo front controller.
+# Redundante com o RedirectMatch da raiz — mantido porque, se aquele arquivo
+# for removido ou o DocumentRoot mudar, esta pasta continua fechada.
+Require all denied

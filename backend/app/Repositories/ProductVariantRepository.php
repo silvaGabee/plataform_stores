@@ -56,6 +56,17 @@ class ProductVariantRepository
         return (int) $stmt->fetchColumn();
     }
 
+    /**
+     * Baixa estoque da variação. Devolve false se não havia saldo suficiente.
+     *
+     * A condição `stock_quantity >= ?` faz o próprio banco decidir na mesma
+     * instrução que escreve — sem ler antes e gravar depois, então duas vendas
+     * simultâneas não conseguem passar pelo mesmo saldo.
+     *
+     * Antes daqui saía `GREATEST(0, stock - ?)`, que aceitava vender mais do
+     * que existia: com estoque 3 e venda de 5, o saldo ia a 0 e a operação era
+     * reportada como bem-sucedida. Duas unidades saíam sem existir.
+     */
     public function decrementStock(int $productId, string $variantType, string $variantValue, int $quantity): bool
     {
         if ($quantity < 1) {
@@ -63,11 +74,30 @@ class ProductVariantRepository
         }
         $stmt = $this->pdo->prepare(
             'UPDATE product_variants
-             SET stock_quantity = GREATEST(0, stock_quantity - ?)
+             SET stock_quantity = stock_quantity - ?
+             WHERE product_id = ? AND variant_type = ? AND variant_value = ? AND stock_quantity >= ?'
+        );
+        $stmt->execute([$quantity, $productId, $variantType, $variantValue, $quantity]);
+
+        return $stmt->rowCount() === 1;
+    }
+
+    /**
+     * Devolve estoque à variação (estorno / rollback lógico).
+     * Sem guarda de saldo: repor nunca pode falhar por falta.
+     */
+    public function incrementStock(int $productId, string $variantType, string $variantValue, int $quantity): bool
+    {
+        if ($quantity < 1) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare(
+            'UPDATE product_variants
+             SET stock_quantity = stock_quantity + ?
              WHERE product_id = ? AND variant_type = ? AND variant_value = ?'
         );
         $stmt->execute([$quantity, $productId, $variantType, $variantValue]);
 
-        return $stmt->rowCount() > 0;
+        return $stmt->rowCount() === 1;
     }
 }

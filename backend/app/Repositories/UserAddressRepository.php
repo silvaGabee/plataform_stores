@@ -29,11 +29,47 @@ class UserAddressRepository
         return $row ?: null;
     }
 
-    /** Verifica se o endereço pertence ao usuário. */
-    public function belongsToUser(int $addressId, int $userId): bool
+    /**
+     * Endereços de vários registros de `users` de uma vez.
+     *
+     * Existe porque a mesma pessoa hoje tem uma linha em `users` por loja, e os
+     * endereços ficaram espalhados entre elas. Some quando a identidade for
+     * unificada (Fase 3 do plano em docs/).
+     *
+     * @param int[] $userIds
+     */
+    public function getByUserIds(array $userIds): array
     {
-        $stmt = $this->pdo->prepare("SELECT 1 FROM user_addresses WHERE id = ? AND user_id = ?");
-        $stmt->execute([$addressId, $userId]);
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM user_addresses WHERE user_id IN ({$placeholders}) ORDER BY id ASC"
+        );
+        $stmt->execute($ids);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * O endereço pertence a algum destes usuários?
+     *
+     * @param int[] $userIds
+     */
+    public function belongsToAnyUser(int $addressId, array $userIds): bool
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $userIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            return false;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT 1 FROM user_addresses WHERE id = ? AND user_id IN ({$placeholders})"
+        );
+        $stmt->execute(array_merge([$addressId], $ids));
+
         return (bool) $stmt->fetch();
     }
 

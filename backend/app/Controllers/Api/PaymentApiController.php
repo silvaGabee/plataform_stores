@@ -46,6 +46,11 @@ class PaymentApiController extends Controller
         $orderType = strtolower((string) ($order['order_type'] ?? 'online'));
         if ($orderType === 'pdv') {
             $this->requireStorePanelAccess($storeId);
+        } else {
+            // Pedido online só podia ser pago por quem informasse o id — e ids
+            // são sequenciais. Sem esta checagem dá para varrer os pedidos
+            // pendentes da loja e gerar pagamento no pedido de qualquer um.
+            $this->requireOrderAccess($order, $storeId);
         }
         $method = $input['method'] ?? 'pix';
         if (!in_array($method, ['pix', 'dinheiro', 'cartao'], true)) {
@@ -114,6 +119,14 @@ class PaymentApiController extends Controller
         if (!$payment || (int) $payment['store_id'] !== $storeId) {
             $this->json(['error' => 'Pagamento não encontrado'], 404);
         }
+        // O polling do checkout consulta este endpoint, mas ele devolve o
+        // registro inteiro do pagamento (valor, método, últimos 4 dígitos do
+        // cartão) — só para quem tem acesso ao pedido.
+        $order = (new OrderRepository())->findByIdAndStore((int) $payment['order_id'], $storeId);
+        if (!$order) {
+            $this->json(['error' => 'Pagamento não encontrado'], 404);
+        }
+        $this->requireOrderAccess($order, $storeId);
         $this->json(['payment' => $payment]);
     }
 

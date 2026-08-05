@@ -28,6 +28,20 @@ class OrderRepository
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Lê o pedido travando a linha até o fim da transação.
+     * Use antes de decidir algo com base em orders.status — sem o lock, dois
+     * pedidos de pagamento simultâneos leem "pendente" ao mesmo tempo e ambos
+     * criam pagamento para o mesmo pedido.
+     */
+    public function findByIdAndStoreForUpdate(int $id, int $storeId): ?array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM orders WHERE id = ? AND store_id = ? FOR UPDATE");
+        $stmt->execute([$id, $storeId]);
+
+        return $stmt->fetch() ?: null;
+    }
+
     /** Pedido com nome do cliente (para exibição no Kanban). */
     public function findByIdAndStoreWithCustomer(int $id, int $storeId): ?array
     {
@@ -60,7 +74,7 @@ class OrderRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $data['store_id'],
@@ -71,6 +85,9 @@ class OrderRepository
             $data['address_id'] ?? null,
             $data['status'] ?? 'pendente',
             $data['total'] ?? 0,
+            // Segredo do link do comprovante: é o que substitui o id sequencial
+            // como prova de que quem abriu a página é quem fez o pedido.
+            bin2hex(random_bytes(16)),
         ]);
         return (int) $this->pdo->lastInsertId();
     }
@@ -133,13 +150,30 @@ class OrderRepository
     /** Lista pedidos do cliente na loja que ainda não estão como entregues (para "Meus pedidos"). */
     public function listByCustomerNotDelivered(int $storeId, int $customerId): array
     {
+        return $this->listByCustomersNotDelivered($storeId, [$customerId]);
+    }
+
+    /**
+     * Idem, aceitando vários registros de `users` da mesma pessoa — hoje ela
+     * tem uma linha por loja, então seus pedidos ficam divididos entre elas.
+     *
+     * @param int[] $customerIds
+     */
+    public function listByCustomersNotDelivered(int $storeId, array $customerIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $customerIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $stmt = $this->pdo->prepare(
-            "SELECT o.*, u.name as customer_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id 
-             WHERE o.store_id = ? AND o.customer_id = ? AND o.status = 'pago' 
-             AND (o.delivery_stage IS NULL OR o.delivery_stage != 'entregue') 
+            "SELECT o.*, u.name as customer_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id
+             WHERE o.store_id = ? AND o.customer_id IN ({$placeholders}) AND o.status = 'pago'
+             AND (o.delivery_stage IS NULL OR o.delivery_stage != 'entregue')
              ORDER BY o.created_at DESC"
         );
-        $stmt->execute([$storeId, $customerId]);
+        $stmt->execute(array_merge([$storeId], $ids));
+
         return $stmt->fetchAll();
     }
 }
