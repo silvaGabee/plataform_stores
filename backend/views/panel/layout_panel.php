@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <?= csrf_meta() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="base-url" content="<?= rtrim(base_url(), '/') ?>">
     <title><?= htmlspecialchars($title ?? 'Painel') ?> — <?= htmlspecialchars($store['name']) ?></title>
@@ -10,7 +11,7 @@
     <link rel="shortcut icon" href="<?= $__panel_icon ?>" type="image/x-icon">
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-</head>
+    <script src="<?= asset('js/csrf.js') ?>"></script>
 <body class="panel<?= !empty($panel_readonly) ? ' panel-readonly' : '' ?>">
     <div class="panel-sidebar-backdrop" id="panel-sidebar-backdrop" aria-hidden="true"></div>
 <?php

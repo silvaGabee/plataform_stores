@@ -115,6 +115,33 @@ if (!function_exists('csrf_token')) {
     }
 }
 
+if (!function_exists('csrf_field')) {
+    /** Campo oculto com o token, para formulários HTML. */
+    function csrf_field(): string {
+        return '<input type="hidden" name="_csrf" value="'
+            . htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+    }
+}
+
+if (!function_exists('csrf_meta')) {
+    /** <meta> lido pelo interceptador de fetch (assets/js/csrf.js). */
+    function csrf_meta(): string {
+        return '<meta name="csrf-token" content="'
+            . htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+    }
+}
+
+if (!function_exists('user_can')) {
+    /**
+     * O usuário logado tem esta permissão nesta loja?
+     * Use nas views para mostrar ou esconder ações — a decisão real é do Guard,
+     * antes do controller rodar.
+     */
+    function user_can(string $permissao, int $storeId): bool {
+        return \App\Auth\Permissions::can($permissao, $storeId);
+    }
+}
+
 if (!function_exists('base_url')) {
     function base_url(string $path = ''): string {
         $path = ltrim($path, '/');
@@ -1201,6 +1228,10 @@ if (!function_exists('login_user')) {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
+        // Token novo a cada login: o que valia para o visitante anônimo não
+        // deve continuar valendo para a sessão autenticada.
+        unset($_SESSION['_csrf']);
+        \App\Auth\Permissions::limparCache();
         $storeId = $user['store_id'] ?? null;
         $_SESSION['logged_user_id'] = (int) $user['id'];
         $_SESSION['logged_store_id'] = $storeId !== null && $storeId !== '' ? (int) $storeId : null;
@@ -1421,67 +1452,35 @@ if (!function_exists('delete_store_icon_file')) {
     }
 }
 
+/*
+ * As três funções abaixo eram a autorização do sistema: cada controller
+ * chamava uma delas à mão, e quem esquecesse deixava a rota aberta. Agora são
+ * invólucros finos sobre App\Auth\Permissions, mantidos porque as views e os
+ * controllers ainda as usam. A decisão que vale é a do Guard, aplicada antes de
+ * qualquer controller rodar.
+ */
+
 if (!function_exists('is_gerente_store')) {
-    /** Verifica se o usuário logado é gerente da loja informada. Gerente de outra loja retorna false. */
+    /** O usuário logado é gerente desta loja? Gerente de outra loja: false. */
     function is_gerente_store(int $storeId): bool {
-        $storeId = (int) $storeId;
-        $userId = $_SESSION['logged_user_id'] ?? null;
-        if (!$userId) {
-            return false;
-        }
-        $userRepo = new \App\Repositories\UserRepository();
-        $user = $userRepo->find((int) $userId);
-        if (!$user || $user['store_id'] === null || $user['store_id'] === '') {
-            return false;
-        }
-        $userStoreId = (int) $user['store_id'];
-        if ($userStoreId !== $storeId) {
-            return false;
-        }
-        return ($user['user_type'] ?? '') === 'gerente';
+        return \App\Auth\Permissions::cargoNaLoja((int) $storeId) === \App\Auth\Permissions::GERENTE;
     }
 }
 
 if (!function_exists('can_access_store_panel')) {
-    /**
-     * Verifica se o usuário logado pode acessar o painel desta loja:
-     * deve ser gerente OU funcionário e o store_id do usuário deve ser o da loja informada.
-     */
+    /** O usuário logado pode abrir o painel desta loja (gerente ou funcionário)? */
     function can_access_store_panel(int $storeId): bool {
-        $storeId = (int) $storeId;
-        $userId = $_SESSION['logged_user_id'] ?? null;
-        if (!$userId) {
-            return false;
-        }
-        $userRepo = new \App\Repositories\UserRepository();
-        $user = $userRepo->find((int) $userId);
-        if (!$user || $user['store_id'] === null || $user['store_id'] === '') {
-            return false;
-        }
-        $userStoreId = (int) $user['store_id'];
-        if ($userStoreId !== $storeId) {
-            return false;
-        }
-        $type = strtolower((string) ($user['user_type'] ?? ''));
-        return $type === 'gerente' || $type === 'funcionario';
+        return \App\Auth\Permissions::can('store.panel.view', (int) $storeId);
     }
 }
 
 if (!function_exists('is_funcionario_panel_readonly')) {
-    /** Funcionário da loja: acesso ao painel só leitura (gerente tem acesso total). */
+    /**
+     * Funcionário desta loja — ou seja, tem painel mas não gerencia catálogo.
+     * As views usam isto para esconder botões; o bloqueio real é da matriz.
+     */
     function is_funcionario_panel_readonly(int $storeId): bool {
-        if (is_gerente_store((int) $storeId)) {
-            return false;
-        }
-        $userId = $_SESSION['logged_user_id'] ?? null;
-        if (!$userId) {
-            return false;
-        }
-        $user = (new \App\Repositories\UserRepository())->find((int) $userId);
-        if (!$user || (int) ($user['store_id'] ?? 0) !== (int) $storeId) {
-            return false;
-        }
-        return strtolower((string) ($user['user_type'] ?? '')) === 'funcionario';
+        return \App\Auth\Permissions::cargoNaLoja((int) $storeId) === \App\Auth\Permissions::FUNCIONARIO;
     }
 }
 

@@ -124,38 +124,41 @@ if (preg_match('#^/assets/(.+)$#', $path, $m)) {
     }
 }
 
-// Rotas de API
-$apiRoutes = require PLATAFORM_BACKEND . '/routes/api.php';
-foreach ($apiRoutes as $pattern => $handler) {
-    $params = $router->match($pattern);
-    if ($params !== null) {
+/**
+ * Despacha a primeira rota que casar.
+ *
+ * O Guard roda ANTES do controller e é quem valida CSRF e permissão. Rota que
+ * não declare seu requisito faz o Guard lançar — endpoint novo nasce fechado,
+ * em vez de aberto por esquecimento.
+ */
+$despachar = static function (array $routes, bool $isApi) use ($router, $renderError): bool {
+    foreach ($routes as $pattern => $handler) {
+        $params = $router->match($pattern);
+        if ($params === null) {
+            continue;
+        }
         try {
+            App\Http\Guard::autorizar($pattern, $handler, Router::namedParams($pattern, $params), $isApi);
             [$class, $action] = $handler;
             $controller = new $class();
             $controller->$action(...$params);
         } catch (\Throwable $e) {
-            $renderError($e, true);
+            // As rotas web não tinham try/catch: qualquer exceção virava stack
+            // trace cru na tela do visitante.
+            $renderError($e, $isApi);
         }
-        exit;
-    }
-}
 
-// Rotas de páginas (web)
-$webRoutes = require PLATAFORM_BACKEND . '/routes/web.php';
-foreach ($webRoutes as $pattern => $handler) {
-    $params = $router->match($pattern);
-    if ($params !== null) {
-        // As rotas web não tinham try/catch: qualquer exceção virava stack
-        // trace cru na tela do visitante.
-        try {
-            [$class, $action] = $handler;
-            $controller = new $class();
-            $controller->$action(...$params);
-        } catch (\Throwable $e) {
-            $renderError($e, false);
-        }
-        exit;
+        return true;
     }
+
+    return false;
+};
+
+if ($despachar(require PLATAFORM_BACKEND . '/routes/api.php', true)) {
+    exit;
+}
+if ($despachar(require PLATAFORM_BACKEND . '/routes/web.php', false)) {
+    exit;
 }
 
 if ($isApiRequest) {

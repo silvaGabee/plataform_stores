@@ -240,7 +240,41 @@ Respostas de erro da API costumam vir em JSON com campo `error`. Pedidos a `/api
 - **Plataforma:** sessão com `logged_user_id`, etc., após login em `/`. Cabeçalho com **Minha conta** e **Sair** quando autenticado. O cookie é `httponly`/`samesite=Lax` e o id é renovado a cada login e logout.
 - **Loja (vitrine):** navegar e adicionar ao carrinho não exige conta. **Finalizar compra, ver "Meus pedidos" e "Meus endereços" exigem login** — a identidade sai sempre da sessão, nunca de um parâmetro `email`.
 - **Comprovante do pedido:** `/loja/{slug}/pedido/{id}` abre para a equipa da loja, para o dono logado, ou para quem tiver o link com `?t={access_token}`. Sem um dos três, responde 404.
-- **Painel:** acesso de **gerente** ou **funcionário** daquela loja; várias ações da API verificam permissões no controller.
+### Permissões
+
+Quem pode o quê está em **`backend/app/Auth/Permissions.php`** — uma matriz de permissões nomeadas por cargo. O modelo é: o **gerente** gerencia a loja; o **funcionário** a opera.
+
+| Área | Gerente | Funcionário |
+|------|:-------:|:-----------:|
+| Dashboard, PDV, caixa, entregas | ✔ | ✔ |
+| Ver catálogo, estoque, pedidos, relatórios, cargos | ✔ | ✔ |
+| Criar/editar/apagar produto, ajustar estoque, categorias | ✔ | — |
+| Equipe, cargos (gestão), metas | ✔ | — |
+| Analyzing BI, configurações, chave PIX | ✔ | — |
+| Confirmar pagamento | ✔ | só dinheiro no PDV |
+
+**Toda rota declara o que exige** no terceiro elemento do handler, e o `App\Http\Guard` decide antes de o controller rodar:
+
+```php
+'POST /api/loja/{slug}/products' => [ProductApiController::class, 'create', 'store.catalog.write'],
+'GET  /loja/{slug}'              => [StoreFrontController::class, 'vitrine', Guard::PUBLICO],
+```
+
+Rota sem declaração **não executa**: levanta exceção. Ao criar um endpoint, escolha a permissão na matriz e rode `php backend/tools/routes_check.php`.
+
+Nas views, use `user_can('store.catalog.write', $storeId)` para mostrar ou esconder ações — lembrando que esconder botão não é proteção; a decisão que vale é a do Guard.
+
+### CSRF
+
+Todo `POST`/`PUT`/`PATCH`/`DELETE` exige o token. Nos formulários, `<?= csrf_field() ?>`. No JavaScript nada é preciso: **`assets/js/csrf.js` intercepta `window.fetch`** e envia o cabeçalho `X-CSRF-Token` sozinho — ele é carregado no `<head>` dos três layouts, antes de qualquer script que faça requisição.
+
+Token vencido volta como `403` com o cabeçalho `X-CSRF-Retry`, e o interceptador recarrega a página.
+
+### Limite de tentativas
+
+`App\Auth\RateLimiter` (tabela `rate_limits`): 8 tentativas de login por IP+e-mail a cada 15 minutos, 5 contas por IP por hora, 30 perguntas ao assistente de IA por usuário a cada 10 minutos.
+
+- **Painel:** acesso de **gerente** ou **funcionário** daquela loja, conforme a matriz acima.
 - **Nota:** o mesmo e-mail ainda existe em `users` com `store_id` diferentes — uma linha por loja mais uma de plataforma. É dívida conhecida, com plano de unificação em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md) (Fase 3).
 
 ---
@@ -268,6 +302,8 @@ Os dois produzem o mesmo schema. Nunca execute o `schema.sql` sobre um banco com
 | `php backend/scripts/backup.php [rótulo]` | Dump para `storage/backups/` |
 | `php backend/scripts/seed.php [--force]` | Popula com a loja de exemplo |
 | `php backend/tools/concurrency_check.php` | Verifica estoque, transações e confirmação de pagamento contra o banco |
+| `php backend/tools/routes_check.php` | Confere que toda rota declara uma permissão válida |
+| `php backend/tools/authz_check.php` | Exercita a matriz de permissões e o CSRF por HTTP (precisa do seed e do servidor no ar) |
 
 ### Migrações novas
 
@@ -311,7 +347,7 @@ mysqldump -u root --no-data --skip-comments plataform_stores
 - Não publique **`.env`** nem credenciais no repositório.
 - **Raiz pública:** aponte o `DocumentRoot` para **`frontend/public/`**. Enquanto o projeto vive dentro de `htdocs`, quem protege `.env`, `backend/`, `storage/`, `docs/` e `.git/` são os `.htaccess` — se mudar de servidor (nginx) ou desligar `AllowOverride`, essa proteção some e o código-fonte volta a ser descarregável.
 - **Pagamento é simulação.** Não há gateway: um cartão que passe no Luhn marca o pedido como pago, baixa estoque e conta como receita no BI. Antes de qualquer cobrança real, integre um PSP — ver [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md).
-- **Dívida técnica conhecida e priorizada** está em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md): falta de transações no fluxo de pedido, corrida no estoque, restrição de funcionário aplicada só na interface, ausência de CSRF.
+- **Dívida técnica conhecida e priorizada** está em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md). O que ainda falta: identidade duplicada em `users` (uma linha por loja), ausência de Composer e de testes automatizados, e os itens de performance.
 - Revise permissões de ficheiros, backups e conformidade (LGPD, pagamentos, termos de uso) antes de uso real.
 
 ---

@@ -78,7 +78,8 @@ $initialEsc = htmlspecialchars($initial);
                 <div class="my-account-danger-card">
                     <p class="my-account-danger-title">Zona de risco</p>
                     <p class="my-account-danger-text">A exclusão da conta é permanente e só é permitida se não houver restrições no sistema.</p>
-                    <form method="post" action="<?= base_url('minha-conta/excluir') ?>" class="my-account-delete-form">
+                    <form method="post" action="<?= base_url('minha-conta/excluir') ?>
+                        <?= csrf_field() ?>" class="my-account-delete-form">
                         <button type="submit" class="btn btn-danger my-account-btn-delete" onclick="return confirm('Tem a certeza de que deseja excluir a sua conta? Esta ação não pode ser desfeita.');">
                             Excluir a minha conta
                         </button>

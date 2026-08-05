@@ -34,7 +34,14 @@ class AiController extends Controller
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
-        $this->requireStorePanelAccess($storeId);
+        // POST /api/ai/chat recebe o slug no corpo, então o Guard não teve como
+        // resolver a loja pela URL — a permissão é conferida aqui.
+        $this->requirePermission('store.ai.use', $storeId);
+        // Cada pergunta é uma chamada paga à OpenRouter: 30 por usuário a cada
+        // 10 minutos evita que um laço no navegador queime o crédito da conta.
+        if (!\App\Auth\RateLimiter::tentar('ai', (string) ($_SESSION['logged_user_id'] ?? ''), 30, 600)) {
+            $this->json(['error' => 'Muitas perguntas em pouco tempo. Aguarde um instante.'], 429);
+        }
         $pergunta = isset($input['pergunta']) ? trim((string) $input['pergunta']) : '';
         if ($pergunta === '') {
             $this->json(['error' => 'Informe a pergunta.'], 400);

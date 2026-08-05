@@ -45,6 +45,21 @@ abstract class Controller
         }
     }
 
+    /**
+     * Exige uma permissão da matriz (App\Auth\Permissions).
+     *
+     * O Guard já cobre as rotas cujo {slug} está na URL. Este método é para os
+     * poucos casos em que a loja só é conhecida depois de ler o corpo do pedido
+     * — como POST /api/ai/chat, que recebe o slug no JSON.
+     */
+    protected function requirePermission(string $permissao, int $storeId): void
+    {
+        if (!\App\Auth\Permissions::can($permissao, $storeId)) {
+            $this->json(['error' => 'Você não tem permissão para esta ação.'], 403);
+            exit;
+        }
+    }
+
     /** Registro completo do usuário logado, ou null se não há sessão. */
     protected function currentUser(): ?array
     {

@@ -7,6 +7,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <?= csrf_meta() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
     <link rel="icon" href="<?= htmlspecialchars(favicon_url(), ENT_QUOTES, 'UTF-8') ?>" sizes="any">
@@ -18,7 +19,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?php endif; ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-</head>
+    <script src="<?= asset('js/csrf.js') ?>"></script>
 <body class="<?= !logged_in() ? 'has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
     <?php if (!$hide_app_header): ?>
     <header class="app-header<?= logged_in() ? ' app-header--session' : '' ?>">
@@ -89,7 +90,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-success"><?= htmlspecialchars($_SESSION['_success']) ?></div>
                             <?php unset($_SESSION['_success']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('login') ?>" class="form-login auth-modal-form">
+                        <form method="post" action="<?= base_url('login') ?>
+                        <?= csrf_field() ?>" class="form-login auth-modal-form">
                             <input type="hidden" name="auth_intent" value="login">
                             <label for="modal-login-email">E-mail</label>
                             <input type="email" id="modal-login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
@@ -105,7 +107,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-error"><?= htmlspecialchars($_SESSION['_error']) ?></div>
                             <?php unset($_SESSION['_error']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('criar-conta') ?>" class="form-create-account auth-modal-form">
+                        <form method="post" action="<?= base_url('criar-conta') ?>
+                        <?= csrf_field() ?>" class="form-create-account auth-modal-form">
                             <input type="hidden" name="auth_intent" value="register">
                             <label for="modal-register-name">Nome</label>
                             <input type="text" id="modal-register-name" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name" placeholder="O seu nome">

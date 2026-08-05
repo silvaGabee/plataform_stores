@@ -11,7 +11,8 @@ ob_start();
             </div>
             <?php unset($_SESSION['_error']); ?>
         <?php endif; ?>
-        <form method="post" action="<?= base_url('criar-conta') ?>" class="card form-create-account">
+        <form method="post" action="<?= base_url('criar-conta') ?>
+                        <?= csrf_field() ?>" class="card form-create-account">
             <input type="hidden" name="auth_intent" value="register">
             <h2>Cadastro</h2>
             <label>Nome *</label>

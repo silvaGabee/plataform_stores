@@ -5,10 +5,19 @@ namespace App\Controllers;
 use App\Repositories\StoreRepository;
 use App\Services\StoreService;
 use App\Repositories\StorePixConfigRepository;
+use App\Auth\RateLimiter;
 use App\Repositories\UserRepository;
 
 class HomeController extends Controller
 {
+    /** Tentativas de login por IP+e-mail antes de bloquear, e a janela em segundos. */
+    private const LOGIN_TENTATIVAS = 8;
+    private const LOGIN_JANELA = 900;
+
+    /** Contas criadas a partir do mesmo IP por hora. */
+    private const CADASTRO_TENTATIVAS = 5;
+    private const CADASTRO_JANELA = 3600;
+
     public function index(): void
     {
         if (logged_in()) {
@@ -36,10 +45,23 @@ class HomeController extends Controller
             $_SESSION['_error'] = 'Preencha e-mail e senha.';
             redirect(base_url('?auth=login'));
         }
+        // Sem isto, dava para testar senhas indefinidamente. 8 tentativas por
+        // IP+e-mail a cada 15 minutos; o contador zera ao acertar.
+        if (!RateLimiter::tentar('login', $email, self::LOGIN_TENTATIVAS, self::LOGIN_JANELA)) {
+            $espera = max(1, (int) ceil(RateLimiter::esperaSegundos('login', $email) / 60));
+            log_message('warning', 'Login bloqueado por excesso de tentativas', [
+                'ip' => RateLimiter::ip(),
+            ]);
+            $_SESSION['_old'] = ['email' => $email];
+            $_SESSION['_error'] = 'Muitas tentativas de entrada. Aguarde ' . $espera . ' minuto(s) e tente novamente.';
+            redirect(base_url('?auth=login'));
+        }
+
         $userRepo = new UserRepository();
         $candidates = $userRepo->findAllByEmail($email);
         foreach ($candidates as $user) {
             if (password_verify($password, $user['password'])) {
+                RateLimiter::limpar('login', $email);
                 login_user($user);
                 redirect($this->consumeAfterLoginUrl() ?? base_url('lojas'));
             }
@@ -247,6 +269,12 @@ class HomeController extends Controller
         if (!$name || !$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha todos os campos.';
+            redirect(base_url('?auth=cadastro'));
+        }
+        // Limita criação de contas em massa a partir do mesmo IP.
+        if (!RateLimiter::tentar('criar-conta', RateLimiter::ip(), self::CADASTRO_TENTATIVAS, self::CADASTRO_JANELA)) {
+            $_SESSION['_old'] = $_POST;
+            $_SESSION['_error'] = 'Muitas contas criadas a partir deste acesso. Tente novamente mais tarde.';
             redirect(base_url('?auth=cadastro'));
         }
         $userRepo = new UserRepository();

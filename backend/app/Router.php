@@ -28,13 +28,46 @@ class Router
         $route = $parts[1] ?? '/';
         if ($method !== $this->method) return null;
         $regex = preg_quote($route, '#');
-        $regex = preg_replace('#\\\\\\{[a-z]+\\\\}#', '([^/]+)', $regex);
+        // Aceita {slug}, {id} e também {storeId}: o padrão anterior só casava
+        // nomes em minúsculas, então um parâmetro em camelCase fazia a rota
+        // nunca corresponder — falha silenciosa, sem erro nenhum.
+        $regex = preg_replace('#\\\\\\{[A-Za-z_][A-Za-z0-9_]*\\\\}#', '([^/]+)', $regex);
         $regex = '#^' . $regex . '$#';
         if (preg_match($regex, $this->path, $m)) {
             array_shift($m);
             return $m;
         }
         return null;
+    }
+
+    /**
+     * Nomes dos parâmetros do padrão, na ordem em que aparecem.
+     * 'POST /api/loja/{slug}/products/{id}' => ['slug', 'id']
+     *
+     * @return list<string>
+     */
+    public static function paramNames(string $pattern): array
+    {
+        return preg_match_all('#\{([A-Za-z_][A-Za-z0-9_]*)\}#', $pattern, $m) ? $m[1] : [];
+    }
+
+    /**
+     * Junta nomes e valores capturados.
+     *
+     * @param list<string> $params
+     * @return array<string, string>
+     */
+    public static function namedParams(string $pattern, array $params): array
+    {
+        $nomes = self::paramNames($pattern);
+        $out = [];
+        foreach ($nomes as $i => $nome) {
+            if (array_key_exists($i, $params)) {
+                $out[$nome] = (string) $params[$i];
+            }
+        }
+
+        return $out;
     }
 
     public function getPath(): string

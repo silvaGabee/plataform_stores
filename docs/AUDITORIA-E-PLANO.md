@@ -284,16 +284,27 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 >
 > O `seed.php` existe por causa disso, e o backup automático do item 14 é a resposta estrutural: nenhum script deste projeto altera schema sem dump antes.
 
-### Fase 2 — Autorização de verdade (3–5 dias)
+### Fase 2 — Autorização de verdade ✅ CONCLUÍDA (2026-08-05)
 
-14. **Middleware no Router.** Rota passa a declarar sua exigência em vez de cada controller lembrar de chamar o guard:
+14. ✅ **Middleware no Router** (`App\Http\Guard`). A rota declara o que exige no terceiro elemento do handler:
     ```php
-    'POST /api/loja/{slug}/products' => [ProductApiController::class, 'create', 'auth' => 'store:write'],
+    'POST /api/loja/{slug}/products' => [ProductApiController::class, 'create', 'store.catalog.write'],
     ```
-    Um pipeline central resolve `slug → store`, aplica CSRF, aplica o guard e só então chama o controller. Endpoint sem declaração explícita **nega por padrão** — hoje um `require` esquecido abre a rota em silêncio.
-15. **Permissões nomeadas** (`store.products.write`, `store.payments.confirm`, `store.settings.write`) mapeadas a papéis, substituindo `is_gerente_store` / `can_access_store_panel` / `is_funcionario_panel_readonly` espalhados. O read-only do funcionário passa a valer na API, não no HTML. As tabelas `roles`/`employee_roles` já existem no schema e hoje são decorativas — é aqui que elas ganham função.
-16. **CSRF** no mesmo pipeline: token no `<meta>`, header `X-CSRF-Token` no `fetch`, validação obrigatória em todo `POST`/`PUT`/`DELETE`. Aproveitar para remover os aliases `POST .../delete` e usar os verbos corretos.
-17. **Rate limit** em `/login`, `/criar-conta` e nos endpoints de IA.
+    O Guard resolve `{slug} → loja`, valida CSRF, aplica a permissão e só então instancia o controller. **Rota sem declaração levanta exceção em vez de executar** — comprovado: uma rota declarada sem requisito responde 500 com a mensagem exata do que falta, e `backend/tools/routes_check.php` a encontra antes de ir para o ar.
+15. ✅ **Permissões nomeadas** em `App\Auth\Permissions` — 20 permissões mapeadas a cargos, aplicadas a 116 rotas. `is_gerente_store` / `can_access_store_panel` / `is_funcionario_panel_readonly` viraram invólucros finos sobre a matriz, para as views continuarem funcionando.
+
+    O modelo codificado é o que o painel já comunicava: o funcionário **opera** a loja (PDV, caixa, entregas) mas não a **gerencia** (catálogo, estoque, equipe, BI, configurações). A restrição agora vale na API, não só no HTML.
+16. ✅ **CSRF** no mesmo pipeline, obrigatório em todo POST/PUT/PATCH/DELETE. Token no `<meta>` dos três layouts e nos seis formulários; no front, `assets/js/csrf.js` intercepta `window.fetch` — um lugar só, em vez de instrumentar os quinze arquivos que fazem requisição, dez deles com `api()` próprio.
+17. ✅ **Rate limit** (`App\Auth\RateLimiter`, tabela `rate_limits`): 8 tentativas de login por IP+e-mail a cada 15 min, 5 contas por IP por hora, 30 perguntas à IA por usuário a cada 10 min. Em tabela e não em sessão — quem ataca não reaproveita cookie, e o contador na sessão contaria sempre 1.
+
+**Verificação:** `backend/tools/authz_check.php` — 33 asserções por HTTP, autenticando de verdade como gerente e como funcionário e comparando o status de cada endpoint nos três papéis (gerente, funcionário, anônimo). `backend/tools/routes_check.php` confere que as 116 rotas declaram permissão existente, que toda permissão `store.*` tem `{slug}`, e que o handler existe.
+
+**Duas correções durante a implementação:**
+
+- O CSRF respondia **419**, que não é código registrado — o Apache o convertia em 500 e a resposta chegava como erro de servidor. Passou a 403 com o cabeçalho `X-CSRF-Retry`, que é o que permite ao JavaScript distinguir "token vencido" (recarregar resolve) de "sem permissão" (recarregar não resolve).
+- `store.settings.read` ia liberar leitura ao funcionário, replicando o que existia. Ao conferir quem consome esses endpoints, nenhum é alcançável pela interface do funcionário — o formulário de PIX e o editor de banner ficam no ramo exclusivo do gerente. Fechou-se a leitura também, tirando a **chave PIX do lojista** do alcance de um GET.
+
+**Achado colateral:** `StockMovementRepository::listByStore` e `listByProduct` respondiam 500 desde sempre — `LIMIT ?` com parâmetro vinculado chega ao MySQL como `LIMIT '100'`, que é erro de sintaxe. Nada na interface exercitava esses endpoints; o teste da matriz os pegou. Corrigido.
 
 ### Fase 3 — Identidade única (3–4 dias, uma migração de dados)
 
@@ -333,11 +344,11 @@ Faça esta fase **depois** da 2, para não migrar dados e reescrever autorizaç�
 |---|---|---|---|
 | 0 ✅ | Estancar exposição | feita | Vazamento de PII, código-fonte e chaves de API públicos |
 | 1 ✅ | Integridade de dados | feita | Venda a descoberto, estoque e financeiro inconsistentes, instalação nova quebrada |
-| 2 | Autorização central | 3–5 dias | Escalada de privilégio; CSRF; rota nova nascer aberta |
+| 2 ✅ | Autorização central | feita | Escalada de privilégio do funcionário, CSRF, força bruta no login, rota nova nascer aberta |
 | 3 | Identidade única | 3–4 dias | Login imprevisível; gerente perdendo o próprio painel |
 | 4 | Fundação de engenharia | contínuo | Regressão silenciosa; impossibilidade de testar |
 | 5 | Performance e limpeza | contínuo | Custo de infra; dívida acumulada |
 
-**Próximo passo:** Fase 2 (autorização central). Hoje a restrição do funcionário é só interface — ele cria e apaga produto chamando a API direto — e não existe CSRF em lugar nenhum. É também a fase que faz endpoint novo nascer fechado por padrão, em vez de depender de alguém lembrar de chamar o guard.
+**Próximo passo:** Fase 3 (identidade única). É o que hoje faz a mesma pessoa virar várias linhas em `users` — senha que não é uma só, login que entra "na primeira linha que casar", e gerente que perde acesso ao próprio painel depois de um logout. Envolve migração de dados, e por isso vem depois da autorização, não junto.
 
 **O que já está certo e não deve ser mexido:** as queries preparadas, o escape nas views, o preço vindo do banco no `OrderService`, e a separação controller/service/repository. A refatoração deve preservar esses quatro acertos — são a base sobre a qual o resto se apoia.
