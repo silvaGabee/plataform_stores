@@ -144,6 +144,7 @@ Carregado em `backend/bootstrap.php`. Use **`.env.example`** como modelo:
 |----------|--------|
 | `APP_DEBUG` | `true` expõe mensagens de exceção nas respostas e no HTML. **`false` fora de desenvolvimento** |
 | `APP_URL` | URL base pública (*fallback*) |
+| `DB_NAME`, `DB_HOST`, `DB_USER`, `DB_PASSWORD` | Sobrescrevem `backend/config/database.php`. Útil para apontar a outro banco sem editar arquivo versionado — por exemplo, ensaiar uma migration numa cópia |
 | `RAPIDAPI_KEY` | Chave RapidAPI para geração de QR Code PIX (opcional) |
 | `OPENROUTER_API_KEY` | Chave do assistente de IA do painel (opcional) |
 
@@ -275,7 +276,20 @@ Token vencido volta como `403` com o cabeçalho `X-CSRF-Retry`, e o interceptado
 `App\Auth\RateLimiter` (tabela `rate_limits`): 8 tentativas de login por IP+e-mail a cada 15 minutos, 5 contas por IP por hora, 30 perguntas ao assistente de IA por usuário a cada 10 minutos.
 
 - **Painel:** acesso de **gerente** ou **funcionário** daquela loja, conforme a matriz acima.
-- **Nota:** o mesmo e-mail ainda existe em `users` com `store_id` diferentes — uma linha por loja mais uma de plataforma. É dívida conhecida, com plano de unificação em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md) (Fase 3).
+### Identidade
+
+**Uma pessoa, uma conta, uma senha.** `users.email` é único globalmente e a tabela guarda só a identidade — nome, e-mail, senha.
+
+O cargo é o **vínculo com a loja**, em `store_members (user_id, store_id, role)`. A mesma pessoa pode ser gerente numa loja, funcionária em outra e cliente numa terceira, com a mesma senha em todas. Quem não tem vínculo nenhum é cliente.
+
+```php
+$memberRepo->role($userId, $storeId);        // 'gerente' | 'funcionario' | null
+$memberRepo->storeIdsForUser($userId);       // lojas onde a pessoa trabalha
+$memberRepo->upsert($userId, $storeId, $r);  // contrata ou muda o cargo
+$memberRepo->remove($userId, $storeId);      // demite — a pessoa continua existindo
+```
+
+Consequências práticas: **excluir alguém da equipe desfaz o vínculo, não apaga a conta** (ela pode ser cliente de outra loja); **contratar quem já tem conta apenas vincula**, mantendo a senha que a pessoa já usa; e criar uma segunda loja não cria uma segunda conta.
 
 ---
 
@@ -304,6 +318,7 @@ Os dois produzem o mesmo schema. Nunca execute o `schema.sql` sobre um banco com
 | `php backend/tools/concurrency_check.php` | Verifica estoque, transações e confirmação de pagamento contra o banco |
 | `php backend/tools/routes_check.php` | Confere que toda rota declara uma permissão válida |
 | `php backend/tools/authz_check.php` | Exercita a matriz de permissões e o CSRF por HTTP (precisa do seed e do servidor no ar) |
+| `php backend/tools/identity_check.php` | Verifica a identidade única: e-mail único, vínculos por loja, sessão estável entre logins |
 
 ### Migrações novas
 

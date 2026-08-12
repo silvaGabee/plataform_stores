@@ -45,8 +45,10 @@ $pdo->prepare('INSERT INTO stores (name, slug) VALUES (?, ?)')
     ->execute(['Loja Teste Concorrência', '__conc_test__loja']);
 $storeId = (int) $pdo->lastInsertId();
 
-$pdo->prepare('INSERT INTO users (store_id, name, email, password, user_type) VALUES (?, ?, ?, ?, ?)')
-    ->execute([$storeId, 'Cliente Teste', '__conc_test__@local.test', password_hash('x', PASSWORD_DEFAULT), 'cliente']);
+// Cliente é quem não tem vínculo com loja nenhuma — users não guarda mais
+// store_id nem user_type.
+$pdo->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)')
+    ->execute(['Cliente Teste', '__conc_test__@local.test', password_hash('x', PASSWORD_DEFAULT)]);
 $customerId = (int) $pdo->lastInsertId();
 
 $orderService = static fn (): OrderService => new OrderService(

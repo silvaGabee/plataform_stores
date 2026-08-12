@@ -172,8 +172,7 @@ class OrderApiController extends Controller
                 return;
             }
             $addrRepo = new UserAddressRepository();
-            $ownerIds = $orderType === 'pdv' ? [$customerId] : $this->currentUserIdentityIds();
-            if (!$addrRepo->belongsToAnyUser($addressId, $ownerIds)) {
+            if (!$addrRepo->belongsToUser($addressId, $customerId)) {
                 $this->json(['error' => 'Endereço inválido para este cliente.'], 400);
                 return;
             }

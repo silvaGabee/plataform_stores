@@ -51,12 +51,15 @@ class ReportService
 
     public function employeePerformance(int $storeId, string $dateFrom, string $dateTo): array
     {
+        // A equipe sai de store_members: users deixou de ter store_id/user_type.
+        // A loja do pedido agora vem do parâmetro, não de u.store_id.
         $stmt = $this->pdo->prepare(
-            "SELECT u.id, u.name, COUNT(o.id) as orders_count, COALESCE(SUM(o.total), 0) as total_sales 
-             FROM users u 
-             LEFT JOIN orders o ON o.created_by = u.id AND o.store_id = u.store_id AND o.status = 'pago' 
+            "SELECT u.id, u.name, COUNT(o.id) as orders_count, COALESCE(SUM(o.total), 0) as total_sales
+             FROM store_members m
+             JOIN users u ON u.id = m.user_id
+             LEFT JOIN orders o ON o.created_by = u.id AND o.store_id = m.store_id AND o.status = 'pago'
                AND o.created_at BETWEEN ? AND ?
-             WHERE u.store_id = ? AND u.user_type IN ('funcionario','gerente') 
+             WHERE m.store_id = ?
              GROUP BY u.id, u.name ORDER BY total_sales DESC"
         );
         $stmt->execute([$dateFrom . ' 00:00:00', $dateTo . ' 23:59:59', $storeId]);

@@ -6,6 +6,7 @@ use App\Repositories\StoreRepository;
 use App\Services\StoreService;
 use App\Repositories\StorePixConfigRepository;
 use App\Auth\RateLimiter;
+use App\Repositories\StoreMemberRepository;
 use App\Repositories\UserRepository;
 
 class HomeController extends Controller
@@ -57,14 +58,14 @@ class HomeController extends Controller
             redirect(base_url('?auth=login'));
         }
 
-        $userRepo = new UserRepository();
-        $candidates = $userRepo->findAllByEmail($email);
-        foreach ($candidates as $user) {
-            if (password_verify($password, $user['password'])) {
-                RateLimiter::limpar('login', $email);
-                login_user($user);
-                redirect($this->consumeAfterLoginUrl() ?? base_url('lojas'));
-            }
+        // Uma consulta, uma pessoa. Antes isto percorria todas as linhas do
+        // e-mail e entrava na primeira cuja senha casasse — com permissões
+        // diferentes conforme a linha sorteada.
+        $user = (new UserRepository())->findByEmail($email);
+        if ($user !== null && password_verify($password, $user['password'])) {
+            RateLimiter::limpar('login', $email);
+            login_user($user);
+            redirect($this->consumeAfterLoginUrl() ?? base_url('lojas'));
         }
         $_SESSION['_old'] = ['email' => $email];
         $_SESSION['_error'] = 'E-mail ou senha incorretos.';
@@ -76,10 +77,9 @@ class HomeController extends Controller
         if (!logged_in()) {
             redirect(base_url());
         }
-        $userRepo = new UserRepository();
-        $me = $userRepo->find((int) $_SESSION['logged_user_id']);
-        $email = $me['email'] ?? '';
-        $myStoreIds = $email !== '' ? $userRepo->findStaffStoreIdsByEmail($email) : [];
+        // Lojas onde a pessoa trabalha: uma consulta em store_members. Antes
+        // isto procurava por e-mail as várias linhas que ela tinha em `users`.
+        $myStoreIds = (new StoreMemberRepository())->storeIdsForUser((int) $_SESSION['logged_user_id']);
         $myStoreIdSet = array_flip($myStoreIds);
         $allStores = (new StoreRepository())->all();
         $myStores = [];
@@ -109,9 +109,25 @@ class HomeController extends Controller
             logout();
             redirect(base_url());
         }
+        // Uma pessoa pode trabalhar em várias lojas, com cargos diferentes em
+        // cada uma — não existe mais "o tipo" dela.
+        $vinculos = [];
+        $storeRepo = new StoreRepository();
+        $memberRepo = new StoreMemberRepository();
+        foreach ($memberRepo->storeIdsForUser((int) $user['id']) as $storeId) {
+            $loja = $storeRepo->find($storeId);
+            if ($loja !== null) {
+                $vinculos[] = [
+                    'store_name' => (string) $loja['name'],
+                    'store_slug' => (string) $loja['slug'],
+                    'role' => (string) $memberRepo->role((int) $user['id'], $storeId),
+                ];
+            }
+        }
         $this->render('my_account', [
             'title' => 'Minha conta',
             'user'  => $user,
+            'vinculos' => $vinculos,
         ]);
     }
 
@@ -216,14 +232,10 @@ class HomeController extends Controller
                 'manager_password' => $managerPassword,
                 'existing_manager_user_id' => (int) $me['id'],
             ]);
-            // Criar a loja troca a identidade em uso (a conta de plataforma dá
-            // lugar à linha de gerente da loja), então a sessão é renovada como
-            // num login novo.
-            $user = (new UserRepository())->findByEmailAndStore($managerEmail, $store['id']);
-            if ($user === null) {
-                throw new \RuntimeException('Loja criada, mas não foi possível associar o gerente.');
-            }
-            login_user($user);
+            // A identidade não muda ao criar loja — ganha-se um vínculo, não
+            // uma conta nova. Basta esquecer o cargo em cache para o painel
+            // reconhecer o gerente recém-criado.
+            \App\Auth\Permissions::limparCache();
             $_SESSION['store_slug'] = $store['slug'];
             redirect(base_url("loja/{$store['slug']}"));
         } catch (\Throwable $e) {

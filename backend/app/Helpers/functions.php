@@ -1232,9 +1232,7 @@ if (!function_exists('login_user')) {
         // deve continuar valendo para a sessão autenticada.
         unset($_SESSION['_csrf']);
         \App\Auth\Permissions::limparCache();
-        $storeId = $user['store_id'] ?? null;
         $_SESSION['logged_user_id'] = (int) $user['id'];
-        $_SESSION['logged_store_id'] = $storeId !== null && $storeId !== '' ? (int) $storeId : null;
         $_SESSION['user_id'] = (int) $user['id'];
     }
 }

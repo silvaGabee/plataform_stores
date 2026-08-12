@@ -3,13 +3,10 @@ ob_start();
 $user = $user ?? [];
 $name = htmlspecialchars($user['name'] ?? '');
 $email = htmlspecialchars($user['email'] ?? '');
-$typeRaw = $user['user_type'] ?? '';
-$typeLabels = [
-    'cliente'     => 'Cliente',
-    'gerente'     => 'Gerente',
-    'funcionario' => 'Funcionário',
-];
-$typeLabel = $typeLabels[$typeRaw] ?? htmlspecialchars((string) $typeRaw);
+// O cargo deixou de ser um atributo da pessoa: ela pode ser gerente numa loja
+// e funcionária em outra. Sem vínculo nenhum, é cliente.
+$vinculos = $vinculos ?? [];
+$roleLabels = ['gerente' => 'Gerente', 'funcionario' => 'Funcionário'];
 
 $initial = '?';
 $n = trim((string) ($user['name'] ?? ''));
@@ -67,7 +64,16 @@ $initialEsc = htmlspecialchars($initial);
                         </span>
                         <div class="my-account-detail-text">
                             <span class="my-account-detail-label">Perfil</span>
-                            <span class="my-account-detail-value"><?= $typeLabel !== '' ? $typeLabel : '—' ?></span>
+                            <?php if ($vinculos === []): ?>
+                                <span class="my-account-detail-value">Cliente</span>
+                            <?php else: ?>
+                                <?php foreach ($vinculos as $v): ?>
+                                    <span class="my-account-detail-value">
+                                        <?= htmlspecialchars($roleLabels[$v['role']] ?? $v['role']) ?>
+                                        em <a href="<?= base_url('painel/' . rawurlencode($v['store_slug'])) ?>"><?= htmlspecialchars($v['store_name']) ?></a>
+                                    </span>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                     </li>
                 </ul>

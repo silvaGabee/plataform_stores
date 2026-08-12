@@ -30,7 +30,7 @@ class GoalsApiController extends Controller
         // Vendas: mesmo intervalo De/Até do dashboard (parseReportDateRange). Meta em R$ continua do mês "period".
         [$salesFrom, $salesTo] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
         $performance = $reportService->employeePerformance($storeId, $salesFrom, $salesTo);
-        $employees = $userRepo->listEmployeesByStore($storeId);
+        $employees = (new \App\Repositories\StoreMemberRepository())->listMembers($storeId);
         $byId = [];
         foreach ($employees as $u) {
             $byId[(int) $u['id']] = [
@@ -75,7 +75,7 @@ class GoalsApiController extends Controller
 
         if ($distribute && $goalAmount > 0) {
             $userRepo = new UserRepository();
-            $employees = $userRepo->listEmployeesByStore($storeId);
+            $employees = (new \App\Repositories\StoreMemberRepository())->listMembers($storeId);
             $count = count($employees);
             if ($count > 0) {
                 $perEmployee = round($goalAmount / $count, 2);

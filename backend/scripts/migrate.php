@@ -40,7 +40,11 @@ if (!in_array($modo, ['', '--status', '--baseline'], true)) {
 }
 
 $dir = PLATAFORM_BACKEND . '/database/migrations';
-$arquivos = glob($dir . '/*.sql') ?: [];
+
+// .sql para mudanças de estrutura; .php para as que precisam de decisão —
+// escolher qual registro sobrevive numa consolidação, por exemplo. Uma
+// migration .php devolve um callable que recebe o PDO.
+$arquivos = array_merge(glob($dir . '/*.sql') ?: [], glob($dir . '/*.php') ?: []);
 sort($arquivos, SORT_STRING);
 if ($arquivos === []) {
     echo "Nenhuma migration encontrada em {$dir}\n";
@@ -132,13 +136,20 @@ if ($temDados && !$semBackup) {
 $executadas = 0;
 foreach ($pendentes as $caminho) {
     $versao = basename($caminho);
-    $sql = file_get_contents($caminho);
-    if ($sql === false) {
-        fwrite(STDERR, "  ERRO  não foi possível ler {$versao}\n");
-        exit(1);
-    }
     try {
-        $pdo->exec($sql);
+        if (substr($versao, -4) === '.php') {
+            $migracao = require $caminho;
+            if (!is_callable($migracao)) {
+                throw new RuntimeException('a migration .php precisa devolver um callable que recebe o PDO');
+            }
+            $migracao($pdo);
+        } else {
+            $sql = file_get_contents($caminho);
+            if ($sql === false) {
+                throw new RuntimeException('não foi possível ler o arquivo');
+            }
+            $pdo->exec($sql);
+        }
         $marcar->execute([$versao]);
         $executadas++;
         echo '  ok    ' . $versao . PHP_EOL;

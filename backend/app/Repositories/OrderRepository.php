@@ -150,29 +150,13 @@ class OrderRepository
     /** Lista pedidos do cliente na loja que ainda não estão como entregues (para "Meus pedidos"). */
     public function listByCustomerNotDelivered(int $storeId, int $customerId): array
     {
-        return $this->listByCustomersNotDelivered($storeId, [$customerId]);
-    }
-
-    /**
-     * Idem, aceitando vários registros de `users` da mesma pessoa — hoje ela
-     * tem uma linha por loja, então seus pedidos ficam divididos entre elas.
-     *
-     * @param int[] $customerIds
-     */
-    public function listByCustomersNotDelivered(int $storeId, array $customerIds): array
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $customerIds), static fn (int $i): bool => $i > 0)));
-        if ($ids === []) {
-            return [];
-        }
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $stmt = $this->pdo->prepare(
             "SELECT o.*, u.name as customer_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id
-             WHERE o.store_id = ? AND o.customer_id IN ({$placeholders}) AND o.status = 'pago'
+             WHERE o.store_id = ? AND o.customer_id = ? AND o.status = 'pago'
              AND (o.delivery_stage IS NULL OR o.delivery_stage != 'entregue')
              ORDER BY o.created_at DESC"
         );
-        $stmt->execute(array_merge([$storeId], $ids));
+        $stmt->execute([$storeId, $customerId]);
 
         return $stmt->fetchAll();
     }

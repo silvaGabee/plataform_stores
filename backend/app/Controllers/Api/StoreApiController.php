@@ -367,64 +367,23 @@ class StoreApiController extends Controller
             return;
         }
         $userRepo = new UserRepository();
-        $sessionUid = (int) ($_SESSION['logged_user_id'] ?? 0);
-        $sessionEmail = '';
-        if ($sessionUid > 0) {
-            $u = $userRepo->find($sessionUid);
-            $sessionEmail = (string) ($u['email'] ?? '');
-        }
-        $pdo = Database::getConnection();
-        $repo = new StoreRepository();
+        // Apagar a loja não mexe mais em quem está logado: as pessoas
+        // continuam existindo e apenas perdem o vínculo, removido em cascata
+        // por store_members.store_id. Antes era preciso desmontar contas à mão
+        // (detachUsersForDeletedStore) e depois remendar a sessão, porque o
+        // registro que representava o usuário desaparecia junto com a loja.
         try {
-            $pdo->beginTransaction();
-            $userRepo->detachUsersForDeletedStore($storeId);
-            if (!$repo->delete($storeId)) {
-                $pdo->rollBack();
-                $this->json(['error' => 'Não foi possível excluir a loja.'], 500);
-                return;
-            }
-            $pdo->commit();
+            Database::transaction(function () use ($storeId): void {
+                if (!(new StoreRepository())->delete($storeId)) {
+                    throw new \RuntimeException('Não foi possível excluir a loja.');
+                }
+            });
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
+            log_exception($e, ['acao' => 'excluir-loja', 'store_id' => $storeId]);
             $this->json(['error' => 'Não foi possível excluir a loja. Verifique se não há dependências bloqueando a exclusão.'], 500);
             return;
         }
-        $this->restoreSessionAfterStoreDeleted($sessionEmail, $storeId);
+        \App\Auth\Permissions::limparCache();
         $this->json(['success' => true, 'redirect' => base_url('lojas')]);
-    }
-
-    /** Mantém a sessão: reatribui ao utilizador de plataforma (mesmo e-mail) se o id da sessão foi removido. */
-    private function restoreSessionAfterStoreDeleted(string $sessionEmail, int $deletedStoreId): void
-    {
-        if ($sessionEmail === '') {
-            logout();
-            return;
-        }
-        $userRepo = new UserRepository();
-        $rows = $userRepo->findAllByEmail($sessionEmail);
-        $pick = null;
-        foreach ($rows as $r) {
-            $sid = $r['store_id'] ?? null;
-            if ($sid === null || $sid === '') {
-                $pick = $r;
-                break;
-            }
-        }
-        if ($pick === null && $rows !== []) {
-            $pick = $rows[0];
-        }
-        if ($pick === null) {
-            logout();
-            return;
-        }
-        $_SESSION['logged_user_id'] = (int) $pick['id'];
-        $_SESSION['user_id'] = (int) $pick['id'];
-        $loggedStore = $pick['store_id'] ? (int) $pick['store_id'] : null;
-        if ($loggedStore === $deletedStoreId) {
-            $loggedStore = null;
-        }
-        $_SESSION['logged_store_id'] = $loggedStore;
     }
 }

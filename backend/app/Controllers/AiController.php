@@ -130,8 +130,13 @@ class AiController extends Controller
         $prodStmt->execute([$storeId]);
         $products = $prodStmt->fetchAll(\PDO::FETCH_ASSOC);
 
-        // Usuários (sem senhas)
-        $userStmt = $pdo->prepare('SELECT id, name, email, user_type FROM users WHERE store_id = ? ORDER BY name LIMIT 200');
+        // Equipe da loja (sem senhas). O cargo vem de store_members: users
+        // deixou de guardar store_id/user_type.
+        $userStmt = $pdo->prepare(
+            'SELECT u.id, u.name, u.email, m.role AS user_type
+               FROM store_members m JOIN users u ON u.id = m.user_id
+              WHERE m.store_id = ? ORDER BY u.name LIMIT 200'
+        );
         $userStmt->execute([$storeId]);
         $users = $userStmt->fetchAll(\PDO::FETCH_ASSOC);
 

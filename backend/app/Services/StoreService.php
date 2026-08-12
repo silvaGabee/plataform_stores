@@ -30,48 +30,59 @@ class StoreService
             $slug = $baseSlug . '-' . $counter;
         }
         $data['slug'] = $slug;
-        $storeId = $this->storeRepo->create($data);
-        $this->pixConfigRepo->create(['store_id' => $storeId]);
-        if (!empty($data['manager_name']) && !empty($data['manager_email']) && !empty($data['manager_password'])) {
-            $hash = password_hash($data['manager_password'], PASSWORD_DEFAULT);
-            $existingId = isset($data['existing_manager_user_id']) ? (int) $data['existing_manager_user_id'] : 0;
-            if ($existingId > 0) {
-                $user = $this->userRepo->find($existingId);
-                if (
-                    !$user
-                    || strcasecmp(trim((string) $user['email']), trim((string) $data['manager_email'])) !== 0
-                ) {
-                    throw new \InvalidArgumentException('Não foi possível associar a loja à sua conta.');
-                }
-                $rawStoreId = $user['store_id'] ?? null;
-                $hasNoStore = $rawStoreId === null || $rawStoreId === '' || (int) $rawStoreId === 0;
-                if ($hasNoStore) {
-                    $this->userRepo->update($existingId, [
-                        'store_id'  => $storeId,
-                        'user_type' => 'gerente',
-                        'password'  => $hash,
-                        'name'      => $data['manager_name'],
-                    ]);
-                } else {
-                    $this->userRepo->create([
-                        'store_id'  => $storeId,
-                        'name'      => $data['manager_name'],
-                        'email'     => $data['manager_email'],
-                        'password'  => $hash,
-                        'user_type' => 'gerente',
-                    ]);
-                }
-            } else {
-                $this->userRepo->create([
-                    'store_id'  => $storeId,
-                    'name'      => $data['manager_name'],
-                    'email'     => $data['manager_email'],
-                    'password'  => $hash,
-                    'user_type' => 'gerente',
-                ]);
+
+        // Loja, configuração de PIX e vínculo do gerente nascem juntos ou não
+        // nascem: uma falha no meio deixaria uma loja sem quem a administre.
+        return \App\Database\Database::transaction(function () use ($data): array {
+            $storeId = $this->storeRepo->create($data);
+            $this->pixConfigRepo->create(['store_id' => $storeId]);
+
+            $email = trim((string) ($data['manager_email'] ?? ''));
+            if ($email !== '') {
+                $this->vincularGerente($storeId, $email, $data);
             }
+
+            return $this->storeRepo->find($storeId);
+        });
+    }
+
+    /**
+     * Torna a pessoa gerente da loja recém-criada.
+     *
+     * Antes, isto criava uma LINHA NOVA em `users` sempre que quem já tinha uma
+     * loja criasse outra — a mesma pessoa passava a ter duas contas, com senhas
+     * independentes. Agora é só um vínculo em `store_members`, e a senha
+     * existente permanece intocada.
+     */
+    private function vincularGerente(int $storeId, string $email, array $data): void
+    {
+        $memberRepo = new \App\Repositories\StoreMemberRepository();
+        $existenteId = isset($data['existing_manager_user_id']) ? (int) $data['existing_manager_user_id'] : 0;
+
+        if ($existenteId > 0) {
+            $user = $this->userRepo->find($existenteId);
+            if (!$user || strcasecmp(trim((string) $user['email']), $email) !== 0) {
+                throw new \InvalidArgumentException('Não foi possível associar a loja à sua conta.');
+            }
+            $memberRepo->upsert($existenteId, $storeId, 'gerente');
+
+            return;
         }
-        return $this->storeRepo->find($storeId);
+
+        $user = $this->userRepo->findByEmail($email);
+        if ($user === null) {
+            if (empty($data['manager_password'])) {
+                throw new \InvalidArgumentException('Informe uma senha para a conta do gerente.');
+            }
+            $userId = $this->userRepo->create([
+                'name'     => $data['manager_name'] ?? 'Gerente',
+                'email'    => $email,
+                'password' => password_hash((string) $data['manager_password'], PASSWORD_DEFAULT),
+            ]);
+        } else {
+            $userId = (int) $user['id'];
+        }
+        $memberRepo->upsert($userId, $storeId, 'gerente');
     }
 
     public function getBySlug(string $slug): ?array

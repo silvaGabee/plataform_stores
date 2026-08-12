@@ -306,13 +306,27 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 
 **Achado colateral:** `StockMovementRepository::listByStore` e `listByProduct` respondiam 500 desde sempre — `LIMIT ?` com parâmetro vinculado chega ao MySQL como `LIMIT '100'`, que é erro de sintaxe. Nada na interface exercitava esses endpoints; o teste da matriz os pegou. Corrigido.
 
-### Fase 3 — Identidade única (3–4 dias, uma migração de dados)
+### Fase 3 — Identidade única ✅ CONCLUÍDA (2026-08-12)
 
-18. `users` passa a ter **`UNIQUE (email)` global**. Nova tabela `store_members (user_id, store_id, role, UNIQUE(user_id, store_id))`.
-19. Migração: consolidar linhas duplicadas por e-mail numa só (mantendo o hash de senha mais recente), converter cada `store_id`/`user_type` em uma linha de `store_members`, repontar `orders.customer_id`, `orders.created_by`, `cash_registers.opened_by`, `employee_goals.user_id`, `user_addresses.user_id`.
-20. Login volta a ser uma consulta única. `is_gerente_store` vira um `SELECT role FROM store_members`. `detachUsersForDeletedStore()` (30 linhas de heurística) é deletada — passa a ser `ON DELETE CASCADE` no vínculo.
+18. ✅ **`users` com `UNIQUE (email)` global** e sem `store_id`/`user_type`. Nova tabela `store_members (user_id, store_id, role)` com `UNIQUE(user_id, store_id)`. "Cliente" deixou de ser um cargo: é simplesmente quem não tem vínculo.
+19. ✅ **Migração em três passos** (`0015`–`0017`), com o runner estendido para aceitar migrations em PHP — a consolidação envolve decisão, não só DDL:
+    - `0015` cria `store_members` e traz os vínculos que estavam embutidos em `users`;
+    - `0016` (PHP, em transação) funde as linhas duplicadas por e-mail e repontua as **7 chaves estrangeiras** que apontam para `users`;
+    - `0017` aplica o `UNIQUE(email)` e remove as duas colunas.
 
-Faça esta fase **depois** da 2, para não migrar dados e reescrever autorização ao mesmo tempo.
+    A canônica é a conta de plataforma quando existe — é a que o login escolhia primeiro, logo é a senha que a pessoa usa hoje. Onde repontuar violaria uma chave única (mesma meta, mesmo cargo), a linha do duplicado é descartada e **a perda é reportada na saída**, com contagem por tabela. Senhas divergentes entre contas também são avisadas.
+20. ✅ **O código encolheu.** Login voltou a ser uma consulta. `is_gerente_store` é um `SELECT role FROM store_members`. Sumiram: `detachUsersForDeletedStore()` (30 linhas de heurística com `try/catch` sobre violação de FK), `restoreSessionAfterStoreDeleted()`, `currentUserIdentityIds()`, o fallback por e-mail em `userOwnsOrder()`, e os métodos plurais `getByUserIds`/`belongsToAnyUser`/`listByCustomersNotDelivered` que só existiam para reconciliar as contas espalhadas. Nos quatro arquivos mais afetados: **302 linhas removidas, 102 acrescentadas**.
+
+**Mudanças de comportamento, todas para melhor:**
+
+- **Excluir funcionário desfaz o vínculo, não apaga a pessoa.** Antes apagava a linha de `users`; hoje isso levaria junto a conta de cliente dela, com endereços e histórico de compras em outras lojas. Junto vieram duas guardas que não existiam: não dá para remover o último gerente da loja, nem remover a si mesmo.
+- **Contratar quem já tem conta apenas vincula**, mantendo a senha que a pessoa já usa. Antes criava uma segunda conta com outra senha.
+- **Criar uma segunda loja não cria uma segunda conta.** `createStore` virou um `upsert` em `store_members`, dentro de transação com a loja e a configuração de PIX.
+- **"Minha conta" mostra os vínculos**, um por loja com o cargo de cada — não existe mais "o tipo" da pessoa.
+
+**Verificação:** `backend/tools/identity_check.php` — 13 asserções, incluindo o bug que motivou a fase (sair e entrar de novo sem perder o painel), a mesma pessoa com cargos diferentes em duas lojas na mesma sessão, e o banco recusando um segundo registro com o mesmo e-mail. A migração foi ensaiada num banco de cópia com um cenário construído para doer: Ana com 3 contas, Bruno com 2 e senhas diferentes, colisões de meta e de cargo, dados pendurados em contas que iam desaparecer. Zero referências órfãs nas 7 FKs.
+
+**Um efeito colateral útil:** `backend/config/database.php` passou a aceitar `DB_NAME`/`DB_HOST`/`DB_USER`/`DB_PASSWORD` do `.env`. Foi o que permitiu ensaiar a migração numa cópia antes de tocar no banco real — e é o que a Fase 4 vai precisar para rodar testes isolados.
 
 ### Fase 4 — Fundação de engenharia (contínuo)
 
@@ -345,10 +359,10 @@ Faça esta fase **depois** da 2, para não migrar dados e reescrever autorizaç�
 | 0 ✅ | Estancar exposição | feita | Vazamento de PII, código-fonte e chaves de API públicos |
 | 1 ✅ | Integridade de dados | feita | Venda a descoberto, estoque e financeiro inconsistentes, instalação nova quebrada |
 | 2 ✅ | Autorização central | feita | Escalada de privilégio do funcionário, CSRF, força bruta no login, rota nova nascer aberta |
-| 3 | Identidade única | 3–4 dias | Login imprevisível; gerente perdendo o próprio painel |
+| 3 ✅ | Identidade única | feita | Login imprevisível, senha que não é uma só, gerente perdendo o próprio painel |
 | 4 | Fundação de engenharia | contínuo | Regressão silenciosa; impossibilidade de testar |
 | 5 | Performance e limpeza | contínuo | Custo de infra; dívida acumulada |
 
-**Próximo passo:** Fase 3 (identidade única). É o que hoje faz a mesma pessoa virar várias linhas em `users` — senha que não é uma só, login que entra "na primeira linha que casar", e gerente que perde acesso ao próprio painel depois de um logout. Envolve migração de dados, e por isso vem depois da autorização, não junto.
+**Próximo passo:** Fase 4 (fundação de engenharia). Os quatro scripts em `backend/tools/` já cobrem estoque, permissões, rotas e identidade — 77 asserções — mas são scripts, não uma suíte. Aqui viram PHPUnit rodando em CI, junto com `composer.json` (que trava a versão mínima de PHP, hoje não declarada em lugar nenhum) e a quebra do `functions.php` de 52 KB em classes de domínio.
 
 **O que já está certo e não deve ser mexido:** as queries preparadas, o escape nas views, o preço vindo do banco no `OrderService`, e a separação controller/service/repository. A refatoração deve preservar esses quatro acertos — são a base sobre a qual o resto se apoia.

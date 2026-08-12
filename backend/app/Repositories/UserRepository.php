@@ -5,6 +5,14 @@ namespace App\Repositories;
 use App\Database\Database;
 use PDO;
 
+/**
+ * Pessoas. Uma linha por e-mail, sempre.
+ *
+ * Antes desta camada existir assim, a mesma pessoa tinha uma linha por loja
+ * mais uma "de plataforma", cada qual com sua senha — e o login entrava na
+ * primeira cuja senha casasse. O vínculo com a loja mudou-se para
+ * `store_members`; aqui ficou só a identidade.
+ */
 class UserRepository
 {
     private PDO $pdo;
@@ -16,208 +24,76 @@ class UserRepository
 
     public function find(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE id = ?');
         $stmt->execute([$id]);
-        $row = $stmt->fetch();
-        return $row ?: null;
+
+        return $stmt->fetch() ?: null;
     }
 
-    public function findByEmail(string $email, ?int $storeId = null): ?array
+    /** O e-mail é único, então isto devolve a pessoa — ou null. */
+    public function findByEmail(string $email): ?array
     {
-        if ($storeId !== null) {
-            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? AND store_id = ?");
-            $stmt->execute([$email, $storeId]);
-        } else {
-            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? AND store_id IS NULL");
-            $stmt->execute([$email]);
-        }
-        $row = $stmt->fetch();
-        return $row ?: null;
-    }
+        $stmt = $this->pdo->prepare('SELECT * FROM users WHERE email = ?');
+        $stmt->execute([trim($email)]);
 
-    public function findByEmailAndStore(string $email, int $storeId): ?array
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? AND store_id = ?");
-        $stmt->execute([$email, $storeId]);
-        $row = $stmt->fetch();
-        return $row ?: null;
-    }
-
-    /** Retorna todos os usuários com esse e-mail (em qualquer loja) para login na plataforma. */
-    public function findAllByEmail(string $email): array
-    {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE email = ? ORDER BY store_id IS NULL DESC, id ASC");
-        $stmt->execute([$email]);
-        return $stmt->fetchAll();
-    }
-
-    /**
-     * IDs das lojas em que o e-mail atua como equipe (gerente/funcionário), não como cliente.
-     *
-     * @return int[]
-     */
-    public function findStaffStoreIdsByEmail(string $email): array
-    {
-        $stmt = $this->pdo->prepare(
-            "SELECT DISTINCT store_id FROM users WHERE email = ? AND store_id IS NOT NULL
-             AND user_type IN ('gerente', 'funcionario') ORDER BY store_id"
-        );
-        $stmt->execute([$email]);
-        $ids = [];
-        while ($row = $stmt->fetch()) {
-            $ids[] = (int) $row['store_id'];
-        }
-        return $ids;
+        return $stmt->fetch() ?: null;
     }
 
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO users (store_id, name, email, password, user_type) VALUES (?, ?, ?, ?, ?)"
+            'INSERT INTO users (name, email, password) VALUES (?, ?, ?)'
         );
         $stmt->execute([
-            $data['store_id'] ?? null,
             $data['name'],
-            $data['email'],
+            trim((string) $data['email']),
             $data['password'],
-            $data['user_type'] ?? 'cliente',
         ]);
+
         return (int) $this->pdo->lastInsertId();
     }
 
     public function update(int $id, array $data): bool
     {
-        $fields = [];
+        $campos = [];
         $params = [];
-        foreach (['name', 'email', 'password', 'user_type', 'store_id'] as $f) {
-            if (array_key_exists($f, $data)) {
-                $fields[] = "{$f} = ?";
-                $params[] = $data[$f];
+        foreach (['name', 'email', 'password'] as $c) {
+            if (array_key_exists($c, $data)) {
+                $campos[] = "{$c} = ?";
+                $params[] = $c === 'email' ? trim((string) $data[$c]) : $data[$c];
             }
         }
-        if (empty($fields)) return true;
-        $params[] = $id;
-        $stmt = $this->pdo->prepare("UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?");
-        return $stmt->execute($params);
-    }
-
-    public function listByStore(int $storeId, ?string $userType = null): array
-    {
-        $sql = "SELECT * FROM users WHERE store_id = ?";
-        $params = [$storeId];
-        if ($userType !== null) {
-            $sql .= " AND user_type = ?";
-            $params[] = $userType;
+        if ($campos === []) {
+            return true;
         }
-        $sql .= " ORDER BY name";
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    }
+        $params[] = $id;
+        $stmt = $this->pdo->prepare('UPDATE users SET ' . implode(', ', $campos) . ' WHERE id = ?');
 
-    public function listEmployeesByStore(int $storeId): array
-    {
-        $stmt = $this->pdo->prepare(
-            "SELECT * FROM users WHERE store_id = ? AND user_type IN ('funcionario','gerente') ORDER BY name"
-        );
-        $stmt->execute([$storeId]);
-        return $stmt->fetchAll();
+        return $stmt->execute($params);
     }
 
     public function delete(int $id): bool
     {
-        $stmt = $this->pdo->prepare("DELETE FROM users WHERE id = ?");
+        $stmt = $this->pdo->prepare('DELETE FROM users WHERE id = ?');
+
         return $stmt->execute([$id]);
     }
 
-    /** Pedidos em que este utilizador é o cliente (impede DELETE por RESTRICT na BD). */
+    /** Pedidos em que esta pessoa é a cliente (impede DELETE por RESTRICT na BD). */
     public function countOrdersAsCustomer(int $userId): int
     {
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM orders WHERE customer_id = ?');
         $stmt->execute([$userId]);
+
         return (int) $stmt->fetchColumn();
     }
 
-    /** Turnos de caixa abertos por este utilizador (impede DELETE por RESTRICT na BD). */
+    /** Turnos de caixa abertos por esta pessoa (impede DELETE por RESTRICT na BD). */
     public function countCashRegistersAsOpener(int $userId): int
     {
         $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM cash_registers WHERE opened_by = ?');
         $stmt->execute([$userId]);
+
         return (int) $stmt->fetchColumn();
-    }
-
-    /**
-     * Antes de apagar a loja: remove vínculo dos utilizadores com esta loja.
-     * Funcionários são removidos; gerente com conta de plataforma (mesmo e-mail, store_id nulo)
-     * perde o registo duplicado; caso contrário passa a cliente com store_id nulo.
-     */
-    public function detachUsersForDeletedStore(int $storeId): void
-    {
-        $stmt = $this->pdo->prepare('SELECT id, email, user_type FROM users WHERE store_id = ?');
-        $stmt->execute([$storeId]);
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $u) {
-            $id = (int) $u['id'];
-            $email = (string) $u['email'];
-            $type = (string) $u['user_type'];
-            if ($type === 'funcionario') {
-                if (!$this->tryDeleteUser($id)) {
-                    $this->update($id, ['user_type' => 'cliente']);
-                    $this->setStoreIdNull($id);
-                }
-                continue;
-            }
-            if ($type === 'gerente') {
-                $platform = $this->findByEmail($email, null);
-                if ($platform !== null && (int) $platform['id'] !== $id) {
-                    $this->deleteGerenteWhenPlatformUserExists($id, (int) $platform['id']);
-                } else {
-                    $stmtUp = $this->pdo->prepare('UPDATE users SET store_id = NULL, user_type = ? WHERE id = ?');
-                    $stmtUp->execute(['cliente', $id]);
-                }
-                continue;
-            }
-            $stmtUp = $this->pdo->prepare('UPDATE users SET store_id = NULL WHERE id = ?');
-            $stmtUp->execute([$id]);
-        }
-    }
-
-    public function setStoreIdNull(int $id): bool
-    {
-        $stmt = $this->pdo->prepare('UPDATE users SET store_id = NULL WHERE id = ?');
-        return $stmt->execute([$id]);
-    }
-
-    private function tryDeleteUser(int $id): bool
-    {
-        try {
-            return $this->delete($id);
-        } catch (\PDOException $e) {
-            return false;
-        }
-    }
-
-    private function reassignOrdersCustomerId(int $fromUserId, int $toUserId): void
-    {
-        $stmt = $this->pdo->prepare('UPDATE orders SET customer_id = ? WHERE customer_id = ?');
-        $stmt->execute([$toUserId, $fromUserId]);
-    }
-
-    private function reassignCashRegistersOpenedBy(int $fromUserId, int $toUserId): void
-    {
-        $stmt = $this->pdo->prepare('UPDATE cash_registers SET opened_by = ? WHERE opened_by = ?');
-        $stmt->execute([$toUserId, $fromUserId]);
-    }
-
-    private function deleteGerenteWhenPlatformUserExists(int $gerenteId, int $platformUserId): void
-    {
-        try {
-            $this->delete($gerenteId);
-            return;
-        } catch (\PDOException $e) {
-            $this->reassignOrdersCustomerId($gerenteId, $platformUserId);
-            $this->reassignCashRegistersOpenedBy($gerenteId, $platformUserId);
-            $this->delete($gerenteId);
-        }
     }
 }

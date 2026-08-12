@@ -251,7 +251,7 @@ class AiAssistantService
     private function contarFuncionarios(int $storeId): int
     {
         $stmt = $this->pdo->prepare(
-            "SELECT COUNT(*) FROM users WHERE store_id = ? AND user_type IN ('funcionario','gerente')"
+            'SELECT COUNT(*) FROM store_members WHERE store_id = ?'
         );
         $stmt->execute([$storeId]);
         return (int) $stmt->fetchColumn();

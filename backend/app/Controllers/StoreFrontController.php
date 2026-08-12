@@ -162,10 +162,7 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $me = $this->requireCustomerLogin($slug, 'meus-pedidos');
-        $orders = (new OrderRepository())->listByCustomersNotDelivered(
-            (int) $store['id'],
-            $this->currentUserIdentityIds()
-        );
+        $orders = (new OrderRepository())->listByCustomerNotDelivered((int) $store['id'], (int) $me['id']);
         // O link do comprovante precisa levar o token junto.
         foreach ($orders as &$order) {
             $order['order_url'] = $this->orderUrl($store, $order);
@@ -183,7 +180,7 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $me = $this->requireCustomerLogin($slug, 'meus-enderecos');
-        $addresses = (new UserAddressRepository())->getByUserIds($this->currentUserIdentityIds());
+        $addresses = (new UserAddressRepository())->getByUserId((int) $me['id']);
         $this->render('store/meus_enderecos', [
             'store' => $store,
             'title' => 'Meus endereços',

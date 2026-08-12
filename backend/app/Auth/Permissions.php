@@ -2,7 +2,7 @@
 
 namespace App\Auth;
 
-use App\Repositories\UserRepository;
+use App\Repositories\StoreMemberRepository;
 
 /**
  * Quem pode o quê, num lugar só.
@@ -93,10 +93,9 @@ final class Permissions
     /**
      * O usuário logado tem esta permissão nesta loja?
      *
-     * Resolve o cargo pelo registro de `users` da sessão, exigindo que ele
-     * pertença à loja em questão — gerente de outra loja não tem acesso a esta.
-     * (A pessoa ainda pode ter várias linhas em `users`, uma por loja; unificar
-     * isso é a Fase 3 do plano em docs/.)
+     * O cargo vem de `store_members`. Antes saía de users.store_id, o que
+     * amarrava a pessoa a uma única loja por conta — e fazia o gerente perder o
+     * próprio painel quando o login escolhia a linha "de plataforma".
      */
     public static function can(string $permissao, int $storeId): bool
     {
@@ -113,49 +112,34 @@ final class Permissions
         return in_array($cargo, self::MATRIZ[$permissao], true);
     }
 
-    /** Cargo do usuário logado nesta loja, ou null se não tem nenhum. */
+    /** Cargo do usuário logado nesta loja, ou null se não trabalha nela. */
     public static function cargoNaLoja(int $storeId): ?string
     {
         $userId = (int) ($_SESSION['logged_user_id'] ?? 0);
         if ($userId < 1 || $storeId < 1) {
             return null;
         }
-        $user = self::carregarUsuario($userId);
-        if ($user === null) {
-            return null;
+        $chave = $userId . ':' . $storeId;
+        if (!array_key_exists($chave, self::$cacheCargos)) {
+            self::$cacheCargos[$chave] = (new StoreMemberRepository())->role($userId, $storeId);
         }
-        $rawStoreId = $user['store_id'] ?? null;
-        if ($rawStoreId === null || $rawStoreId === '' || (int) $rawStoreId !== $storeId) {
-            return null;
-        }
-        $tipo = strtolower(trim((string) ($user['user_type'] ?? '')));
 
-        return in_array($tipo, [self::GERENTE, self::FUNCIONARIO], true) ? $tipo : null;
+        return self::$cacheCargos[$chave];
     }
 
     /**
      * Cache por requisição.
      *
-     * can() é chamada várias vezes por página (menu, botões, guarda de rota) e
-     * cada chamada fazia um SELECT em `users`.
+     * can() é chamada muitas vezes por página (guarda de rota, itens de menu,
+     * cada botão que aparece ou não) e sem isto cada chamada seria uma consulta.
      *
-     * @var array<int, array|null>
+     * @var array<string, string|null>
      */
-    private static array $cacheUsuarios = [];
-
-    /** @return array<string, mixed>|null */
-    private static function carregarUsuario(int $userId): ?array
-    {
-        if (!array_key_exists($userId, self::$cacheUsuarios)) {
-            self::$cacheUsuarios[$userId] = (new UserRepository())->find($userId);
-        }
-
-        return self::$cacheUsuarios[$userId];
-    }
+    private static array $cacheCargos = [];
 
     /** Esquece o cache — necessário após login, logout ou troca de cargo. */
     public static function limparCache(): void
     {
-        self::$cacheUsuarios = [];
+        self::$cacheCargos = [];
     }
 }

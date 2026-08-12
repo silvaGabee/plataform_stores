@@ -64,9 +64,11 @@ $SENHA = 'gerente123';
 
 $resultado = Database::transaction(function (PDO $pdo) use ($force, $pegarFotos, $banner, $icone, $relativo, $SENHA): array {
     if ($force) {
-        // ON DELETE CASCADE cuida de produtos, usuários, pedidos e afins.
+        // ON DELETE CASCADE cuida de produtos, pedidos, vínculos e afins.
+        // As pessoas sobrevivem à loja (podem ser clientes de outra), então
+        // as do seed são removidas pelo e-mail.
         $pdo->exec('DELETE FROM stores');
-        $pdo->exec("DELETE FROM users WHERE store_id IS NULL");
+        $pdo->exec("DELETE FROM users WHERE email IN ('gerente@loja.test','funcionario@loja.test','cliente@loja.test')");
     }
 
     // ------------------------------------------------------------------ loja
@@ -90,15 +92,21 @@ $resultado = Database::transaction(function (PDO $pdo) use ($force, $pegarFotos,
         ->execute([$storeId, 'exemplo@loja.test', 'email', 'Loja Exemplo', 'Sao Paulo']);
 
     // -------------------------------------------------------------- usuários
-    $criarUsuario = static function (PDO $pdo, ?int $storeId, string $nome, string $email, string $tipo) use ($SENHA): int {
-        $pdo->prepare('INSERT INTO users (store_id, name, email, password, user_type) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$storeId, $nome, $email, password_hash($SENHA, PASSWORD_DEFAULT), $tipo]);
+    // A pessoa é uma só; o cargo é o vínculo com a loja. Sem vínculo = cliente.
+    $criarUsuario = static function (PDO $pdo, string $nome, string $email, ?int $storeId, ?string $cargo) use ($SENHA): int {
+        $pdo->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)')
+            ->execute([$nome, $email, password_hash($SENHA, PASSWORD_DEFAULT)]);
+        $userId = (int) $pdo->lastInsertId();
+        if ($storeId !== null && $cargo !== null) {
+            $pdo->prepare('INSERT INTO store_members (user_id, store_id, role) VALUES (?, ?, ?)')
+                ->execute([$userId, $storeId, $cargo]);
+        }
 
-        return (int) $pdo->lastInsertId();
+        return $userId;
     };
-    $criarUsuario($pdo, $storeId, 'Gerente Exemplo', 'gerente@loja.test', 'gerente');
-    $criarUsuario($pdo, $storeId, 'Funcionário Exemplo', 'funcionario@loja.test', 'funcionario');
-    $criarUsuario($pdo, null, 'Cliente Exemplo', 'cliente@loja.test', 'cliente');
+    $criarUsuario($pdo, 'Gerente Exemplo', 'gerente@loja.test', $storeId, 'gerente');
+    $criarUsuario($pdo, 'Funcionário Exemplo', 'funcionario@loja.test', $storeId, 'funcionario');
+    $criarUsuario($pdo, 'Cliente Exemplo', 'cliente@loja.test', null, null);
 
     // --------------------------------------------------- categorias da vitrine
     $categorias = [];

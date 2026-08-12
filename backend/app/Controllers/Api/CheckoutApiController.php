@@ -24,8 +24,8 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $this->requireLogin();
-        $addresses = (new UserAddressRepository())->getByUserIds($this->currentUserIdentityIds());
+        $me = $this->requireLogin();
+        $addresses = (new UserAddressRepository())->getByUserId((int) $me['id']);
         $this->json(['addresses' => $addresses, 'has_user' => true]);
     }
 
@@ -56,14 +56,14 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $this->requireLogin();
+        $me = $this->requireLogin();
         $addressId = (int) $id;
         if ($addressId <= 0) {
             $this->json(['error' => 'Endereço inválido'], 400);
             return;
         }
         $addrRepo = new UserAddressRepository();
-        if (!$addrRepo->belongsToAnyUser($addressId, $this->currentUserIdentityIds())) {
+        if (!$addrRepo->belongsToUser($addressId, (int) $me['id'])) {
             $this->json(['error' => 'Endereço não encontrado'], 404);
             return;
         }
@@ -83,14 +83,14 @@ class CheckoutApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $this->requireLogin();
+        $me = $this->requireLogin();
         $addressId = (int) $id;
         if ($addressId <= 0) {
             $this->json(['error' => 'Endereço inválido'], 400);
             return;
         }
         $addrRepo = new UserAddressRepository();
-        if (!$addrRepo->belongsToAnyUser($addressId, $this->currentUserIdentityIds())) {
+        if (!$addrRepo->belongsToUser($addressId, (int) $me['id'])) {
             $this->json(['error' => 'Endereço não encontrado'], 404);
             return;
         }

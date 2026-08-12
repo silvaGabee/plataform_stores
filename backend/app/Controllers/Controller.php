@@ -87,65 +87,19 @@ abstract class Controller
     }
 
     /**
-     * Todos os ids de `users` que representam a pessoa logada.
-     *
-     * Enquanto a mesma pessoa tiver uma linha por loja, seus endereços e
-     * pedidos ficam espalhados entre esses ids. O e-mail usado na busca vem do
-     * registro da SESSÃO — nunca da requisição.
-     *
-     * @return int[]
-     */
-    protected function currentUserIdentityIds(): array
-    {
-        $me = $this->currentUser();
-        if ($me === null) {
-            return [];
-        }
-        $ids = [(int) $me['id']];
-        $email = trim((string) ($me['email'] ?? ''));
-        if ($email === '') {
-            return $ids;
-        }
-        foreach ((new \App\Repositories\UserRepository())->findAllByEmail($email) as $row) {
-            $ids[] = (int) $row['id'];
-        }
-
-        return array_values(array_unique($ids));
-    }
-
-    /**
      * O pedido pertence a quem está logado?
      *
-     * A comparação por e-mail existe porque hoje a mesma pessoa tem uma linha
-     * em `users` por loja (ver Fase 3 do plano em docs/): o pedido pode apontar
-     * para a linha "da loja" enquanto a sessão está na linha "de plataforma".
-     *
-     * Note a diferença para o que havia no checkout: aqui o e-mail sai do
-     * registro carregado pela SESSÃO, nunca de um parâmetro da requisição —
-     * quem chama não escolhe de quem é o e-mail. Esta função some quando a
-     * identidade for unificada.
+     * Uma comparação de id, e nada mais. Enquanto a mesma pessoa tinha uma
+     * linha em `users` por loja, era preciso reconciliar por e-mail — o pedido
+     * podia apontar para a linha "da loja" enquanto a sessão estava na linha
+     * "de plataforma". Com identidade única, o id basta.
      */
     protected function userOwnsOrder(array $order): bool
     {
         $me = $this->currentUser();
-        if ($me === null) {
-            return false;
-        }
         $customerId = (int) ($order['customer_id'] ?? 0);
-        if ($customerId < 1) {
-            return false;
-        }
-        if ($customerId === (int) $me['id']) {
-            return true;
-        }
-        $customer = (new \App\Repositories\UserRepository())->find($customerId);
-        if ($customer === null) {
-            return false;
-        }
-        $mine = trim((string) ($me['email'] ?? ''));
 
-        return $mine !== ''
-            && strcasecmp(trim((string) ($customer['email'] ?? '')), $mine) === 0;
+        return $me !== null && $customerId > 0 && $customerId === (int) $me['id'];
     }
 
     /**
