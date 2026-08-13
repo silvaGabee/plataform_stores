@@ -964,44 +964,7 @@ if (!function_exists('store_cart_normalize_lines')) {
 if (!function_exists('product_sale_available_stock')) {
     function product_sale_available_stock(array $product, ?string $variantKey): int
     {
-        if (!product_has_variants($product)) {
-            return max(0, (int) ($product['stock_quantity'] ?? 0));
-        }
-        $vk = $variantKey !== null ? trim($variantKey) : '';
-        if ($vk === '') {
-            return 0;
-        }
-        if (str_contains($vk, '|') && !str_contains($vk, ':')) {
-            $parts = explode('|', $vk, 2);
-            if (count($parts) === 2) {
-                return product_variant_stock_for_combination($product, $parts[0], $parts[1]);
-            }
-        }
-        if (str_contains($vk, ':')) {
-            [$type, $val] = explode(':', $vk, 2);
-            foreach ($product['variants'] ?? [] as $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-                if (($row['variant_type'] ?? '') === $type && ($row['variant_value'] ?? '') === $val) {
-                    return max(0, (int) ($row['stock_quantity'] ?? 0));
-                }
-            }
-        }
-        foreach ($product['variants'] ?? [] as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $type = (string) ($row['variant_type'] ?? '');
-            if ($type === '' || $type === '_meta') {
-                continue;
-            }
-            if ((string) ($row['variant_value'] ?? '') === $vk) {
-                return max(0, (int) ($row['stock_quantity'] ?? 0));
-            }
-        }
-
-        return 0;
+        return \App\Domain\Product\VariantStock::availableForSale($product, $variantKey);
     }
 }
 
@@ -1032,13 +995,9 @@ if (!function_exists('product_variant_key_label')) {
 
 if (!function_exists('product_apply_sale_stock_decrement')) {
     /**
-     * Baixa estoque da variação vendida e recalcula o total do produto.
-     *
-     * Devolve false quando a baixa NÃO pôde ser feita — saldo insuficiente ou
-     * variação que não existe. Antes esta função devolvia void e seguia adiante
-     * de qualquer jeito: o estoque era cortado em zero e o pedido saía como se
-     * a mercadoria existisse. Quem chama deve tratar o false como falha da
-     * venda e desfazer a transação.
+     * Baixa o estoque da venda. Devolve false quando NAO foi possivel — saldo
+     * insuficiente ou variacao inexistente. Quem chama deve tratar como falha
+     * da venda e desfazer a transacao.
      */
     function product_apply_sale_stock_decrement(
         array $product,
@@ -1047,64 +1006,15 @@ if (!function_exists('product_apply_sale_stock_decrement')) {
         \App\Repositories\ProductVariantRepository $variantRepo,
         \App\Repositories\ProductRepository $productRepo
     ): bool {
-        $productId = (int) ($product['id'] ?? 0);
-        if ($productId < 1 || $quantity < 1) {
-            return false;
-        }
-        $qty = $quantity;
-
-        if (!product_has_variants($product)) {
-            return $productRepo->decrementStock($productId, $qty);
-        }
-
-        $vk = $variantKey !== null ? trim($variantKey) : '';
-        if ($vk === '') {
-            return false;
-        }
-
-        $type = null;
-        $value = null;
-        if (str_contains($vk, '|') && !str_contains($vk, ':')) {
-            $type = 'combinacao';
-            $value = $vk;
-        } elseif (str_contains($vk, ':')) {
-            [$type, $value] = explode(':', $vk, 2);
-            $type = trim($type);
-            $value = trim($value);
-        } else {
-            foreach ($product['variants'] ?? [] as $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-                $rowType = (string) ($row['variant_type'] ?? '');
-                if ($rowType === '' || $rowType === '_meta') {
-                    continue;
-                }
-                if ((string) ($row['variant_value'] ?? '') === $vk) {
-                    $type = $rowType;
-                    $value = $vk;
-                    break;
-                }
-            }
-        }
-
-        if ($type === null || $value === null || $type === '' || $value === '') {
-            // Chave de variação que não casa com nenhuma linha: não dá para
-            // saber o que baixar, então a venda não pode prosseguir.
-            return false;
-        }
-        if (!$variantRepo->decrementStock($productId, $type, $value, $qty)) {
-            return false;
-        }
-
-        // products.stock_quantity é o total derivado das variações — recalculado
-        // a partir do banco, já com a baixa aplicada.
-        $productRepo->updateStock($productId, $variantRepo->totalStock($productId));
-
-        return true;
+        return \App\Domain\Product\VariantStock::applySaleDecrement(
+            $product,
+            $quantity,
+            $variantKey,
+            $variantRepo,
+            $productRepo
+        );
     }
 }
-
 if (!function_exists('product_variant_default_color_hex_map')) {
     /** @return array<string, string> */
     function product_variant_default_color_hex_map(): array

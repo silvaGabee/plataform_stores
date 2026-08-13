@@ -1,7 +1,7 @@
 parameters:
-    # Nível 5 é o alvo desta fase: pega tipo errado em argumento, método
-    # inexistente e retorno incompatível, sem exigir tipagem completa de array
-    # (que viria nos níveis 6+ e daria centenas de avisos de uma vez).
+    # Nível 5: pega tipo errado em argumento, método inexistente e retorno
+    # incompatível, sem exigir tipagem completa de array (níveis 6+), que daria
+    # centenas de avisos de uma vez neste código.
     level: 5
 
     paths:
@@ -10,6 +10,12 @@ parameters:
         - backend/tools
         - backend/tests
         - frontend/public/index.php
+
+    # Define funções globais usadas em outros arquivos (static_try, static_mime,
+    # static_resolve). Não entra em `paths` porque é incluído em tempo de
+    # execução pelo front controller, não autocarregado.
+    scanFiles:
+        - frontend/public/static.php
 
     excludePaths:
         # Views são PHP misturado com HTML, com variáveis vindas do extract()
@@ -20,6 +26,25 @@ parameters:
         - backend/bootstrap.php
         - backend/app/Helpers/functions.php
 
+    # Tipo declarado em PHPDoc é uma AFIRMAÇÃO do desenvolvedor, não um fato
+    # verificado. As linhas vindas do banco são arrays do PDO: um `@return
+    # array{...}` num repositório não garante que a coluna exista na resposta.
+    # Com isto ligado, o PHPStan acusava todo `?? 0` defensivo sobre esses
+    # campos como redundante — e removê-los deixaria o código pior.
+    treatPhpDocTypesAsCertain: false
+
+    # Um padrão de ignore que deixa de casar vira erro por si só — foi assim que
+    # o `#Constant PLATAFORM_ROOT not found#` (já removido) quebrou o CI depois
+    # que os bootstrapFiles passaram a definir as constantes. Como o PHPStan não
+    # roda nesta máquina (sem Composer), desligar evita que a próxima correção
+    # derrube a análise por um ignore que sobrou.
+    reportUnmatchedIgnoredErrors: false
+
     ignoreErrors:
-        # As constantes são definidas em bootstrap.php em tempo de execução.
-        - '#Constant (PLATAFORM_ROOT|PLATAFORM_BACKEND) not found#'
+        # O PHPStan não enxerga através do callable passado a
+        # Database::transaction(): conclui que a chamada nunca retorna quando a
+        # closure sempre lança, e marca o catch e o que vem depois como mortos.
+        # O teste de rollback depende exatamente desse fluxo.
+        -
+            message: '#(Dead catch|Unreachable statement)#'
+            path: backend/tools/concurrency_check.php

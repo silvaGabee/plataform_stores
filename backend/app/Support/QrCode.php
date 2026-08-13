@@ -334,12 +334,10 @@ final class QrCode
         $m[$n - 8][8] = true;
         $reservado[$n - 8][8] = true;
         for ($i = 0; $i < 9; $i++) {
-            if (!$reservado[8][$i]) {
-                $reservado[8][$i] = true;
-            }
-            if (!$reservado[$i][8]) {
-                $reservado[$i][8] = true;
-            }
+            // Marcar direto: o "if" antes disso não mudava nada, já que o
+            // resultado é o mesmo estivesse ou não reservado.
+            $reservado[8][$i] = true;
+            $reservado[$i][8] = true;
         }
         for ($i = 0; $i < 8; $i++) {
             $reservado[8][$n - 1 - $i] = true;

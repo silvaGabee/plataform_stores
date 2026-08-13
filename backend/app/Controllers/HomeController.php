@@ -290,7 +290,9 @@ class HomeController extends Controller
             redirect(base_url('?auth=cadastro'));
         }
         $userRepo = new UserRepository();
-        if ($userRepo->findByEmail($email, null) !== null) {
+        // O segundo argumento sumiu na unificação de identidade (Fase 3):
+        // o e-mail é único global, não mais por loja.
+        if ($userRepo->findByEmail($email) !== null) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Este e-mail já está cadastrado.';
             redirect(base_url('?auth=cadastro'));

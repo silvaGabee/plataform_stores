@@ -10,6 +10,10 @@ use App\Repositories\StockMovementRepository;
 
 class ProductService
 {
+    // Declaradas explicitamente: $imageRepo era atribuída no construtor sem
+    // existir como propriedade, funcionando por propriedade dinâmica — algo
+    // que o PHP 8.2 já deprecia e o 9 remove.
+    private ProductImageRepository $imageRepo;
     private ProductVariantRepository $variantRepo;
     private ProductVitrineCategoryRepository $productCategoryRepo;
 

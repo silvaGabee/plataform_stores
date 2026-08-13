@@ -357,19 +357,6 @@ class ProductApiController extends Controller
         return $id > 0 ? $id : null;
     }
 
-    private function validateVitrineCategoryForStore(int $storeId, mixed $raw): ?string
-    {
-        $id = $this->normalizeVitrineCategoryId($raw);
-        if ($id === null) {
-            return null;
-        }
-        $cat = (new StoreVitrineCategoryRepository())->find($id, $storeId);
-        if (!$cat) {
-            return 'Categoria da vitrine inválida.';
-        }
-
-        return null;
-    }
 
     /** @param array<string, mixed> $input */
     private function validateVitrineCategoriesForStore(int $storeId, array $input): ?string
@@ -469,7 +456,8 @@ class ProductApiController extends Controller
         $tmp = $files['tmp_name'];
         $isMulti = is_array($tmp);
         if (!$isMulti) {
-            return (isset($files['error']) && $files['error'] === UPLOAD_ERR_OK && $tmp) ? [$files] : [];
+            // $tmp já é garantidamente não-vazio: o empty() no topo retornou.
+            return (isset($files['error']) && $files['error'] === UPLOAD_ERR_OK) ? [$files] : [];
         }
         $out = [];
         foreach ($tmp as $i => $t) {

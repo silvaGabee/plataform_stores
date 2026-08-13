@@ -101,8 +101,8 @@ try {
             $repo->decrementStock($p3, 4);
             throw new RuntimeException('falha simulada no meio da transação');
         });
-    } catch (RuntimeException $e) {
-        // esperado
+    } catch (Throwable $e) {
+        // esperado: a transação relança depois de desfazer
     }
     $ok('rollback devolve o estoque para 10', $estoqueDe($p3) === 10);
 
@@ -116,8 +116,8 @@ try {
                 throw new RuntimeException('falha na transação interna');
             });
         });
-    } catch (RuntimeException $e) {
-        // esperado
+    } catch (Throwable $e) {
+        // esperado: a transação relança depois de desfazer
     }
     $ok('aninhamento não lança e o rollback é total (10)', $estoqueDe($p4) === 10);
 
