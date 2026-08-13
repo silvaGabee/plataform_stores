@@ -1,0 +1,40 @@
+{
+    "name": "gabriel/plataform-stores",
+    "description": "Plataforma multi-loja em PHP: vitrine pública, painel administrativo e API JSON.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-curl": "*",
+        "ext-fileinfo": "*"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^1.10",
+        "friendsofphp/php-cs-fixer": "^3.40"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "backend/app/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "backend/tests/"
+        }
+    },
+    "scripts": {
+        "test": "php backend/tests/run.php",
+        "lint": "php backend/tests/lint.php",
+        "check": [
+            "@lint",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

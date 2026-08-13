@@ -817,15 +817,16 @@ if (!function_exists('product_display_name')) {
     }
 }
 
+/*
+ * Estoque por variação: a lógica mudou-se para App\Domain\Product\VariantStock.
+ * As funções abaixo ficam como atalho para as views e controllers que já as
+ * chamavam.
+ */
+
 if (!function_exists('product_has_variants')) {
     function product_has_variants(array $product): bool
     {
-        if (!empty($product['variants_matrix']) && is_array($product['variants_matrix'])) {
-            return !empty($product['variants_matrix']['colors']);
-        }
-        $matrix = product_variants_rows_to_matrix($product['variants'] ?? []);
-
-        return $matrix !== null || (!empty($product['variants']) && is_array($product['variants']));
+        return \App\Domain\Product\VariantStock::hasVariants($product);
     }
 }
 
@@ -833,15 +834,7 @@ if (!function_exists('product_variants_total_stock')) {
     /** @param list<array> $variants */
     function product_variants_total_stock(array $variants): int
     {
-        $sum = 0;
-        foreach ($variants as $row) {
-            if (!is_array($row) || ($row['variant_type'] ?? '') === '_meta') {
-                continue;
-            }
-            $sum += max(0, (int) ($row['stock_quantity'] ?? 0));
-        }
-
-        return $sum;
+        return \App\Domain\Product\VariantStock::totalStock($variants);
     }
 }
 
@@ -1482,52 +1475,26 @@ if (!function_exists('is_funcionario_panel_readonly')) {
     }
 }
 
+/*
+ * Cartão: a lógica mudou-se para App\Payment\CardValidator. As funções abaixo
+ * ficam como atalho para o código que já as chamava.
+ */
+
 if (!function_exists('card_digits_only')) {
     function card_digits_only(string $value): string {
-        return preg_replace('/\D+/', '', $value) ?? '';
+        return \App\Payment\CardValidator::digitsOnly($value);
     }
 }
 
 if (!function_exists('card_luhn_valid')) {
     function card_luhn_valid(string $digits): bool {
-        $len = strlen($digits);
-        if ($len < 13 || $len > 19) {
-            return false;
-        }
-        $sum = 0;
-        $parity = $len % 2;
-        for ($i = 0; $i < $len; $i++) {
-            $d = (int) $digits[$i];
-            if ($i % 2 === $parity) {
-                $d *= 2;
-                if ($d > 9) {
-                    $d -= 9;
-                }
-            }
-            $sum += $d;
-        }
-        return $sum % 10 === 0;
+        return \App\Payment\CardValidator::luhnValid($digits);
     }
 }
 
 if (!function_exists('card_detect_brand')) {
     function card_detect_brand(string $digits): string {
-        if (preg_match('/^4/', $digits)) {
-            return 'visa';
-        }
-        if (preg_match('/^(5[1-5]|2[2-7])/', $digits)) {
-            return 'mastercard';
-        }
-        if (preg_match('/^3[47]/', $digits)) {
-            return 'amex';
-        }
-        if (preg_match('/^(636368|438935|504175|451416|636297|5067|4576|4011)/', $digits)) {
-            return 'elo';
-        }
-        if (preg_match('/^(606282|3841)/', $digits)) {
-            return 'hipercard';
-        }
-        return 'card';
+        return \App\Payment\CardValidator::detectBrand($digits);
     }
 }
 
@@ -1537,40 +1504,6 @@ if (!function_exists('card_validate_checkout_input')) {
      * @return array{holder: string, last4: string, brand: string}|null
      */
     function card_validate_checkout_input(?array $card): ?array {
-        if (!$card || !is_array($card)) {
-            return null;
-        }
-        $holder = trim((string) ($card['holder'] ?? ''));
-        $number = card_digits_only((string) ($card['number'] ?? ''));
-        $expiry = trim((string) ($card['expiry'] ?? ''));
-        $cvv = card_digits_only((string) ($card['cvv'] ?? ''));
-
-        if (strlen($holder) < 3) {
-            throw new \InvalidArgumentException('Informe o nome impresso no cartão.');
-        }
-        if (!card_luhn_valid($number)) {
-            throw new \InvalidArgumentException('Número do cartão inválido.');
-        }
-        if (!preg_match('/^(0[1-9]|1[0-2])\/([0-9]{2})$/', $expiry, $m)) {
-            throw new \InvalidArgumentException('Validade inválida. Use MM/AA.');
-        }
-        $month = (int) $m[1];
-        $year = 2000 + (int) $m[2];
-        $now = new \DateTimeImmutable('first day of this month');
-        $exp = \DateTimeImmutable::createFromFormat('Y-m-d', sprintf('%04d-%02d-01', $year, $month));
-        if (!$exp || $exp < $now) {
-            throw new \InvalidArgumentException('Cartão expirado.');
-        }
-        $brand = card_detect_brand($number);
-        $cvvLen = $brand === 'amex' ? 4 : 3;
-        if (strlen($cvv) !== $cvvLen) {
-            throw new \InvalidArgumentException('CVV inválido.');
-        }
-
-        return [
-            'holder' => $holder,
-            'last4'  => substr($number, -4),
-            'brand'  => $brand,
-        ];
+        return \App\Payment\CardValidator::validate($card);
     }
 }

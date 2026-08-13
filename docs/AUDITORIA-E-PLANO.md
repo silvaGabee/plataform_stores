@@ -328,19 +328,24 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 
 **Um efeito colateral útil:** `backend/config/database.php` passou a aceitar `DB_NAME`/`DB_HOST`/`DB_USER`/`DB_PASSWORD` do `.env`. Foi o que permitiu ensaiar a migração numa cópia antes de tocar no banco real — e é o que a Fase 4 vai precisar para rodar testes isolados.
 
-### Fase 4 — Fundação de engenharia (contínuo)
+### Fase 4 — Fundação de engenharia ✅ CONCLUÍDA (2026-08-12)
 
-21. **`composer.json`** com `"require": {"php": "^8.1"}` e PSR-4 (`App\` → `backend/app/`). Mesmo sem dependências externas, isso trava a versão de PHP e mata o autoloader artesanal.
-22. **Quebrar o `functions.php`**:
-    - `App\Domain\Product\VariantMatrix` e `VariantStock` — toda a lógica de variação e baixa de estoque, como classes
-    - `App\Domain\Cart\CartNormalizer`
-    - `App\Payment\CardValidator`
-    - `App\Storage\ImageUploader` (unificando as 5 funções de upload, que são cópias uma da outra)
-    - `App\Support\ViewHelpers` — só o que é de view fica como função global
-23. **PHPUnit** cobrindo, nesta ordem: baixa de estoque com variação, cálculo de total do pedido, confirmação de pagamento, matriz de permissões. São as quatro coisas que, quando quebram, custam dinheiro.
-24. **PHPStan nível 5** + **PHP-CS-Fixer**, rodando em GitHub Actions no PR.
-25. **Logging** (`App\Support\Logger` em `storage/logs/`, ou Monolog): toda exceção, toda confirmação de pagamento, toda mudança de permissão. Sem isso não há suporte possível.
-26. **Container de DI simples** (ou factories) para parar de montar 7 repositórios na mão em cada request.
+21. ✅ **`composer.json`** com PSR-4 e a versão mínima de PHP declarada — mas **`>=8.0`, não `^8.1`**. O plano dizia 8.1; conferindo o código antes de escrever, ele não usa nenhum recurso de 8.1 (sem `enum`, `readonly`, `never`), e a máquina de desenvolvimento roda **PHP 8.0.30**. Declarar 8.1 teria trancado o próprio projeto para fora.
+
+    O `bootstrap.php` usa `vendor/autoload.php` **quando existe** e cai no registro manual quando não. A aplicação continua rodando sem Composer — o deploy segue sendo copiar a pasta, e o Composer entra só para as ferramentas de análise.
+22. ✅ **Quebra do `functions.php`** começada pelo que mais importa: `App\Payment\CardValidator` e `App\Domain\Product\VariantStock` (o caminho crítico da venda — `hasVariants`, `availableForSale`, `totalStock`, `applySaleDecrement`). As funções globais viraram atalhos de uma linha, então views e controllers não mudaram. O arquivo saiu de 1576 para 1418 linhas.
+
+    **Falta extrair:** matriz de variação (conversão linha↔matriz, catálogo de tipos e cores), `CartNormalizer`, `ImageUploader` (5 funções de upload que são cópias uma da outra) e os helpers de view.
+23. ✅ **Suíte de testes: 33 testes de unidade**, em `backend/tests/`, cobrindo normalização do carrinho, validação de cartão e estoque por variação.
+
+    **Não é PHPUnit.** O Composer não está instalado nesta máquina, e um PHPUnit que ninguém consegue executar não é rede de segurança nenhuma. O runner (`php backend/tests/run.php`) não tem dependência alguma e a API das asserções imita a do PHPUnit de propósito — migrar depois é trocar a classe-base.
+24. ✅ **GitHub Actions** em três jobs: sintaxe + unidade (PHP 8.0 e 8.3), integração (MariaDB de verdade, instalação limpa a partir do `schema.sql`, os quatro verificadores de `backend/tools/`) e análise estática (PHPStan nível 5, `continue-on-error` até a base estar limpa). O job de integração falha se o `schema.sql` sair de sincronia com as migrations — o problema da Fase 1 não pode voltar.
+25. ✅ **Logging** já tinha saído adiantado na Fase 0 (`log_message`/`log_exception` em `storage/logs/`).
+26. ⏸️ **Container de DI** — não feito. `OrderApiController` ainda monta 7 repositórios à mão. É o item de menor retorno da fase: incomoda para testar, mas não causa defeito.
+
+**Um bug real encontrado pelos testes, no primeiro dia:** todo cartão que vence no **mês corrente** era recusado como expirado, o mês inteiro. A comparação era entre `new DateTimeImmutable('first day of this month')` — que carrega hora e microssegundos do instante atual — e um `createFromFormat('Y-m-d', ...)`, que zera os microssegundos. O primeiro era sempre maior. Corrigido na extração do `CardValidator`, comparando datas zeradas.
+
+**Um teste meu que estava errado, e o código certo:** escrevi que um produto meio configurado (eixo definido, nenhuma combinação) não deveria contar como "tem variação". O comportamento atual responde `true`, e é o seguro: a venda é recusada por falta de combinação em vez de sair contra `products.stock_quantity` sem baixa em variação nenhuma. Ajustei o teste e documentei o porquê, em vez de "consertar" o código para caber na minha expectativa.
 
 ### Fase 5 — Performance e polimento
 
@@ -360,9 +365,11 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 | 1 ✅ | Integridade de dados | feita | Venda a descoberto, estoque e financeiro inconsistentes, instalação nova quebrada |
 | 2 ✅ | Autorização central | feita | Escalada de privilégio do funcionário, CSRF, força bruta no login, rota nova nascer aberta |
 | 3 ✅ | Identidade única | feita | Login imprevisível, senha que não é uma só, gerente perdendo o próprio painel |
-| 4 | Fundação de engenharia | contínuo | Regressão silenciosa; impossibilidade de testar |
+| 4 ✅ | Fundação de engenharia | feita | Regressão silenciosa, versão de PHP não declarada, domínio sem teste |
 | 5 | Performance e limpeza | contínuo | Custo de infra; dívida acumulada |
 
-**Próximo passo:** Fase 4 (fundação de engenharia). Os quatro scripts em `backend/tools/` já cobrem estoque, permissões, rotas e identidade — 77 asserções — mas são scripts, não uma suíte. Aqui viram PHPUnit rodando em CI, junto com `composer.json` (que trava a versão mínima de PHP, hoje não declarada em lugar nenhum) e a quebra do `functions.php` de 52 KB em classes de domínio.
+**Próximo passo:** Fase 5, a última. Sobrou o que tem efeito visível e sai rápido: cache nos assets (o `app.css` de 301 KB é relido do disco a cada page view), N+1 no carrinho, `CURLOPT_TIMEOUT` no `PixService` — hoje uma RapidAPI travada pendura o checkout —, gerar o QR do PIX localmente em vez de mandar a chave do lojista para o `api.qrserver.com`, e apagar código morto (`Models/Model.php`, `public/` duplicado, aliases de rota).
+
+Ficaram de fora, por escolha: o gateway de pagamento (decisão do proprietário) e o container de DI (baixo retorno). O `functions.php` ainda tem extrações pendentes, listadas no item 22.
 
 **O que já está certo e não deve ser mexido:** as queries preparadas, o escape nas views, o preço vindo do banco no `OrderService`, e a separação controller/service/repository. A refatoração deve preservar esses quatro acertos — são a base sobre a qual o resto se apoia.

@@ -25,12 +25,26 @@ if (file_exists($envFile) && is_readable($envFile)) {
     }
 }
 
-spl_autoload_register(function (string $class) {
-    $prefix = 'App\\';
-    $baseDir = PLATAFORM_BACKEND . '/app/';
-    $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) return;
-    $relative = substr($class, $len);
-    $file = $baseDir . str_replace('\\', '/', $relative) . '.php';
-    if (file_exists($file)) require $file;
-});
+/**
+ * Autoload.
+ *
+ * Existe composer.json declarando PSR-4 e a versão mínima de PHP, mas a
+ * aplicação NÃO depende do Composer para rodar: o deploy continua sendo copiar
+ * a pasta. Se `vendor/` existir (máquina de desenvolvimento, CI), usa o
+ * autoloader dele — que também carrega as ferramentas de análise; senão, o
+ * registro manual abaixo, que faz o mesmo mapeamento App\ -> backend/app/.
+ */
+$vendorAutoload = PLATAFORM_ROOT . '/vendor/autoload.php';
+if (is_file($vendorAutoload)) {
+    require $vendorAutoload;
+} else {
+    spl_autoload_register(function (string $class) {
+        $prefix = 'App\\';
+        $baseDir = PLATAFORM_BACKEND . '/app/';
+        $len = strlen($prefix);
+        if (strncmp($prefix, $class, $len) !== 0) return;
+        $relative = substr($class, $len);
+        $file = $baseDir . str_replace('\\', '/', $relative) . '.php';
+        if (file_exists($file)) require $file;
+    });
+}

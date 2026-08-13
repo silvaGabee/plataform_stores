@@ -1,0 +1,25 @@
+parameters:
+    # Nível 5 é o alvo desta fase: pega tipo errado em argumento, método
+    # inexistente e retorno incompatível, sem exigir tipagem completa de array
+    # (que viria nos níveis 6+ e daria centenas de avisos de uma vez).
+    level: 5
+
+    paths:
+        - backend/app
+        - backend/scripts
+        - backend/tools
+        - backend/tests
+        - frontend/public/index.php
+
+    excludePaths:
+        # Views são PHP misturado com HTML, com variáveis vindas do extract()
+        # do controller — o analisador não tem como saber o que existe.
+        - backend/views
+
+    bootstrapFiles:
+        - backend/bootstrap.php
+        - backend/app/Helpers/functions.php
+
+    ignoreErrors:
+        # As constantes são definidas em bootstrap.php em tempo de execução.
+        - '#Constant (PLATAFORM_ROOT|PLATAFORM_BACKEND) not found#'

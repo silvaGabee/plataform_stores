@@ -376,7 +376,7 @@
     var canvas = document.getElementById('bi-revenue-chart');
     if (!canvas) return;
     if (typeof Chart === 'undefined') {
-      setRevenueChartError('Biblioteca de gráfico indisponível. Verifique a ligação à internet (Chart.js).');
+      setRevenueChartError('Biblioteca de gráfico indisponível. Verifique a ligação à internet.');
       return;
     }
     setRevenueChartError('');

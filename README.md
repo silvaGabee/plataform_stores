@@ -2,7 +2,9 @@
 
 Sistema web **multi-loja** em PHP: numa única instalação convivem várias lojas, cada uma com **vitrine pública** (catálogo, carrinho, checkout), **painel administrativo** e **API JSON** usada pelo JavaScript do painel e da loja.
 
-A arquitetura é em camadas simples (**rotas → controllers → services → repositórios**, PDO no MySQL). **Não usa Composer**: o autoload das classes `App\` está em `backend/bootstrap.php`.
+A arquitetura é em camadas simples (**rotas → controllers → services → repositórios**, PDO no MySQL).
+
+**A aplicação roda sem Composer** — o deploy é copiar a pasta, e o `bootstrap.php` registra o autoload das classes `App\` sozinho. Existe um `composer.json` que declara PSR-4 e a versão mínima de PHP (**8.0**), usado apenas para as ferramentas de desenvolvimento (PHPStan, CS-Fixer); quando `vendor/` existe, o bootstrap prefere o autoloader dele.
 
 ---
 
@@ -319,6 +321,8 @@ Os dois produzem o mesmo schema. Nunca execute o `schema.sql` sobre um banco com
 | `php backend/tools/routes_check.php` | Confere que toda rota declara uma permissão válida |
 | `php backend/tools/authz_check.php` | Exercita a matriz de permissões e o CSRF por HTTP (precisa do seed e do servidor no ar) |
 | `php backend/tools/identity_check.php` | Verifica a identidade única: e-mail único, vínculos por loja, sessão estável entre logins |
+| `php backend/tests/run.php` | Suíte de testes de unidade do domínio (não precisa de banco) |
+| `php backend/tests/lint.php` | Sintaxe de todo o PHP e JS do projeto |
 
 ### Migrações novas
 
@@ -353,6 +357,22 @@ mysqldump -u root --no-data --skip-comments plataform_stores
 | **Erro de base de dados** | `backend/config/database.php`, MySQL a correr, schema e migrações aplicados |
 | **Imagens de produto não gravam** | Permissões em `frontend/public/uploads/products/` |
 | **JSON da API inválido** | Warnings do PHP na resposta — corrigir `debug` e erros no servidor |
+
+---
+
+## Testes
+
+```
+php backend/tests/lint.php     sintaxe de todo o PHP e JS
+php backend/tests/run.php      testes de unidade do domínio
+php backend/tests/run.php Card roda só as classes cujo nome casa
+```
+
+A suíte **não precisa de Composer nem de banco de dados** — são testes de unidade sobre o domínio (carrinho, cartão, estoque por variação). O runner é próprio, em `backend/tests/`, porque um PHPUnit que não se consegue executar na máquina onde o projeto vive não protege nada. A API das asserções imita a do PHPUnit, então migrar é trocar a classe-base.
+
+Para escrever um teste novo: crie `backend/tests/Unit/AlgumaCoisaTest.php`, estenda `Tests\TestCase` e dê aos métodos nomes começando com `test`.
+
+O que depende de banco ou de HTTP fica em `backend/tools/` (tabela acima). O **GitHub Actions** (`.github/workflows/ci.yml`) roda tudo: sintaxe e unidade em PHP 8.0 e 8.3, integração contra um MariaDB de verdade partindo de uma instalação limpa, e PHPStan nível 5.
 
 ---
 

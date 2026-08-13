@@ -10,3 +10,11 @@ storage/logs/*
 !storage/.gitkeep
 storage/backups/*
 !storage/backups/.gitkeep
+
+# Composer: só ferramentas de desenvolvimento. A aplicação roda sem vendor/,
+# e por isso ele não é versionado nem necessário no deploy.
+/vendor/
+composer.lock
+.php-cs-fixer.cache
+storage/backups/*
+!storage/backups/.gitkeep

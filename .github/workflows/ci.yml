@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Sintaxe e testes de unidade: não precisam de banco nem de Composer, então
+  # rodam em segundos e são a primeira porta.
+  testes:
+    name: Sintaxe e testes de unidade
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8.0 é o mínimo declarado no composer.json; 8.3 pega o que vai
+        # quebrar quando o servidor for atualizado.
+        php: ['8.0', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo, pdo_mysql, mbstring, curl, fileinfo, json
+          coverage: none
+
+      - run: php backend/tests/lint.php
+      - run: php backend/tests/run.php
+
+  # Verificadores que conversam com o banco e com a aplicação servida.
+  integracao:
+    name: Integração (banco + HTTP)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mariadb:10.4
+        env:
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_DATABASE: plataform_stores
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          extensions: pdo, pdo_mysql, mbstring, curl, fileinfo, json
+          coverage: none
+
+      - name: Configurar ambiente
+        run: |
+          cp .env.example .env
+          {
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_NAME=plataform_stores"
+            echo "DB_USER=root"
+            echo "APP_URL=http://127.0.0.1:8080"
+          } >> .env
+
+      - name: Instalação limpa a partir do schema.sql
+        run: mysql -h 127.0.0.1 -u root < backend/database/schema.sql
+
+      # Se o schema.sql estiver dessincronizado das migrations, isto falha —
+      # que é exatamente o problema que a Fase 1 corrigiu e não pode voltar.
+      - name: Migrations devem estar em dia
+        run: |
+          php backend/scripts/migrate.php --status
+          php backend/scripts/migrate.php --status | grep -q "Pendentes: 0"
+
+      - name: Dados de exemplo
+        run: php backend/scripts/seed.php --force
+
+      - name: Rotas declaram permissão válida
+        run: php backend/tools/routes_check.php
+
+      - name: Integridade de estoque e transações
+        run: php backend/tools/concurrency_check.php
+
+      - name: Servir a aplicação
+        run: |
+          php -S 127.0.0.1:8080 -t frontend/public &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8080/ >/dev/null && break
+            sleep 0.5
+          done
+
+      - name: Identidade única
+        run: php backend/tools/identity_check.php http://127.0.0.1:8080
+
+      - name: Permissões e CSRF
+        run: php backend/tools/authz_check.php http://127.0.0.1:8080
+
+  # Análise estática. Só aqui o Composer é necessário — a aplicação não depende
+  # dele para rodar.
+  estatica:
+    name: Análise estática
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          tools: composer:v2
+          coverage: none
+
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpstan analyse --no-progress
