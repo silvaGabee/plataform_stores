@@ -5301,60 +5301,155 @@ html[data-theme="light"] .store-vitrine-category-name {
   background: rgba(37, 99, 235, 0.12);
   border: 1px solid rgba(37, 99, 235, 0.2);
 }
-.checkout-pix-qr {
-  margin: 0 auto 1.15rem;
+/* ---------- Pagamento PIX: QR + copia e cola ---------- */
+.checkout-pix {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
   width: 100%;
 }
-.checkout-pix-frame {
-  padding: 0.85rem;
-  border-radius: 16px;
-  background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow:
-    0 4px 6px rgba(15, 23, 42, 0.04),
-    0 16px 40px rgba(15, 23, 42, 0.1);
+
+/* Valor em destaque: é a primeira coisa que a pessoa confere. */
+.checkout-pix-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
 }
-.checkout-pix-frame-inner {
-  padding: 0.65rem;
-  border-radius: 12px;
-  background: #fff;
-}
-.checkout-pix-frame img {
-  display: block;
-  width: min(240px, 72vw);
-  height: auto;
-  margin: 0 auto;
-  border-radius: 6px;
-}
-.checkout-pix-manual {
-  padding: 1.15rem 1.25rem;
-  border-radius: 14px;
-  background: var(--border-subtle);
-  border: 1px solid var(--border);
-  text-align: center;
-}
-.checkout-pix-manual-label {
-  margin: 0 0 0.25rem;
-  font-size: 0.72rem;
+.checkout-pix-amount-label {
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.checkout-pix-manual-value {
-  margin: 0 0 0.5rem;
-  font-size: 1.65rem;
+.checkout-pix-amount-value {
+  font-size: 2rem;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
-.checkout-pix-manual-msg {
+
+/* O QR fica sempre sobre branco, mesmo no tema escuro: o contraste entre
+   módulos claros e escuros é o que o leitor precisa para enxergar. */
+.checkout-pix-qr {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.checkout-pix-qr-frame {
+  padding: 0.75rem;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 12px 32px rgba(15, 23, 42, 0.12);
+  line-height: 0;
+}
+.checkout-pix-qr-frame img {
+  display: block;
+  width: min(216px, 62vw);
+  height: auto;
+  border-radius: 4px;
+}
+.checkout-pix-qr-hint {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--text-muted);
-  line-height: 1.45;
+  text-align: center;
+}
+
+.checkout-pix-copy {
+  width: 100%;
+}
+/* Separador com rótulo no meio da linha. */
+.checkout-pix-copy-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.checkout-pix-copy-divider::before,
+.checkout-pix-copy-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.checkout-pix-copy-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 12px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border);
+}
+/* O BR Code tem ~130 caracteres sem espaço: sem o overflow oculto e o
+   nowrap, ele estoura o cartão ou vira um bloco ilegível de texto. */
+.checkout-pix-copy-code {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  padding: 0.5rem 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 0;
+  user-select: all;
+}
+.checkout-pix-copy-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.checkout-pix-copy-btn:hover { background: var(--primary-hover); }
+.checkout-pix-copy-btn:active { transform: scale(0.97); }
+.checkout-pix-copy-btn.is-copied { background: var(--success); }
+.checkout-pix-copy-btn svg { flex: 0 0 auto; }
+
+.checkout-pix-key {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  background: var(--border-subtle);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--text);
+  user-select: all;
+}
+
+@media (max-width: 420px) {
+  .checkout-pix-copy-row { flex-direction: column; }
+  .checkout-pix-copy-btn { justify-content: center; }
 }
 .checkout-payment-foot {
   display: flex;

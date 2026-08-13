@@ -104,7 +104,8 @@ ob_start();
                         <figure id="dashboard-banner-preview-wrap" class="dashboard-banner-preview-figure hidden">
                             <div class="dashboard-banner-preview-scene">
                                 <div class="dashboard-banner-preview-frame">
-                                    <img id="dashboard-banner-preview" src="" alt="Pré-visualização do banner da vitrine" class="dashboard-banner-preview-img" width="1920" height="512" decoding="async">
+                                    <?php // Sem atributo src: com src="" o navegador requisita a própria página como imagem. O JS preenche ao escolher o arquivo. ?>
+                                    <img id="dashboard-banner-preview" alt="Pré-visualização do banner da vitrine" class="dashboard-banner-preview-img" width="1920" height="512" decoding="async">
                                 </div>
                             </div>
                             <figcaption class="dashboard-banner-preview-caption"><span class="dashboard-banner-preview-badge">Como na vitrine</span></figcaption>

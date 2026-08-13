@@ -196,14 +196,47 @@ if (!function_exists('btn_icon_plus')) {
     }
 }
 
+if (!function_exists('favicon_link_tag')) {
+    /**
+     * Tag <link rel="icon"> completa, com o tipo MIME certo.
+     * Passe a loja para usar o ícone dela; sem argumento, usa o da plataforma.
+     */
+    function favicon_link_tag(?array $store = null): string
+    {
+        $url = $store !== null ? store_brand_icon_url($store) : favicon_url();
+
+        // O tipo sai da extensão do arquivo. Os layouts declaravam
+        // type="image/x-icon" fixo, mas o ícone da loja é enviado pelo lojista
+        // e costuma ser PNG: o navegador recebia um PNG rotulado como ICO,
+        // recusava, e desenhava um quadrado de ícone inválido na aba.
+        $caminho = parse_url($url, PHP_URL_PATH) ?: '';
+        $tipos = [
+            'ico' => 'image/x-icon',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+        ];
+        $tipo = $tipos[strtolower(pathinfo($caminho, PATHINFO_EXTENSION))] ?? null;
+
+        // Uma tag só: "shortcut icon" é herança do IE e, duplicada, só dava
+        // ao navegador uma segunda chance de errar.
+        return '<link rel="icon" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"'
+            . ($tipo !== null ? ' type="' . $tipo . '"' : '')
+            . ' sizes="any">';
+    }
+}
+
 if (!function_exists('favicon_url')) {
-    /** URL do favicon com versão (mtime) para contornar cache agressivo do navegador. */
     function favicon_url(): string
     {
-        $file = PLATAFORM_ROOT . '/frontend/public/assets/favicon.ico';
-        $v = is_readable($file) ? (string) @filemtime($file) : '1';
-
-        return asset('favicon.ico') . '?v=' . rawurlencode($v);
+        // A versão já vem do asset(). Esta função acrescentava a sua própria e,
+        // depois que asset() passou a versionar, a URL saía com DOIS "?v=" —
+        // malformada, o favicon não carregava e o navegador desenhava um
+        // quadrado de imagem quebrada no cabeçalho de todas as páginas.
+        return asset('favicon.ico');
     }
 }
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\StorePixConfigRepository;
+use App\Support\QrCode;
 
 class PixService
 {
@@ -17,29 +18,84 @@ class PixService
     /**
      * Gera QR Code PIX.
      * Se RAPIDAPI_KEY e chave PIX estiverem configurados, usa pix-qr-code1.p.rapidapi.com.
-     * Sem ela, devolve null e quem chama mostra o copia e cola
-     * (ver buildCopyPaste) — que é aceito por qualquer aplicativo de banco.
+     * Sem ela, o QR é desenhado aqui mesmo, a partir do BR Code — sem mandar a
+     * chave PIX do lojista para serviço nenhum (ver App\Support\QrCode).
      */
     public function generateQrCode(int $storeId, float $amount, string $description = 'Pagamento'): ?string
     {
-        $rapidApiKey = config('app.rapidapi_key');
-        if (empty($rapidApiKey)) {
-            return null;
-        }
+        return $this->generate($storeId, $amount, $description)['qr_code'];
+    }
+
+    /**
+     * Dados de pagamento PIX: imagem do QR e copia e cola, da MESMA origem.
+     *
+     * Vinham de chamadas separadas — a imagem da API e o texto montado aqui.
+     * Como cada uma formata a referência à sua maneira, o cliente podia
+     * escanear um payload e copiar outro. Agora, quando a API responde, os dois
+     * saem da resposta dela; quando não, os dois são gerados localmente.
+     *
+     * @return array{qr_code: ?string, copia_cola: ?string, origem: string}
+     */
+    public function generate(int $storeId, float $amount, string $description = 'Pagamento'): array
+    {
+        $vazio = ['qr_code' => null, 'copia_cola' => null, 'origem' => 'sem-chave-pix'];
+
         $config = $this->pixConfigRepo->findByStore($storeId);
         $pixKey = $config['pix_key'] ?? null;
         if (empty($pixKey)) {
-            return null;
+            return $vazio;
         }
 
-        return $this->generateViaPixRapidApi($rapidApiKey, [
-            'key_type' => $this->mapKeyType($config['pix_key_type'] ?? 'aleatoria'),
-            'key' => $pixKey,
-            'name' => $config['merchant_name'] ?: 'Loja',
-            'city' => $config['merchant_city'] ?: 'São Paulo',
-            'amount' => number_format($amount, 2, '.', ''),
-            'reference' => $description,
-        ]);
+        $rapidApiKey = config('app.rapidapi_key');
+        if (!empty($rapidApiKey)) {
+            $resposta = $this->chamarPixRapidApi($rapidApiKey, [
+                'key_type' => $this->mapKeyType($config['pix_key_type'] ?? 'aleatoria'),
+                'key' => $pixKey,
+                'name' => $config['merchant_name'] ?: 'Loja',
+                'city' => $config['merchant_city'] ?: 'Sao Paulo',
+                'amount' => number_format($amount, 2, '.', ''),
+                'reference' => $description,
+            ]);
+            if ($resposta !== null) {
+                $imagem = $this->normalizarImagem($this->extractPixFromResponse($resposta));
+                $brCode = $this->brCodeFromResponse($resposta);
+                if ($imagem !== null || $brCode !== null) {
+                    return [
+                        'qr_code' => $imagem,
+                        // Se a API não devolver o texto, monta localmente — o
+                        // BR Code é determinístico a partir da mesma configuração.
+                        'copia_cola' => $brCode ?? $this->buildCopyPaste($storeId, $amount, $description),
+                        'origem' => 'rapidapi',
+                    ];
+                }
+            }
+        }
+
+        // Sem chave, ou API fora do ar: tudo local. A chave PIX do lojista não
+        // sai do servidor neste caminho.
+        $payload = $this->buildCopyPaste($storeId, $amount, $description);
+        if ($payload === null) {
+            return $vazio;
+        }
+
+        return [
+            'qr_code' => QrCode::toDataUri($payload),
+            'copia_cola' => $payload,
+            'origem' => 'local',
+        ];
+    }
+
+    /** Transforma o que a API devolveu numa src utilizável por <img>. */
+    private function normalizarImagem(?string $img): ?string
+    {
+        if ($img === null || $img === '') {
+            return null;
+        }
+        if (strpos($img, 'data:') === 0 || strpos($img, 'http') === 0) {
+            return $img;
+        }
+        // Base64 puro, sem o prefixo do data URI.
+        return strlen($img) > 50 ? 'data:image/png;base64,' . $img : null;
     }
 
     /**
@@ -127,12 +183,19 @@ class PixService
     }
 
     /**
-     * API: pix-qr-code1.p.rapidapi.com/generate
+     * Chama pix-qr-code1.p.rapidapi.com/generate e devolve o JSON cru.
+     *
+     * Devolver a resposta inteira, em vez de já extrair a imagem, é o que
+     * permite pegar o QR e o BR Code da MESMA chamada. A versão anterior
+     * decidia aqui dentro e mascarou o defeito: a resposta trazia a imagem em
+     * `qrcode_base64`, a extração casava com `code` (texto), e o método
+     * devolvia null — a API respondia 200 com o QR pronto e era ignorada.
+     *
+     * @return array<string, mixed>|null
      */
-    private function generateViaPixRapidApi(string $apiKey, array $body): ?string
+    private function chamarPixRapidApi(string $apiKey, array $body): ?array
     {
-        $url = 'https://pix-qr-code1.p.rapidapi.com/generate';
-        $ch = curl_init($url);
+        $ch = curl_init('https://pix-qr-code1.p.rapidapi.com/generate');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
@@ -142,70 +205,87 @@ class PixService
                 'x-rapidapi-key: ' . $apiKey,
                 'x-rapidapi-host: pix-qr-code1.p.rapidapi.com',
             ],
-            // Sem timeout, uma RapidAPI lenta pendurava o checkout do cliente
-            // até o max_execution_time do PHP. Falhar rápido é melhor: quem
-            // chama cai no gerador local, que não depende de rede.
+            // Sem timeout, uma API lenta pendurava o checkout do cliente até o
+            // max_execution_time do PHP. Falhar rápido é melhor: quem chama
+            // cai no gerador local, que não depende de rede.
             CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT_SEC,
             CURLOPT_TIMEOUT => self::TIMEOUT_SEC,
         ]);
-        $response = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $resposta = curl_exec($ch);
+        $codigo = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $errno = curl_errno($ch);
+        $erro = curl_error($ch);
         curl_close($ch);
-        if ($errno || $code !== 200 || !$response) {
-            return null;
-        }
-        $data = json_decode($response, true);
-        if (!$data || !is_array($data)) {
-            return null;
-        }
 
-        $img = $this->extractPixFromResponse($data);
-        if ($img === null) {
-            return null;
-        }
+        if ($errno || $codigo !== 200 || !is_string($resposta) || $resposta === '') {
+            log_message('warning', 'PIX: RapidAPI indisponível, usando gerador local', [
+                'http' => $codigo,
+                'curl' => $errno ? $erro : null,
+            ]);
 
-        if (strpos($img, 'data:') === 0) {
-            return $img;
-        }
-        if (strpos($img, 'http') === 0) {
-            return $img;
-        }
-        if (strpos($img, '00020126') === 0) {
-            // A API devolveu o BR Code em vez de uma imagem. Não há imagem a
-            // exibir; quem chama cai no copia e cola, que é este mesmo texto.
             return null;
         }
-        if (strlen($img) > 50) {
-            return 'data:image/png;base64,' . $img;
-        }
-        return null;
+        $dados = json_decode($resposta, true);
+
+        return is_array($dados) ? $dados : null;
     }
 
     /**
-     * Extrai o payload PIX (EMV) ou imagem do QR da resposta da API.
-     * O PIX válido começa com 00020126 (br.gov.bcb.pix).
+     * Extrai a IMAGEM do QR da resposta da API.
+     *
+     * A lista de chaves não incluía `qrcode_base64`, que é justamente a que a
+     * pix-qr-code1 usa para a imagem. A busca acabava casando com `code` — o
+     * texto do BR Code, não uma imagem — e o método chamador, ao ver que
+     * começava com "00020126", devolvia null. Resultado: a API respondia 200
+     * com o QR pronto e o sistema ignorava, caindo no gerador local.
+     *
+     * `qrcode_base64` vem primeiro na lista por ser a chave real desta API.
      */
     private function extractPixFromResponse(array $data): ?string
     {
-        $keys = ['brcode', 'payload', 'emv', 'pix_copy_paste', 'copy_paste', 'qr_code', 'qrCode', 'qrcode', 'qr_code_base64', 'image', 'url', 'result', 'code'];
-        foreach ($keys as $key) {
-            if (!empty($data[$key]) && is_string($data[$key])) {
-                return $data[$key];
+        $chavesDeImagem = [
+            'qrcode_base64', 'qr_code_base64', 'qrCodeBase64',
+            'qr_code', 'qrCode', 'qrcode', 'image', 'url',
+        ];
+        foreach ([$data, $data['data'] ?? []] as $nivel) {
+            if (!is_array($nivel)) {
+                continue;
             }
-        }
-        if (isset($data['data']) && is_array($data['data'])) {
-            foreach ($keys as $key) {
-                if (!empty($data['data'][$key]) && is_string($data['data'][$key])) {
-                    return $data['data'][$key];
+            foreach ($chavesDeImagem as $chave) {
+                $valor = $nivel[$chave] ?? null;
+                // Só serve o que for imagem: data URI, URL, ou base64 puro.
+                // O BR Code em texto é tratado em brCodeFromResponse().
+                if (is_string($valor) && $valor !== '' && strpos($valor, '00020126') !== 0) {
+                    return $valor;
                 }
             }
         }
-        foreach ($data as $value) {
-            if (is_string($value) && strpos($value, '00020126') === 0) {
-                return $value;
+
+        return null;
+    }
+
+    /** Extrai o BR Code (copia e cola) da resposta da API. */
+    private function brCodeFromResponse(array $data): ?string
+    {
+        $chaves = ['code', 'brcode', 'payload', 'emv', 'pix_copy_paste', 'copy_paste', 'qr_code_text'];
+        foreach ([$data, $data['data'] ?? []] as $nivel) {
+            if (!is_array($nivel)) {
+                continue;
+            }
+            foreach ($chaves as $chave) {
+                $valor = $nivel[$chave] ?? null;
+                if (is_string($valor) && strpos($valor, '00020126') === 0) {
+                    return $valor;
+                }
+            }
+            // Última tentativa: qualquer campo que pareça um BR Code.
+            foreach ($nivel as $valor) {
+                if (is_string($valor) && strpos($valor, '00020126') === 0) {
+                    return $valor;
+                }
             }
         }
+
         return null;
     }
 }

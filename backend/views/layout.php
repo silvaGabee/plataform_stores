@@ -10,8 +10,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?= csrf_meta() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
-    <link rel="icon" href="<?= htmlspecialchars(favicon_url(), ENT_QUOTES, 'UTF-8') ?>" sizes="any">
-    <link rel="shortcut icon" href="<?= htmlspecialchars(favicon_url(), ENT_QUOTES, 'UTF-8') ?>" type="image/x-icon">
+    <?= favicon_link_tag() ?>
     <?php if (!logged_in()): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,7 +18,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?php endif; ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-    <script src="<?= asset('js/csrf.js') ?>"></script>
+    <script src="<?= asset('js/csrf.js') ?>"></script>
+</head>
 <body class="<?= !logged_in() ? 'has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
     <?php if (!$hide_app_header): ?>
     <header class="app-header<?= logged_in() ? ' app-header--session' : '' ?>">

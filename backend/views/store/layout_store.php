@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="base-url" content="<?= rtrim(base_url(), '/') ?>">
     <title><?= htmlspecialchars($title ?? $store['name']) ?></title>
-    <link rel="icon" href="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" sizes="any">
-    <link rel="shortcut icon" href="<?= htmlspecialchars(store_brand_icon_url($store ?? [])) ?>" type="image/x-icon">
+    <?= favicon_link_tag($store ?? []) ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
-    <script src="<?= asset('js/csrf.js') ?>"></script>
+    <script src="<?= asset('js/csrf.js') ?>"></script>
+</head>
 <?php
 $storeBackgroundColor = (isset($store['background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $store['background_color'])) ? $store['background_color'] : null;
 $storeCategoriesBg = null;

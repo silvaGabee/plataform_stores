@@ -177,7 +177,8 @@ $content = ob_start();
                 <div class="panel-config-preview-block">
                     <p class="panel-config-preview-label">Pré-visualização</p>
                     <div id="config-store-photo-stage" class="panel-config-store-photo-stage">
-                        <img id="config-store-photo-preview" src="" alt="" class="panel-config-store-photo-preview hidden" width="112" height="112" decoding="async">
+                        <?php // Sem atributo src: com src="" o navegador requisita a própria página como imagem. O JS preenche ao escolher o arquivo. ?>
+                        <img id="config-store-photo-preview" alt="" class="panel-config-store-photo-preview hidden" width="112" height="112" decoding="async">
                         <div id="config-store-photo-fallback" class="panel-config-store-photo-fallback" aria-hidden="true">
                             <span class="panel-config-store-photo-fallback-icon">
                                 <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.35" opacity="0.4"/><circle cx="9" cy="10" r="1.5" fill="currentColor" opacity="0.45"/><path d="M20 15l-4-4-3 3-2-2-5 5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/></svg>

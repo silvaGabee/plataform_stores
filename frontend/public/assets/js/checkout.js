@@ -256,15 +256,114 @@
     if (paymentSteps) paymentSteps.classList.toggle('hidden', !show);
   }
 
-  function renderPixQrImage(src) {
+  /**
+   * Desenha o bloco de pagamento PIX: QR Code e "copia e cola" juntos.
+   *
+   * Os dois caminhos convivem de propósito — quem paga pelo celular escaneia,
+   * quem já está no computador copia e cola no app do banco.
+   */
+  function renderPixBlock(qrSrc, manual) {
     if (!pixQrContainer) return;
-    pixQrContainer.innerHTML =
-      '<div class="checkout-pix-frame">' +
-      '<div class="checkout-pix-frame-inner">' +
-      '<img src="' +
-      src +
-      '" alt="QR Code PIX" width="240" height="240" decoding="async" referrerpolicy="no-referrer">' +
-      '</div></div>';
+    var partes = ['<div class="checkout-pix">'];
+
+    if (manual && manual.valor !== undefined && manual.valor !== null) {
+      var valorStr =
+        typeof manual.valor === 'number'
+          ? 'R$ ' + manual.valor.toFixed(2).replace('.', ',')
+          : manual.valor;
+      partes.push(
+        '<div class="checkout-pix-amount">' +
+          '<span class="checkout-pix-amount-label">Valor a pagar</span>' +
+          '<strong class="checkout-pix-amount-value">' + escapeHtml(valorStr) + '</strong>' +
+          '</div>'
+      );
+    }
+
+    if (qrSrc) {
+      partes.push(
+        '<figure class="checkout-pix-qr">' +
+          '<div class="checkout-pix-qr-frame">' +
+          '<img src="' + escapeHtml(qrSrc) + '" alt="QR Code para pagamento PIX"' +
+          ' width="220" height="220" decoding="async" referrerpolicy="no-referrer">' +
+          '</div>' +
+          '<figcaption class="checkout-pix-qr-hint">Abra o app do seu banco e aponte a câmera</figcaption>' +
+          '</figure>'
+      );
+    }
+
+    var codigo = manual && manual.copia_cola ? manual.copia_cola : '';
+    if (codigo) {
+      partes.push(
+        '<div class="checkout-pix-copy">' +
+          '<div class="checkout-pix-copy-divider"><span>ou copie o código</span></div>' +
+          '<div class="checkout-pix-copy-row">' +
+          '<code class="checkout-pix-copy-code" id="pix-copia-cola">' + escapeHtml(codigo) + '</code>' +
+          '<button type="button" class="checkout-pix-copy-btn" id="pix-copiar">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+          '<rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/>' +
+          '<path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+          '</svg><span>Copiar</span></button>' +
+          '</div></div>'
+      );
+    } else if (manual && manual.chave) {
+      partes.push(
+        '<div class="checkout-pix-copy">' +
+          '<div class="checkout-pix-copy-divider"><span>ou use a chave</span></div>' +
+          '<p class="checkout-pix-key">' + escapeHtml(manual.chave) + '</p>' +
+          '</div>'
+      );
+    }
+
+    partes.push('</div>');
+    pixQrContainer.innerHTML = partes.join('');
+
+    var btn = document.getElementById('pix-copiar');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        copiarTexto(codigo, btn);
+      });
+    }
+  }
+
+  /** Copia para a área de transferência, com retorno visual no próprio botão. */
+  function copiarTexto(texto, btn) {
+    var rotulo = btn.querySelector('span');
+    var original = rotulo ? rotulo.textContent : '';
+    var ok = function () {
+      btn.classList.add('is-copied');
+      if (rotulo) rotulo.textContent = 'Copiado!';
+      setTimeout(function () {
+        btn.classList.remove('is-copied');
+        if (rotulo) rotulo.textContent = original;
+      }, 2000);
+    };
+    // A API moderna exige contexto seguro (HTTPS ou localhost); em HTTP puro
+    // ela nem existe, por isso o caminho antigo continua aqui.
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(texto).then(ok, function () {
+        copiarViaSelecao(texto, ok, rotulo);
+      });
+      return;
+    }
+    copiarViaSelecao(texto, ok, rotulo);
+  }
+
+  function copiarViaSelecao(texto, ok, rotulo) {
+    var tmp = document.createElement('textarea');
+    tmp.value = texto;
+    tmp.setAttribute('readonly', '');
+    tmp.style.position = 'fixed';
+    tmp.style.opacity = '0';
+    document.body.appendChild(tmp);
+    tmp.select();
+    tmp.setSelectionRange(0, 999999);
+    try {
+      document.execCommand('copy');
+      ok();
+    } catch (e) {
+      if (rotulo) rotulo.textContent = 'Selecione e copie';
+    }
+    document.body.removeChild(tmp);
   }
 
   function showPaymentPanel() {
@@ -615,63 +714,18 @@
           }
           setPaymentStatusText('Redirecionando para o pedido…', 'success');
           clearCartAndRedirect(order.id);
-        } else if (payment.pix_qr_code) {
+        } else if (method === 'pix' && (payment.pix_qr_code || payment.pix_manual)) {
+          // QR e copia e cola no mesmo bloco: um só ramo em vez de dois, porque
+          // agora os dois quase sempre existem juntos.
           setPaymentBadgeType('pix');
           togglePaymentSteps(true);
           if (paymentTitle) paymentTitle.textContent = 'Pagamento PIX';
-          if (paymentDesc) paymentDesc.textContent = 'Escaneie o QR Code no app do seu banco para concluir.';
-          renderPixQrImage(payment.pix_qr_code);
-          setPaymentStatusText('Aguardando pagamento…', 'waiting');
-          pollPaymentStatus(payment.id);
-        } else if (method === 'pix' && payment.pix_manual) {
-          setPaymentBadgeType('pix');
-          togglePaymentSteps(false);
-          if (paymentTitle) paymentTitle.textContent = 'Pagamento PIX';
-          if (paymentDesc) paymentDesc.textContent = 'Use os dados abaixo para transferir.';
-          var m = payment.pix_manual;
-          var valorStr = typeof m.valor === 'number' ? 'R$ ' + m.valor.toFixed(2).replace('.', ',') : m.valor;
-          if (pixQrContainer) {
-            // O "copia e cola" é o caminho principal: o cliente cola no app do
-            // banco e os dados vão preenchidos. A chave solta fica como reserva
-            // para quem preferir digitar.
-            var blocos =
-              '<div class="checkout-pix-manual">' +
-              '<p class="checkout-pix-manual-label">Valor a pagar</p>' +
-              '<p class="checkout-pix-manual-value">' + escapeHtml(valorStr) + '</p>';
-            if (m.copia_cola) {
-              blocos +=
-                '<p class="checkout-pix-manual-label">PIX copia e cola</p>' +
-                '<textarea class="checkout-pix-copiacola" id="pix-copia-cola" readonly rows="3">' +
-                escapeHtml(m.copia_cola) +
-                '</textarea>' +
-                '<button type="button" class="btn btn-secondary" id="pix-copiar">Copiar código</button>';
-            } else if (m.chave) {
-              blocos +=
-                '<p class="checkout-pix-manual-label">Chave PIX</p>' +
-                '<p class="checkout-pix-manual-value">' + escapeHtml(m.chave) + '</p>';
-            }
-            blocos +=
-              '<p class="checkout-pix-manual-msg">Após a transferência, a confirmação é automática.</p>' +
-              '</div>';
-            pixQrContainer.innerHTML = blocos;
-
-            var btnCopiar = document.getElementById('pix-copiar');
-            if (btnCopiar) {
-              btnCopiar.addEventListener('click', function () {
-                var campo = document.getElementById('pix-copia-cola');
-                if (!campo) return;
-                campo.select();
-                campo.setSelectionRange(0, 99999);
-                try {
-                  document.execCommand('copy');
-                  btnCopiar.textContent = 'Copiado!';
-                  setTimeout(function () { btnCopiar.textContent = 'Copiar código'; }, 2000);
-                } catch (e) {
-                  btnCopiar.textContent = 'Selecione e copie';
-                }
-              });
-            }
+          if (paymentDesc) {
+            paymentDesc.textContent = payment.pix_qr_code
+              ? 'Escaneie o QR Code ou copie o código no app do seu banco.'
+              : 'Copie o código abaixo no app do seu banco.';
           }
+          renderPixBlock(payment.pix_qr_code, payment.pix_manual);
           setPaymentStatusText('Aguardando pagamento…', 'waiting');
           pollPaymentStatus(payment.id);
         } else {
@@ -681,7 +735,7 @@
           if (paymentDesc) paymentDesc.textContent = 'O pagamento será confirmado em breve.';
           if (pixQrContainer) {
             pixQrContainer.innerHTML =
-              '<div class="checkout-pix-manual"><p>Pagamento registrado. Aguarde a confirmação da loja.</p></div>';
+              '<p class="checkout-pix-qr-hint">Pagamento registrado. Aguarde a confirmação da loja.</p>';
           }
           setPaymentStatusText('Pedido em processamento', 'success');
           clearCartAndRedirect(order.id);
