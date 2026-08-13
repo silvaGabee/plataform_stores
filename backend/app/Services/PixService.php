@@ -6,6 +6,10 @@ use App\Repositories\StorePixConfigRepository;
 
 class PixService
 {
+    /** O checkout do cliente espera por isto: falhar rápido é melhor que pendurar. */
+    private const CONNECT_TIMEOUT_SEC = 3;
+    private const TIMEOUT_SEC = 8;
+
     public function __construct(
         private StorePixConfigRepository $pixConfigRepo
     ) {}
@@ -13,46 +17,36 @@ class PixService
     /**
      * Gera QR Code PIX.
      * Se RAPIDAPI_KEY e chave PIX estiverem configurados, usa pix-qr-code1.p.rapidapi.com.
-     * Caso contrário, usa API gratuita (api.qrserver.com).
+     * Sem ela, devolve null e quem chama mostra o copia e cola
+     * (ver buildCopyPaste) — que é aceito por qualquer aplicativo de banco.
      */
     public function generateQrCode(int $storeId, float $amount, string $description = 'Pagamento'): ?string
     {
+        $rapidApiKey = config('app.rapidapi_key');
+        if (empty($rapidApiKey)) {
+            return null;
+        }
         $config = $this->pixConfigRepo->findByStore($storeId);
         $pixKey = $config['pix_key'] ?? null;
-        $pixKeyType = $config['pix_key_type'] ?? 'aleatoria';
-        $merchantName = $config['merchant_name'] ?? '';
-        $merchantCity = $config['merchant_city'] ?? '';
-
-        $rapidApiKey = config('app.rapidapi_key');
-        if (!empty($rapidApiKey) && !empty($pixKey)) {
-            $result = $this->generateViaPixRapidApi($rapidApiKey, [
-                'key_type' => $this->mapKeyType($pixKeyType),
-                'key' => $pixKey,
-                'name' => $merchantName ?: 'Loja',
-                'city' => $merchantCity ?: 'São Paulo',
-                'amount' => number_format($amount, 2, '.', ''),
-                'reference' => $description,
-            ]);
-            if ($result !== null) {
-                return $result;
-            }
+        if (empty($pixKey)) {
+            return null;
         }
 
-        // Fallback: gera payload PIX (BR Code) e QR via API gratuita
-        if (!empty($pixKey)) {
-            $payload = $this->buildPixPayload($pixKey, $merchantName ?: 'Loja', $merchantCity ?: 'Sao Paulo', $amount, substr(preg_replace('/[^a-zA-Z0-9]/', '', $description), 0, 25));
-            if ($payload !== null) {
-                return $this->generateViaFreeApi($payload);
-            }
-        }
-        return null;
+        return $this->generateViaPixRapidApi($rapidApiKey, [
+            'key_type' => $this->mapKeyType($config['pix_key_type'] ?? 'aleatoria'),
+            'key' => $pixKey,
+            'name' => $config['merchant_name'] ?: 'Loja',
+            'city' => $config['merchant_city'] ?: 'São Paulo',
+            'amount' => number_format($amount, 2, '.', ''),
+            'reference' => $description,
+        ]);
     }
 
     /**
      * Monta o payload PIX (BR Code) estático/dinâmico para QR Code.
      * Formato EMV: tag (2) + length (2) + value.
      */
-    private function buildPixPayload(string $pixKey, string $merchantName, string $merchantCity, float $amount, string $txId): ?string
+    public function buildPixPayload(string $pixKey, string $merchantName, string $merchantCity, float $amount, string $txId): ?string
     {
         $merchantName = mb_substr($merchantName, 0, 25);
         $merchantCity = mb_substr($merchantCity, 0, 15);
@@ -101,9 +95,35 @@ class PixService
         return $map[$type] ?? 'random';
     }
 
-    private function generateViaFreeApi(string $text): string
+    /**
+     * Monta o "PIX copia e cola" (BR Code) da loja para este valor.
+     *
+     * Substituiu a chamada a `api.qrserver.com`, que recebia este mesmo payload
+     * no query string — ou seja, a CHAVE PIX do lojista e o valor de cada venda
+     * saíam para um serviço gratuito de terceiros e ficavam no log de acesso
+     * deles, além de tornar o pagamento dependente de um site externo estar no ar.
+     *
+     * O copia e cola é aceito por todos os aplicativos de banco e é gerado
+     * inteiramente aqui. Gerar a IMAGEM do QR exigiria um codificador próprio
+     * (Reed-Solomon, máscaras) que não teríamos como verificar sem um leitor —
+     * e um QR sutilmente errado é um pagamento que falha no caixa. Com chave
+     * RapidAPI configurada, a imagem continua vindo de lá.
+     */
+    public function buildCopyPaste(int $storeId, float $amount, string $description = 'Pagamento'): ?string
     {
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' . rawurlencode($text);
+        $config = $this->pixConfigRepo->findByStore($storeId);
+        $pixKey = $config['pix_key'] ?? null;
+        if (empty($pixKey)) {
+            return null;
+        }
+
+        return $this->buildPixPayload(
+            $pixKey,
+            $config['merchant_name'] ?: 'Loja',
+            $config['merchant_city'] ?: 'Sao Paulo',
+            $amount,
+            substr(preg_replace('/[^a-zA-Z0-9]/', '', $description), 0, 25)
+        );
     }
 
     /**
@@ -122,6 +142,11 @@ class PixService
                 'x-rapidapi-key: ' . $apiKey,
                 'x-rapidapi-host: pix-qr-code1.p.rapidapi.com',
             ],
+            // Sem timeout, uma RapidAPI lenta pendurava o checkout do cliente
+            // até o max_execution_time do PHP. Falhar rápido é melhor: quem
+            // chama cai no gerador local, que não depende de rede.
+            CURLOPT_CONNECTTIMEOUT => self::CONNECT_TIMEOUT_SEC,
+            CURLOPT_TIMEOUT => self::TIMEOUT_SEC,
         ]);
         $response = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -147,7 +172,9 @@ class PixService
             return $img;
         }
         if (strpos($img, '00020126') === 0) {
-            return $this->generateViaFreeApi($img);
+            // A API devolveu o BR Code em vez de uma imagem. Não há imagem a
+            // exibir; quem chama cai no copia e cola, que é este mesmo texto.
+            return null;
         }
         if (strlen($img) > 50) {
             return 'data:image/png;base64,' . $img;

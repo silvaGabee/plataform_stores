@@ -22,8 +22,8 @@ ob_start();
             <?php unset($_SESSION['_error']); ?>
         <?php endif; ?>
 
-        <form method="post" action="<?= base_url('criar-loja') ?>
-                        <?= csrf_field() ?>" class="form-create-store create-store-form">
+        <form method="post" action="<?= base_url('criar-loja') ?>" class="form-create-store create-store-form">
+            <?= csrf_field() ?>
             <div class="create-store-form-grid">
                 <section class="create-store-panel" aria-labelledby="create-store-loja-heading">
                     <h2 id="create-store-loja-heading" class="create-store-panel-title">Dados da loja</h2>

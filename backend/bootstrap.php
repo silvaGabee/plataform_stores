@@ -17,10 +17,22 @@ if (file_exists($envFile) && is_readable($envFile)) {
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value, " \t\n\r\0\x0b\"'");
-            if ($name !== '') {
-                putenv("$name=$value");
-                $_ENV[$name] = $value;
+            if ($name === '') {
+                continue;
             }
+            // O .env tem precedência sobre variáveis do sistema, de propósito.
+            //
+            // O padrão de mercado é o inverso (ambiente vence), mas aqui custou
+            // caro: uma OPENROUTER_API_KEY antiga esquecida no ambiente do
+            // Windows passou a sobrescrever a do .env, e a API respondia
+            // "User not found" sem nada no projeto ter mudado. Como este
+            // projeto é instalado copiando a pasta, o .env é a única fonte de
+            // configuração que a pessoa realmente controla e enxerga.
+            //
+            // Para apontar a outro banco sem editar o arquivo, use uma variável
+            // que NÃO esteja no .env (é assim que DB_NAME funciona).
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
         }
     }
 }

@@ -57,18 +57,43 @@ function http(string $metodo, string $url, ?string $jar, array $opts = []): arra
     return ['status' => $codigo, 'body' => (string) $corpo];
 }
 
-/** Faz login pelo formulário, com token — como o navegador faria. */
+/**
+ * Faz login EXTRAINDO o formulário da página, como o navegador faria.
+ *
+ * A versão anterior montava o POST à mão, pegando o token do <meta> e
+ * inventando os campos. Isso escondeu um estrago real: o csrf_field() tinha
+ * sido inserido no meio da tag <form> (a regex `<form[^>]*>` parava no `>` do
+ * `?>` de um `<?= base_url(...) ?>`), o formulário ficava malformado e sem
+ * token, e o login pelo navegador estava quebrado — enquanto este teste
+ * passava, porque nunca tocava no HTML do formulário.
+ *
+ * Agora só são enviados os campos que o formulário realmente oferece.
+ */
 function login(string $base, string $email, string $senha, string $jar): ?string
 {
     @unlink($jar);
     $pagina = http('GET', $base . '/', $jar);
-    if (!preg_match('/name="csrf-token" content="([a-f0-9]+)"/', $pagina['body'], $m)) {
+
+    if (!preg_match('#<form[^>]*action="([^"]*/login)"[^>]*>(.*?)</form>#s', $pagina['body'], $m)) {
+        fwrite(STDERR, "Formulário de login não encontrado na home.\n");
+
         return null;
     }
-    $token = $m[1];
-    $r = http('POST', $base . '/login', $jar, [
-        'form' => ['auth_intent' => 'login', 'email' => $email, 'password' => $senha, '_csrf' => $token],
-    ]);
+    $action = $m[1];
+    preg_match_all('#<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"#', $m[2], $inputs, PREG_SET_ORDER);
+    $form = [];
+    foreach ($inputs as $input) {
+        $form[$input[1]] = $input[2];
+    }
+    if (!isset($form['_csrf']) || $form['_csrf'] === '') {
+        fwrite(STDERR, "O formulário de login não traz o campo _csrf.\n");
+
+        return null;
+    }
+    $form['email'] = $email;
+    $form['password'] = $senha;
+
+    $r = http('POST', $action, $jar, ['form' => $form]);
     if ($r['status'] !== 302) {
         return null;
     }

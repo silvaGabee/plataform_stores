@@ -90,8 +90,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-success"><?= htmlspecialchars($_SESSION['_success']) ?></div>
                             <?php unset($_SESSION['_success']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('login') ?>
-                        <?= csrf_field() ?>" class="form-login auth-modal-form">
+                        <form method="post" action="<?= base_url('login') ?>" class="form-login auth-modal-form">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="auth_intent" value="login">
                             <label for="modal-login-email">E-mail</label>
                             <input type="email" id="modal-login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
@@ -107,8 +107,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-error"><?= htmlspecialchars($_SESSION['_error']) ?></div>
                             <?php unset($_SESSION['_error']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('criar-conta') ?>
-                        <?= csrf_field() ?>" class="form-create-account auth-modal-form">
+                        <form method="post" action="<?= base_url('criar-conta') ?>" class="form-create-account auth-modal-form">
+                            <?= csrf_field() ?>
                             <input type="hidden" name="auth_intent" value="register">
                             <label for="modal-register-name">Nome</label>
                             <input type="text" id="modal-register-name" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name" placeholder="O seu nome">

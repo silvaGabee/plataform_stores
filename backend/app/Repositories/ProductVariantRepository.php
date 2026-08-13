@@ -24,6 +24,34 @@ class ProductVariantRepository
         return $stmt->fetchAll() ?: [];
     }
 
+    /**
+     * Variações de vários produtos numa consulta, agrupadas por product_id.
+     * Ver ProductImageRepository::getByProductIds — mesmo motivo.
+     *
+     * @param int[] $productIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function listByProducts(array $productIds): array
+    {
+        $ids = ProductImageRepository::idsValidos($productIds);
+        if ($ids === []) {
+            return [];
+        }
+        $marcadores = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM product_variants WHERE product_id IN ({$marcadores})
+              ORDER BY product_id ASC, variant_type ASC, sort_order ASC, id ASC"
+        );
+        $stmt->execute($ids);
+
+        $porProduto = [];
+        foreach ($stmt->fetchAll() ?: [] as $linha) {
+            $porProduto[(int) $linha['product_id']][] = $linha;
+        }
+
+        return $porProduto;
+    }
+
     public function replaceForProduct(int $productId, array $variants): void
     {
         $del = $this->pdo->prepare('DELETE FROM product_variants WHERE product_id = ?');

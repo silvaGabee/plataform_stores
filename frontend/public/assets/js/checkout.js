@@ -43,6 +43,16 @@
   // Token do pedido recém-criado, usado para montar o link do comprovante.
   var lastOrderToken = null;
 
+  /** Escapa texto antes de interpolar em innerHTML. */
+  function escapeHtml(valor) {
+    return String(valor === null || valor === undefined ? '' : valor)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getBaseUrl() {
     var base = (typeof window.BASE_URL !== 'undefined' && window.BASE_URL) ? String(window.BASE_URL) : '';
     if (!base) {
@@ -621,14 +631,46 @@
           var m = payment.pix_manual;
           var valorStr = typeof m.valor === 'number' ? 'R$ ' + m.valor.toFixed(2).replace('.', ',') : m.valor;
           if (pixQrContainer) {
-            pixQrContainer.innerHTML =
+            // O "copia e cola" é o caminho principal: o cliente cola no app do
+            // banco e os dados vão preenchidos. A chave solta fica como reserva
+            // para quem preferir digitar.
+            var blocos =
               '<div class="checkout-pix-manual">' +
               '<p class="checkout-pix-manual-label">Valor a pagar</p>' +
-              '<p class="checkout-pix-manual-value">' +
-              valorStr +
-              '</p>' +
+              '<p class="checkout-pix-manual-value">' + escapeHtml(valorStr) + '</p>';
+            if (m.copia_cola) {
+              blocos +=
+                '<p class="checkout-pix-manual-label">PIX copia e cola</p>' +
+                '<textarea class="checkout-pix-copiacola" id="pix-copia-cola" readonly rows="3">' +
+                escapeHtml(m.copia_cola) +
+                '</textarea>' +
+                '<button type="button" class="btn btn-secondary" id="pix-copiar">Copiar código</button>';
+            } else if (m.chave) {
+              blocos +=
+                '<p class="checkout-pix-manual-label">Chave PIX</p>' +
+                '<p class="checkout-pix-manual-value">' + escapeHtml(m.chave) + '</p>';
+            }
+            blocos +=
               '<p class="checkout-pix-manual-msg">Após a transferência, a confirmação é automática.</p>' +
               '</div>';
+            pixQrContainer.innerHTML = blocos;
+
+            var btnCopiar = document.getElementById('pix-copiar');
+            if (btnCopiar) {
+              btnCopiar.addEventListener('click', function () {
+                var campo = document.getElementById('pix-copia-cola');
+                if (!campo) return;
+                campo.select();
+                campo.setSelectionRange(0, 99999);
+                try {
+                  document.execCommand('copy');
+                  btnCopiar.textContent = 'Copiado!';
+                  setTimeout(function () { btnCopiar.textContent = 'Copiar código'; }, 2000);
+                } catch (e) {
+                  btnCopiar.textContent = 'Selecione e copie';
+                }
+              });
+            }
           }
           setPaymentStatusText('Aguardando pagamento…', 'waiting');
           pollPaymentStatus(payment.id);

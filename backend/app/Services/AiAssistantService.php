@@ -12,10 +12,23 @@ class AiAssistantService
     private const CURL_TIMEOUT_SEC = 90;
 
     /** Modelos gratuitos alternativos (só em `models`; principal em `model`). */
+    /**
+     * Fallbacks quando o modelo principal falha.
+     *
+     * Os slugs da OpenRouter SAEM DO CATÁLOGO sem aviso: os três anteriores
+     * (llama-3.2-3b, qwen3-next-80b, gemma-3-4b) deixaram de existir juntos e
+     * o assistente ficou sem nenhum caminho — respondendo apenas
+     * "temporariamente indisponível". Se isso voltar a acontecer, confira o
+     * catálogo atual com:
+     *
+     *   curl -s https://openrouter.ai/api/v1/models | grep -o '"id":"[^"]*:free"'
+     *
+     * e ajuste aqui ou em OPENROUTER_MODEL_FALLBACKS no .env.
+     */
     private const OPENROUTER_DEFAULT_FREE_FALLBACKS = [
-        'meta-llama/llama-3.2-3b-instruct:free',
-        'qwen/qwen3-next-80b-a3b-instruct:free',
-        'google/gemma-3-4b-it:free',
+        'nvidia/nemotron-3-nano-30b-a3b:free',
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        'liquid/lfm-2.5-2.6b:free',
     ];
 
     private PDO $pdo;

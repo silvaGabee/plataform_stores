@@ -3,6 +3,24 @@
 if (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
     ini_set('display_errors', '0');
 }
+
+/*
+ * Estáticos primeiro, antes de qualquer outra coisa.
+ *
+ * Precisa vir antes do session_start(): a sessão faz o PHP mandar
+ * `Cache-Control: no-store, no-cache` em toda resposta, e era por isso que o
+ * navegador rebaixava o CSS inteiro a cada page view. Aqui também não há
+ * bootstrap, .env nem autoloader — servir arquivo não precisa de nada disso.
+ */
+require __DIR__ . '/static.php';
+$__uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$__script = $_SERVER['SCRIPT_NAME'] ?? '';
+$__prefixo = preg_replace('#/index\.php$#', '', $__script);
+if ($__prefixo !== '' && strpos($__uri, $__prefixo) === 0) {
+    $__uri = substr($__uri, strlen($__prefixo)) ?: '/';
+}
+static_try('/' . ltrim($__uri, '/'));
+
 ob_start();
 
 // Cookie de sessão endurecido. Precisa vir ANTES de session_start().
@@ -80,49 +98,8 @@ $path = $router->getPath();
 $method = $router->getMethod();
 $isApiRequest = strpos($path, '/api/') === 0;
 
-// Servir uploads (fotos de produtos, etc.)
-if (preg_match('#^/uploads/(.+)$#', $path, $m)) {
-    $file = __DIR__ . '/uploads/' . $m[1];
-    if (file_exists($file) && is_file($file) && strpos(realpath($file), realpath(__DIR__ . '/uploads')) === 0) {
-        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-        $mimes = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
-        if (isset($mimes[$ext])) {
-            header('Content-Type: ' . $mimes[$ext]);
-        }
-        readfile($file);
-        exit;
-    }
-}
-
-// Servir arquivos estáticos
-if (preg_match('#^/assets/(.+)$#', $path, $m)) {
-    $assetPath = $m[1];
-    $file = __DIR__ . '/assets/' . $assetPath;
-    // realpath() contém o caminho dentro de assets/ — sem isto, um path com
-    // ".." escapado pelo servidor web serviria qualquer arquivo do disco.
-    $real = $file !== '' ? realpath($file) : false;
-    $assetsRoot = realpath(__DIR__ . '/assets');
-    if ($real !== false && $assetsRoot !== false && strpos($real, $assetsRoot) === 0 && is_file($real)) {
-        $mimes = [
-            'css' => 'text/css',
-            'js' => 'application/javascript',
-            'png' => 'image/png',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'ico' => 'image/x-icon',
-            'svg' => 'image/svg+xml',
-            'woff' => 'font/woff',
-            'woff2' => 'font/woff2',
-        ];
-        $ext = strtolower(pathinfo($real, PATHINFO_EXTENSION));
-        if (isset($mimes[$ext])) {
-            header('Content-Type: ' . $mimes[$ext]);
-        }
-        readfile($real);
-        exit;
-    }
-}
+// Assets e uploads já foram tratados no topo, por static.php — antes da sessão,
+// que é o que permite mandá-los com cache.
 
 /**
  * Despacha a primeira rota que casar.

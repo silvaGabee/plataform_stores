@@ -31,6 +31,49 @@ class ProductImageRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Imagens de vários produtos numa consulta, agrupadas por product_id.
+     *
+     * A vitrine chamava getByProductId() dentro do laço de produtos: uma
+     * consulta por produto, mais outra por variações e outra por categorias.
+     * Com 50 produtos eram 151 idas ao banco para montar uma página.
+     *
+     * @param int[] $productIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    public function getByProductIds(array $productIds): array
+    {
+        $ids = self::idsValidos($productIds);
+        if ($ids === []) {
+            return [];
+        }
+        $marcadores = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->pdo->prepare(
+            "SELECT id, product_id, file_path, sort_order FROM product_images
+              WHERE product_id IN ({$marcadores}) ORDER BY product_id ASC, sort_order ASC, id ASC"
+        );
+        $stmt->execute($ids);
+
+        $porProduto = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: [] as $linha) {
+            $porProduto[(int) $linha['product_id']][] = $linha;
+        }
+
+        return $porProduto;
+    }
+
+    /**
+     * @param int[] $ids
+     * @return list<int>
+     */
+    public static function idsValidos(array $ids): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map('intval', $ids),
+            static fn (int $i): bool => $i > 0
+        )));
+    }
+
     public function add(int $productId, string $filePath, int $sortOrder = 0): int
     {
         $stmt = $this->pdo->prepare(

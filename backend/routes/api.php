@@ -83,8 +83,10 @@ return [
     'POST /api/loja/{slug}/products/{id}/images/delete' => [ProductApiController::class, 'deleteImage', 'store.catalog.write'],
     'PUT /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'update', 'store.catalog.write'],
     'DELETE /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'delete', 'store.catalog.write'],
+    // POST .../products/delete (id no corpo) é o que o painel de Estoque chama;
+    // o verbo DELETE acima serve a quem usa a API diretamente. O alias
+    // POST .../products/{id}/delete foi removido por não ter nenhum chamador.
     'POST /api/loja/{slug}/products/delete' => [ProductApiController::class, 'deleteByBody', 'store.catalog.write'],
-    'POST /api/loja/{slug}/products/{id}/delete' => [ProductApiController::class, 'delete', 'store.catalog.write'],
     'POST /api/loja/{slug}/products/{id}/stock' => [ProductApiController::class, 'adjustStock', 'store.catalog.write'],
 
     'GET /api/loja/{slug}/orders/entregas' => [OrderApiController::class, 'listForEntregas', 'store.orders.read'],
@@ -117,11 +119,11 @@ return [
     'GET /api/loja/{slug}/reports/employees' => [ReportApiController::class, 'employeePerformance', 'store.reports.read'],
     'GET /api/loja/{slug}/reports/revenue' => [ReportApiController::class, 'revenue', 'store.reports.read'],
 
+    // Os aliases sem /loja/ (GET /api/{slug}/analyzing-bi) foram removidos:
+    // nada no front os chamava, e um padrão de rota tão genérico competia com
+    // qualquer caminho de um segmento sob /api/.
     'GET /api/loja/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento', 'store.bi.read'],
-    'GET /api/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento', 'store.bi.read'],
     'GET /api/loja/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index', 'store.bi.read'],
-    /** Alias do endpoint do BI (mesmo handler; slug = loja). */
-    'GET /api/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index', 'store.bi.read'],
 
     'GET /api/loja/{slug}/goals' => [GoalsApiController::class, 'get', 'store.goals.read'],
     'POST /api/loja/{slug}/goals/store' => [GoalsApiController::class, 'setStoreGoal', 'store.goals.write'],

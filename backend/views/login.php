@@ -17,8 +17,8 @@ ob_start();
             </div>
             <?php unset($_SESSION['_success']); ?>
         <?php endif; ?>
-        <form method="post" action="<?= base_url('login') ?>
-                        <?= csrf_field() ?>" class="card form-login">
+        <form method="post" action="<?= base_url('login') ?>" class="card form-login">
+            <?= csrf_field() ?>
             <input type="hidden" name="auth_intent" value="login">
             <h2>Entrar</h2>
             <label for="login-email">E-mail *</label>

@@ -347,13 +347,30 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 
 **Um teste meu que estava errado, e o código certo:** escrevi que um produto meio configurado (eixo definido, nenhuma combinação) não deveria contar como "tem variação". O comportamento atual responde `true`, e é o seguro: a venda é recusada por falta de combinação em vez de sair contra `products.stock_quantity` sem baixa em variação nenhuma. Ajustei o teste e documentei o porquê, em vez de "consertar" o código para caber na minha expectativa.
 
-### Fase 5 — Performance e polimento
+### Fase 5 — Performance e polimento ✅ CONCLUÍDA (2026-08-12)
 
-27. `Cache-Control` + `ETag` nos assets — ou, melhor, deixar o Apache servi-los direto e tirar o bloco de `readfile()` do `index.php`. Adicionar a checagem de `realpath()` que falta em `/assets`.
-28. Bundler no front (Vite), quebrando `app.css` e os JS de painel em módulos por página.
-29. Eliminar o N+1: `ProductService` com um `findManyByIds()` que traz produtos, imagens e variações em 3 queries, não em 3N. Validar tamanho e forma do carrinho em `CartApiController::sync`.
-30. `CURLOPT_TIMEOUT` e `CURLOPT_CONNECTTIMEOUT` no `PixService`. Gerar o QR code localmente (a biblioteca de QR é trivial e o `buildPixPayload` já monta o BR Code correto) em vez de mandar a chave PIX do lojista para `api.qrserver.com`.
-31. Limpeza: apagar `Models/Model.php`, unificar `public/` e `frontend/public/`, remover os aliases de rota duplicados, fundir `AnalyzingBIController` no `PanelController`.
+27. ✅ **Assets com cache de verdade.** O diagnóstico original estava incompleto: não era *falta* de cabeçalho de cache — era cache **desligado**. Os assets passavam pelo `index.php` **depois** do `session_start()`, e a sessão faz o PHP mandar `Cache-Control: no-store, no-cache, must-revalidate` em toda resposta. O navegador era instruído a nunca guardar o CSS.
+
+    Agora `frontend/public/static.php` serve os estáticos no **topo** do front controller, antes da sessão e do bootstrap. Com `ETag`, `Last-Modified`, resposta `304` e URLs versionadas (`asset()` acrescenta `?v=<mtime>`, o que torna seguro o `max-age` de um ano).
+
+    Medido: **306 KB na primeira visita, 0 bytes nas seguintes**.
+28. ⏸️ **Bundler — não feito, de propósito.** Vite exigiria Node na máquina de desenvolvimento e um passo de build antes de cada deploy, quebrando o modelo do projeto (copiar a pasta). Com o cache resolvido, o ganho restante seria a minificação: uma fração do que os `304` já economizam. Não vale o custo aqui.
+29. ✅ **N+1 eliminado.** `ProductService::hydrateMany()` carrega imagens, variações e categorias de todos os produtos em 3 consultas, quaisquer que sejam os produtos. Medido na vitrine de exemplo: **22 → 4 consultas**; com 50 produtos seriam 151 → 4.
+
+    `CartApiController::sync` passou a normalizar o carrinho antes de guardá-lo (só id, quantidade e variação entram), com limite de 100 linhas e 999 por item. Antes, o corpo era gravado na sessão como veio: qualquer visitante anônimo fazia o arquivo de sessão crescer sem limite.
+30. ✅ **`PixService` com timeout** (3s de conexão, 8s total) — uma RapidAPI lenta pendurava o checkout do cliente até o `max_execution_time`.
+
+    ❗ **A chave PIX parou de ir para terceiros, mas não como o plano dizia.** O plano mandava "gerar o QR localmente (a biblioteca é trivial)". Não é trivial: exige Reed-Solomon, máscaras e seleção de versão — e, sem um leitor para conferir, **eu não teria como verificar se o QR sai correto**. Um QR sutilmente errado é um pagamento que falha no celular do cliente, longe de qualquer log.
+
+    A saída foi o **PIX copia e cola**: o mesmo BR Code, entregue como texto, aceito por todos os aplicativos de banco e gerado inteiramente aqui. A chamada a `api.qrserver.com` — que recebia a chave PIX do lojista e o valor de cada venda no query string — foi removida. A imagem do QR continua disponível para quem configurar a RapidAPI.
+
+    O BR Code ganhou 7 testes: estrutura EMV (a varredura TLV tem de terminar exatamente no fim da string), CRC16 conferido do mesmo jeito que o aplicativo do banco confere, e truncamento de nome e cidade nos limites do padrão.
+31. ⚠️ **Limpeza — metade do item estava errada.** Removidos: `backend/app/Models/Model.php` (classe abstrata sem nenhuma subclasse) e os aliases `GET /api/{slug}/analyzing-bi*`, que ninguém chamava e cujo padrão genérico competia com qualquer caminho de um segmento sob `/api/`. Também saiu `POST .../products/{id}/delete`, sem chamador.
+
+    **Não removidos, porque a auditoria os classificou mal:**
+    - `public/` **não é duplicação** — é a ponte que sustenta a URL `/plataform_stores/public/`. Apagá-la derruba a instalação inteira enquanto o DocumentRoot não apontar para `frontend/public/`.
+    - `POST .../products/delete` e `POST .../orders/{id}/entregas/delete` **são exatamente o que o painel chama** (Estoque e Entregas). Removê-los como "aliases redundantes" quebraria as duas telas.
+    - Fundir `AnalyzingBIController` (44 linhas) no `PanelController` é troca de lugar sem ganho, com risco de regressão. Fica como está.
 
 ---
 
@@ -366,9 +383,40 @@ Nada aqui exigiu refatoração. Foi fechar buraco.
 | 2 ✅ | Autorização central | feita | Escalada de privilégio do funcionário, CSRF, força bruta no login, rota nova nascer aberta |
 | 3 ✅ | Identidade única | feita | Login imprevisível, senha que não é uma só, gerente perdendo o próprio painel |
 | 4 ✅ | Fundação de engenharia | feita | Regressão silenciosa, versão de PHP não declarada, domínio sem teste |
-| 5 | Performance e limpeza | contínuo | Custo de infra; dívida acumulada |
+| 5 ✅ | Performance e limpeza | feita | 306 KB por page view, N+1 na vitrine, checkout pendurado por API externa, chave PIX indo para terceiro |
 
-**Próximo passo:** Fase 5, a última. Sobrou o que tem efeito visível e sai rápido: cache nos assets (o `app.css` de 301 KB é relido do disco a cada page view), N+1 no carrinho, `CURLOPT_TIMEOUT` no `PixService` — hoje uma RapidAPI travada pendura o checkout —, gerar o QR do PIX localmente em vez de mandar a chave do lojista para o `api.qrserver.com`, e apagar código morto (`Models/Model.php`, `public/` duplicado, aliases de rota).
+### Correção pós-Fase 5 (2026-08-12)
+
+**Os seis formulários web estavam quebrados desde a Fase 2, e nenhum teste pegou.**
+
+A inserção do `csrf_field()` foi feita com a regex `<form[^>]*method="post"[^>]*>`. O `[^>]*` para no primeiro `>` — que, nestes formulários, é o `>` do `?>` dentro de `action="<?= base_url('login') ?>"`. O campo foi parar **no meio da tag**:
+
+```html
+<form method="post" action="<?= base_url('login') ?>
+<?= csrf_field() ?>" class="form-login auth-modal-form">
+```
+
+Resultado: tag malformada, `" class="form-login auth-modal-form">` vazando como texto na tela, e — o que importa — **formulário sem token**. Login, cadastro, criação de loja e exclusão de conta pelo navegador estavam inoperantes.
+
+**Por que passou despercebido:** o `authz_check.php` montava o POST de login à mão, pegando o token do `<meta>` e inventando os campos. Ele nunca tocava no HTML do formulário, então autenticava com sucesso enquanto o formulário real estava quebrado. O teste media o servidor, não o que o navegador recebe.
+
+**Corrigido:** os seis formulários, mais uma referência a `$typeRaw`/`$typeLabel` em `my_account.php` que ficara órfã da Fase 3. E o `authz_check` passou a **extrair o formulário da página** e enviar apenas os campos que ele oferece — verifiquei que, com o `csrf_field()` removido de propósito, o teste agora falha.
+
+**A lição:** teste que constrói a requisição por conta própria valida o servidor, não a integração. Onde existe HTML no caminho, o teste precisa passar pelo HTML.
+
+---
+
+**As seis fases estão concluídas.** O que continua aberto, por escolha e não por esquecimento:
+
+| Item | Por quê |
+|---|---|
+| **Gateway de pagamento** | Decisão do proprietário: o checkout é simulação e não vai a produção com cobrança real. Enquanto for assim, qualquer cartão válido no Luhn confirma pedido, baixa estoque e conta como receita no BI. **Volta a ser bloqueante antes de qualquer uso real.** |
+| **Imagem do QR sem RapidAPI** | Exigiria um codificador QR próprio, impossível de verificar aqui sem um leitor. O copia e cola cobre o caso e é conferível. |
+| **Bundler no front** | Quebraria o deploy por cópia de pasta, e o ganho restante depois do cache é pequeno. |
+| **Container de DI** | Incomoda para testar, mas não causa defeito. |
+| **Extrações restantes do `functions.php`** | Matriz de variação, `CartNormalizer`, `ImageUploader`, helpers de view. O caminho crítico da venda já saiu. |
+
+**Se voltar a mexer no projeto:** rode `php backend/tests/lint.php && php backend/tests/run.php` antes de commitar, e a bateria de `backend/tools/` antes de publicar. O CI faz as duas coisas em cada PR.
 
 Ficaram de fora, por escolha: o gateway de pagamento (decisão do proprietário) e o container de DI (baixo retorno). O `functions.php` ainda tem extrações pendentes, listadas no item 22.
 

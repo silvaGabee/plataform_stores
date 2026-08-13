@@ -166,8 +166,22 @@ if (!function_exists('base_url')) {
 }
 
 if (!function_exists('asset')) {
+    /**
+     * URL de um arquivo em assets/, com ?v=<mtime>.
+     *
+     * A versão no fim é o que permite servir o arquivo com cache de um ano
+     * (ver frontend/public/static.php): o conteúdo de uma URL nunca muda,
+     * porque editar o arquivo muda o mtime e portanto a URL. Sem isso, ou o
+     * cache é curto, ou uma alteração no CSS demora a chegar no navegador de
+     * quem já visitou.
+     */
     function asset(string $path): string {
-        return base_url('assets/' . ltrim($path, '/'));
+        $rel = ltrim($path, '/');
+        $url = base_url('assets/' . $rel);
+        $arquivo = PLATAFORM_ROOT . '/frontend/public/assets/' . $rel;
+        $mtime = is_file($arquivo) ? @filemtime($arquivo) : false;
+
+        return $mtime !== false ? $url . '?v=' . $mtime : $url;
     }
 }
 

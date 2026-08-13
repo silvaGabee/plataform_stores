@@ -83,16 +83,19 @@ class PaymentApiController extends Controller
         if ($method === 'pix') {
             $pixConfigRepo = new StorePixConfigRepository();
             $pixService = new PixService($pixConfigRepo);
+            // A imagem do QR só existe com RapidAPI configurada. Sem ela, o
+            // cliente recebe o "copia e cola" — aceito por qualquer aplicativo
+            // de banco e gerado inteiramente aqui, sem passar a chave PIX do
+            // lojista por serviço de terceiros.
             $pixQr = $pixService->generateQrCode($storeId, $amount, 'Pedido #' . $orderId);
-            if ($pixQr === null) {
-                $config = $pixConfigRepo->findByStore($storeId);
-                if (!empty($config['pix_key'])) {
-                    $pixManual = [
-                        'chave' => $config['pix_key'],
-                        'valor' => $amount,
-                        'nome' => $config['merchant_name'] ?? 'Loja',
-                    ];
-                }
+            $config = $pixConfigRepo->findByStore($storeId);
+            if (!empty($config['pix_key'])) {
+                $pixManual = [
+                    'chave' => $config['pix_key'],
+                    'valor' => $amount,
+                    'nome' => $config['merchant_name'] ?? 'Loja',
+                    'copia_cola' => $pixService->buildCopyPaste($storeId, $amount, 'Pedido #' . $orderId),
+                ];
             }
         }
         try {

@@ -342,6 +342,13 @@ mysqldump -u root --no-data --skip-comments plataform_stores
 
 ## Ficheiros estáticos e uploads
 
+Servidos por **`frontend/public/static.php`**, incluído no topo do front controller — **antes do `session_start()`**, e isso é essencial: a sessão faz o PHP mandar `Cache-Control: no-store` em toda resposta, e enquanto os assets passavam depois dela o navegador rebaixava o CSS inteiro a cada página.
+
+As URLs saem de `asset()` com `?v=<mtime>`, o que permite `max-age` de um ano com segurança: editar o ficheiro muda o mtime e portanto a URL. Há `ETag` e resposta `304`, e só as extensões conhecidas são servidas.
+
+Se apontar o `DocumentRoot` para `frontend/public/`, o Apache serve os estáticos sozinho e nada disto é usado — que é o ideal.
+
+
 - CSS/JS: **`frontend/public/assets/`** (servidos pela rota `/assets/…` no `index.php`).
 - Imagens de produto: **`frontend/public/uploads/products/`**; caminhos relativos guardados na base (ex.: `products/nome.jpg`).
 - Tema claro/escuro: `theme.js` e variáveis CSS em `app.css`.
@@ -382,6 +389,7 @@ O que depende de banco ou de HTTP fica em `backend/tools/` (tabela acima). O **G
 - Não publique **`.env`** nem credenciais no repositório.
 - **Raiz pública:** aponte o `DocumentRoot` para **`frontend/public/`**. Enquanto o projeto vive dentro de `htdocs`, quem protege `.env`, `backend/`, `storage/`, `docs/` e `.git/` são os `.htaccess` — se mudar de servidor (nginx) ou desligar `AllowOverride`, essa proteção some e o código-fonte volta a ser descarregável.
 - **Pagamento é simulação.** Não há gateway: um cartão que passe no Luhn marca o pedido como pago, baixa estoque e conta como receita no BI. Antes de qualquer cobrança real, integre um PSP — ver [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md).
+- **PIX:** a chave do lojista não sai daqui. O cliente recebe o *copia e cola* (BR Code gerado localmente); a imagem do QR só é buscada se `RAPIDAPI_KEY` estiver configurada. A confirmação continua sendo manual, feita pelo gerente — não há verificação com o banco.
 - **Dívida técnica conhecida e priorizada** está em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md). O que ainda falta: identidade duplicada em `users` (uma linha por loja), ausência de Composer e de testes automatizados, e os itens de performance.
 - Revise permissões de ficheiros, backups e conformidade (LGPD, pagamentos, termos de uso) antes de uso real.
 

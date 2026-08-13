@@ -28,12 +28,26 @@ class ProductService
     private function attachVitrineCategories(array &$product): void
     {
         $productId = (int) ($product['id'] ?? 0);
-        if ($productId <= 0) {
+        $ids = $productId > 0 ? $this->productCategoryRepo->listIdsByProduct($productId) : [];
+        $this->applyVitrineCategories($product, $ids);
+    }
+
+    /**
+     * Aplica ao produto as categorias já carregadas.
+     * Separado de attachVitrineCategories para servir também ao carregamento
+     * em lote, sem duplicar a regra do campo legado.
+     *
+     * @param list<int> $ids
+     */
+    private function applyVitrineCategories(array &$product, array $ids): void
+    {
+        if ((int) ($product['id'] ?? 0) <= 0) {
             $product['vitrine_category_ids'] = [];
 
             return;
         }
-        $ids = $this->productCategoryRepo->listIdsByProduct($productId);
+        // Produtos antigos guardavam uma única categoria na coluna do produto,
+        // antes de existir a tabela de ligação.
         if ($ids === [] && !empty($product['vitrine_category_id'])) {
             $legacy = (int) $product['vitrine_category_id'];
             if ($legacy > 0) {
@@ -85,14 +99,25 @@ class ProductService
     private function attachVariants(array &$product): void
     {
         $productId = (int) ($product['id'] ?? 0);
-        if ($productId <= 0) {
+        $rows = $productId > 0 ? $this->variantRepo->listByProduct($productId) : [];
+        $this->applyVariants($product, $rows);
+    }
+
+    /**
+     * Aplica ao produto as variações já carregadas.
+     * Separado de attachVariants para servir também ao carregamento em lote.
+     *
+     * @param list<array<string, mixed>> $rows
+     */
+    private function applyVariants(array &$product, array $rows): void
+    {
+        if ((int) ($product['id'] ?? 0) <= 0) {
             $product['variants'] = [];
             $product['variants_matrix'] = null;
             $product['display_name'] = product_display_name($product);
 
             return;
         }
-        $rows = $this->variantRepo->listByProduct($productId);
         $product['variants'] = array_map(static function (array $row): array {
             $type = (string) $row['variant_type'];
             $value = (string) $row['variant_value'];
@@ -117,26 +142,42 @@ class ProductService
 
     public function listForStore(int $storeId, bool $onlyWithStock = false): array
     {
-        $products = $this->productRepo->listByStore($storeId, $onlyWithStock);
-        foreach ($products as &$p) {
-            $p['images'] = $this->imageRepo->getByProductId((int) $p['id']);
-            $this->attachImageUrls($p['images'], (int) $p['id']);
-            $this->attachVariants($p);
-            $this->attachVitrineCategories($p);
-        }
-
-        return $products;
+        return $this->hydrateMany($this->productRepo->listByStore($storeId, $onlyWithStock));
     }
 
     public function listForStoreByCategory(int $storeId, int $categoryId, bool $onlyWithStock = false): array
     {
-        $products = $this->productRepo->listByStoreAndCategory($storeId, $categoryId, $onlyWithStock);
-        foreach ($products as &$p) {
-            $p['images'] = $this->imageRepo->getByProductId((int) $p['id']);
-            $this->attachImageUrls($p['images'], (int) $p['id']);
-            $this->attachVariants($p);
-            $this->attachVitrineCategories($p);
+        return $this->hydrateMany($this->productRepo->listByStoreAndCategory($storeId, $categoryId, $onlyWithStock));
+    }
+
+    /**
+     * Completa uma lista de produtos com imagens, variações e categorias.
+     *
+     * Três consultas no total, independentemente de quantos produtos houver.
+     * Antes cada produto disparava as suas próprias três, dentro do laço: uma
+     * vitrine com 50 produtos fazia 151 idas ao banco para montar a página.
+     *
+     * @param list<array<string, mixed>> $products
+     * @return list<array<string, mixed>>
+     */
+    private function hydrateMany(array $products): array
+    {
+        if ($products === []) {
+            return [];
         }
+        $ids = array_map(static fn (array $p): int => (int) ($p['id'] ?? 0), $products);
+        $imagens = $this->imageRepo->getByProductIds($ids);
+        $variacoes = $this->variantRepo->listByProducts($ids);
+        $categorias = $this->productCategoryRepo->listIdsByProducts($ids);
+
+        foreach ($products as &$p) {
+            $pid = (int) ($p['id'] ?? 0);
+            $p['images'] = $imagens[$pid] ?? [];
+            $this->attachImageUrls($p['images'], $pid);
+            $this->applyVariants($p, $variacoes[$pid] ?? []);
+            $this->applyVitrineCategories($p, $categorias[$pid] ?? []);
+        }
+        unset($p);
 
         return $products;
     }

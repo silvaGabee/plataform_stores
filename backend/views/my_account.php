@@ -44,7 +44,17 @@ $initialEsc = htmlspecialchars($initial);
                     <div class="my-account-avatar" aria-hidden="true"><?= $initialEsc ?></div>
                     <div class="my-account-profile-intro">
                         <p class="my-account-profile-name"><?= $name !== '' ? $name : '—' ?></p>
-                        <span class="my-account-badge my-account-badge--<?= htmlspecialchars(preg_replace('/[^a-z]/', '', (string) $typeRaw) ?: 'cliente') ?>"><?= $typeLabel !== '' ? $typeLabel : '—' ?></span>
+                        <?php
+                        // Sem vínculo, a pessoa é cliente. Com vínculos, mostra
+                        // o cargo de maior alcance — o detalhe por loja vem
+                        // logo abaixo, em "Perfil".
+                        $cargos = array_column($vinculos, 'role');
+                        $badgeRole = in_array('gerente', $cargos, true)
+                            ? 'gerente'
+                            : (in_array('funcionario', $cargos, true) ? 'funcionario' : 'cliente');
+                        $badgeLabel = $roleLabels[$badgeRole] ?? 'Cliente';
+                        ?>
+                        <span class="my-account-badge my-account-badge--<?= $badgeRole ?>"><?= htmlspecialchars($badgeLabel) ?></span>
                     </div>
                 </div>
 
@@ -84,8 +94,8 @@ $initialEsc = htmlspecialchars($initial);
                 <div class="my-account-danger-card">
                     <p class="my-account-danger-title">Zona de risco</p>
                     <p class="my-account-danger-text">A exclusão da conta é permanente e só é permitida se não houver restrições no sistema.</p>
-                    <form method="post" action="<?= base_url('minha-conta/excluir') ?>
-                        <?= csrf_field() ?>" class="my-account-delete-form">
+                    <form method="post" action="<?= base_url('minha-conta/excluir') ?>" class="my-account-delete-form">
+                        <?= csrf_field() ?>
                         <button type="submit" class="btn btn-danger my-account-btn-delete" onclick="return confirm('Tem a certeza de que deseja excluir a sua conta? Esta ação não pode ser desfeita.');">
                             Excluir a minha conta
                         </button>
