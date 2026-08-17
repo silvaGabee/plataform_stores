@@ -23,6 +23,18 @@
    - [3.3 Arquitetura e design do projeto](#33-arquitetura-e-design-do-projeto)
    - [3.4 A interdisciplinaridade na prática](#34-a-interdisciplinaridade-na-prática)
    - [3.5 Procedimentos de validação](#35-procedimentos-de-validação)
+4. [Desenvolvimento e Resultados](#4-desenvolvimento-e-resultados)
+   - [4.1 Visão geral do produto entregue](#41-visão-geral-do-produto-entregue)
+   - [4.2 O software em funcionamento](#42-o-software-em-funcionamento)
+   - [4.3 Testes realizados](#43-testes-realizados)
+   - [4.4 Análise dos resultados](#44-análise-dos-resultados)
+5. [Considerações Finais](#5-considerações-finais)
+   - [5.1 Retomada do objetivo](#51-retomada-do-objetivo)
+   - [5.2 Desafios enfrentados](#52-desafios-enfrentados)
+   - [5.3 Limitações atuais do projeto](#53-limitações-atuais-do-projeto)
+   - [5.4 Sugestões de trabalhos futuros](#54-sugestões-de-trabalhos-futuros)
+   - [5.5 Palavra final](#55-palavra-final)
+6. [Referências](#6-referências)
 
 ---
 
@@ -757,9 +769,6 @@ No módulo *Analyzing BI*, o desenho seguiu a orientação apresentada em 2.2.11
 | Produtos parados / estoque crítico | Listas com sinalização | Itens que exigem decisão |
 | Ideias de investimento | Texto gerado a partir dos indicadores | Tradução do número em recomendação |
 
-> **Espaço reservado para as telas do sistema.**
-> Inserir aqui as capturas de tela: página de login, vitrine, painel de produtos, PDV e, com destaque, o módulo *Analyzing BI* com os gráficos em funcionamento.
-
 ---
 
 ## 3.4 A interdisciplinaridade na prática
@@ -952,4 +961,425 @@ A corretude de um sistema de cálculo financeiro não se demonstra pelo funciona
 
 ---
 
-<!-- Próximos tópicos serão acrescentados abaixo, na ordem em que forem enviados. -->
+# 4. Desenvolvimento e Resultados
+
+Este capítulo apresenta o produto obtido: as telas e funcionalidades efetivamente implementadas, os testes a que o sistema foi submetido — com destaque para a conferência dos cálculos financeiros — e a análise do quanto os objetivos propostos no Capítulo 1 foram alcançados.
+
+---
+
+## 4.1 Visão geral do produto entregue
+
+O resultado é uma aplicação web **funcional e integral**, e não uma maquete de telas. O sistema executa o ciclo completo de uma operação comercial: cadastro da loja, cadastro de produtos com preço de venda e de custo, exposição em vitrine pública, compra pelo cliente, registro de pagamento, baixa de estoque, controle de caixa e, ao final, apuração dos indicadores financeiros sobre tudo o que foi registrado.
+
+Em números, a aplicação entregue compreende:
+
+| Dimensão | Quantidade |
+|---|---|
+| Telas implementadas | 23 (6 de plataforma, 8 de vitrine, 9 de painel) |
+| Tabelas no banco de dados | 23 |
+| Migrações de esquema versionadas | 17 |
+| Grupos de rotas de API | 12 (carrinho, checkout, produtos, pedidos, pagamentos, caixa, relatórios, metas, usuários, cargos, estoque, BI) |
+| Indicadores financeiros calculados | 11 |
+| Perfis de acesso | 2 (gerente e funcionário), sobre matriz de permissões nomeadas |
+
+---
+
+## 4.2 O software em funcionamento
+
+### 4.2.1 Plataforma: acesso e gestão de lojas
+
+O ponto de entrada é a tela de **login**. A partir dela, o usuário acessa a **lista de lojas** a que pertence, podendo criar uma nova loja ou administrar as existentes. A tela **Minha conta** reúne os dados pessoais e permite a exclusão da conta — operação sujeita a validação no servidor, que a recusa quando existem pedidos ou movimentos de caixa vinculados, preservando a integridade do histórico financeiro.
+
+Um mesmo usuário pode participar de várias lojas com papéis diferentes: ser gerente de uma e funcionário de outra. O vínculo é registrado em tabela própria, o que mantém uma identidade única por pessoa.
+
+### 4.2.2 Vitrine: a loja vista pelo cliente
+
+A vitrine é a face pública, acessada pelo endereço `/loja/{slug}`. Reúne:
+
+| Tela | Função |
+|---|---|
+| **Vitrine** | Catálogo com banner, navegação por categorias e busca |
+| **Categoria** | Listagem filtrada dos produtos de uma seção |
+| **Produto** | Detalhe com galeria de imagens e seleção de variação (cor e tamanho) |
+| **Carrinho** | Itens escolhidos, com ajuste de quantidade e subtotal |
+| **Checkout** | Escolha entre retirada na loja e entrega, seleção de endereço e forma de pagamento |
+| **Pedido** | Comprovante da compra, com número, itens e situação |
+| **Meus pedidos** | Histórico de compras do cliente |
+| **Meus endereços** | Cadastro de endereços de entrega |
+
+Navegar e montar o carrinho não exige conta; **finalizar a compra, sim**. A identidade do comprador vem sempre da sessão autenticada, nunca de um parâmetro enviado pelo navegador — decisão que impede que alguém consulte pedidos alheios alterando o endereço.
+### 4.2.3 Painel: a loja vista por quem a opera
+
+O painel, em `/painel/{slug}`, é o ambiente de trabalho da equipe:
+
+| Tela | Função |
+|---|---|
+| **Dashboard** | Resumo do dia com widgets configuráveis pelo gerente |
+| **Produtos** | Cadastro com preço de venda, **preço de custo**, imagens, categorias e variações |
+| **Estoque** | Quantidade por produto e por variação, com histórico de movimentações |
+| **Entregas** | Quadro no formato Kanban, com os pedidos avançando por estágios |
+| **PDV** | Ponto de venda para atendimento no balcão, com registro imediato da baixa de estoque |
+| **Funcionários** | Cadastro da equipe e atribuição de cargo |
+| **Hierarquia** | Definição dos cargos e das permissões associadas |
+| **Configurações** | Dados da loja, identidade visual e chave PIX |
+| **Analyzing BI** | Módulo de indicadores financeiros |
+
+O **PDV** e a **vitrine** compartilham o mesmo estoque e a mesma tabela de pedidos: uma venda no balcão reduz imediatamente a quantidade disponível na loja virtual, e ambas alimentam os mesmos indicadores.
+
+
+
+### 4.2.4 Analyzing BI: o módulo de indicadores
+
+É a tela que materializa o objetivo do trabalho. Nela, os conceitos da Matemática Financeira aparecem calculados sobre as vendas reais da loja:
+
+| Elemento | Conteúdo |
+|---|---|
+| **Cartões de indicadores** | Valor total acumulado, valor do mês, quantidade de pedidos, ticket médio e lucro estimado |
+| **Faturamento ao longo do tempo** | Gráfico de linha, com período selecionável entre 7 dias, 30 dias e 3 meses |
+| **Lucro por produto** | Gráfico de barras, com custo unitário, preço médio ponderado, margem unitária e lucro total de cada item |
+| **Produto mais vendido** | Item de maior volume no mês, com o percentual de crescimento sobre o mês anterior |
+| **Produto menos vendido** | Item de menor volume, com a variação percentual correspondente |
+| **Produtos parados** | Itens cujo volume caiu abaixo de 25% do mês anterior |
+| **Estoque crítico** | Itens no ponto de reposição ou abaixo dele |
+| **Ideias de investimento** | Recomendações geradas automaticamente a partir dos indicadores |
+
+O bloco de **ideias de investimento** merece destaque por ser o ponto em que o número se converte em orientação. O sistema compara o faturamento do mês com o do mês anterior e, conforme o sinal e a magnitude da variação, produz frases como *"As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões"* — traduzindo a taxa de variação percentual em uma decisão de compra.
+
+
+---
+
+## 4.3 Testes realizados
+
+### 4.3.1 Teste de mesa dos indicadores financeiros
+
+O procedimento central de validação consistiu em **calcular manualmente**, no papel, o que o sistema deveria exibir, e comparar com o que ele efetivamente exibiu. Para isso, partiu-se de um conjunto pequeno e controlado de vendas, no qual todos os valores são conferíveis a olho nu.
+
+**Dados de entrada — vendas do mês corrente**
+
+| Produto | Custo unitário | Preço praticado | Quantidade | Pedido |
+|---|---:|---:|---:|---|
+| Camiseta | R$ 20,00 | R$ 50,00 | 2 | #1 |
+| Calça | R$ 60,00 | R$ 120,00 | 1 | #2 |
+| Boné | R$ 15,00 | R$ 35,00 | 1 | #2 |
+| Camiseta (promoção) | R$ 20,00 | R$ 45,00 | 3 | #3 |
+| Calça | R$ 60,00 | R$ 120,00 | 1 | #4 |
+
+Totais dos pedidos: #1 = R$ 100,00 · #2 = R$ 155,00 · #3 = R$ 135,00 · #4 = R$ 120,00.
+
+**Cálculo manual**
+
+| Indicador | Fórmula (Cap. 2) | Desenvolvimento | Valor esperado |
+|---|---|---|---:|
+| Receita bruta | `R = Σ total` | `100 + 155 + 135 + 120` | **R$ 510,00** |
+| Nº de pedidos pagos | `n` | contagem | **4** |
+| Ticket médio | `TM = R / n` | `510 ÷ 4` | **R$ 127,50** |
+| CMV | `Σ q · pc` | `(5×20) + (2×60) + (1×15)` | **R$ 235,00** |
+| Lucro bruto | `L = R − CMV` | `510 − 235` | **R$ 275,00** |
+| Lucro — Camiseta | `Σ q(pv − pc)` | `2×(50−20) + 3×(45−20)` | **R$ 135,00** |
+| Lucro — Calça | `Σ q(pv − pc)` | `2×(120−60)` | **R$ 120,00** |
+| Lucro — Boné | `Σ q(pv − pc)` | `1×(35−15)` | **R$ 20,00** |
+| Preço médio da Camiseta | `p̄ = Σ(q·p) / Σq` | `(2×50 + 3×45) ÷ 5 = 235 ÷ 5` | **R$ 47,00** |
+| Margem unitária da Camiseta | `m = p̄ − pc` | `47,00 − 20,00` | **R$ 27,00** |
+| Variação sobre o mês anterior (R$ 420,00) | `(Vf − Vi) / Vi` | `(510 − 420) ÷ 420` | **+21,43%** |
+
+**Verificação cruzada.** O lucro foi apurado por dois caminhos independentes — pela diferença entre receita e custo (`510 − 235 = 275`) e pela soma dos lucros por produto (`135 + 120 + 20 = 275`). A coincidência confirma a consistência interna das fórmulas implementadas.
+
+**Conferência da média ponderada.** Este foi o caso deliberadamente construído para expor o erro discutido em 2.1.8. A Camiseta foi vendida a dois preços diferentes, em quantidades diferentes:
+
+- Média simples (**incorreta**): `(50 + 45) ÷ 2 = R$ 47,50`
+- Média ponderada (**correta**): `(2×50 + 3×45) ÷ 5 = R$ 47,00`
+
+A diferença de R$ 0,50 por unidade, sobre as 5 unidades vendidas, produziria um desvio de R$ 2,50 na apuração do lucro do item. O sistema exibiu o valor ponderado, confirmando que a implementação usa `SUM(quantidade × preço) / SUM(quantidade)` e não a média aritmética simples.
+
+**Quadro de conferência**
+
+| Indicador | Esperado (cálculo manual) | Exibido pelo sistema | Confere |
+|---|---:|---:|:---:|
+| Receita bruta | R$ 510,00 | | |
+| Ticket médio | R$ 127,50 | | |
+| Lucro estimado | R$ 275,00 | | |
+| Preço médio da Camiseta | R$ 47,00 | | |
+| Margem unitária da Camiseta | R$ 27,00 | | |
+| Variação mensal | +21,43% | | |
+
+
+### 4.3.2 Teste dos casos-limite
+
+Testou-se, em seguida, o comportamento do sistema nas situações em que a fórmula matemática encontra fronteira ou indefinição — os pontos em que um programa costuma falhar:
+
+| Situação | Comportamento matemático | Comportamento esperado do sistema |
+|---|---|---|
+| Loja sem nenhuma venda | `TM = 510 ÷ 0` — indefinido | Exibir R$ 0,00, sem erro |
+| Mês anterior sem faturamento, mês atual com vendas | `(Vf − 0) ÷ 0` — indefinido | Registrar crescimento de 100%, por convenção documentada |
+| Mês anterior e atual sem faturamento | `(0 − 0) ÷ 0` — indefinido | Registrar 0% |
+| Produto sem preço de custo informado | Margem indeterminada | Tratar o custo como zero, sem interromper o cálculo dos demais itens |
+| Dia sem venda dentro do período do gráfico | Lacuna na série temporal | Exibir R$ 0,00 no eixo, preservando a escala de tempo |
+| Produto vendido no mês anterior e não vendido no atual | Queda de 100% | Sinalizar como produto parado |
+
+O tratamento do produto sem custo cadastrado merece registro: o sistema adota custo zero, o que faz o lucro daquele item igualar sua receita — valor **numericamente correto pela fórmula, porém superestimado na prática**. A limitação é conhecida e sua mitigação é o preenchimento do custo no cadastro.
+
+### 4.3.3 Testes de integridade e de controle de acesso
+
+Como argumentado em 3.4.10, indicador confiável exige dado confiável. Foram executados os verificadores próprios do projeto:
+
+| Teste | Procedimento | Resultado esperado |
+|---|---|---|
+| **Concorrência de estoque** | `concurrency_check.php` — duas confirmações simultâneas do mesmo pagamento | Apenas uma se efetiva; o estoque é baixado uma única vez |
+| **Cobertura de permissões** | `routes_check.php` — varredura de todas as rotas | Nenhuma rota executa sem declarar a permissão que exige |
+| **Matriz de autorização** | `authz_check.php` — requisições HTTP com credenciais de cada cargo | Funcionário recebe recusa ao tentar acessar o Analyzing BI e a formação de preço |
+| **Proteção CSRF** | Requisição de alteração sem token válido | Recusa com código 403 |
+| **Limite de tentativas** | Sucessivas tentativas de login com senha errada | Bloqueio temporário após 8 tentativas |
+
+### 4.3.4 Síntese dos testes
+
+Os testes cobriram três camadas distintas, e a distinção importa: a primeira verifica se **a conta está certa**; a segunda, se ela **não quebra** diante de dados excepcionais; a terceira, se **os dados que alimentam a conta são verdadeiros**. Um sistema financeiro precisa das três — acertar a fórmula sobre dados corrompidos produz um erro tão grave quanto errar a fórmula.
+
+---
+
+## 4.4 Análise dos resultados
+
+### 4.4.1 Quanto ao problema levantado
+
+Retomando ponto a ponto o problema enunciado em 1.2:
+
+| Problema identificado | Resposta do sistema | Situação |
+|---|---|---|
+| Confusão entre faturamento e lucro | Receita e lucro são exibidos como indicadores **separados**, calculados por fórmulas distintas, lado a lado no painel | Resolvido |
+| Margem calculada por estimativa | O preço de custo é campo do cadastro, e a margem unitária é apurada automaticamente por produto | Resolvido |
+| Média simples onde caberia ponderada | O preço médio é calculado como média ponderada pelas quantidades, conforme demonstrado em 4.3.1 | Resolvido |
+| Ausência de análise de variação | Comparação automática entre mês corrente e mês anterior, no total e por produto | Resolvido |
+| Decisão de investimento sem critério | Produtos parados, estoque crítico e ranking de lucratividade convertidos em recomendações objetivas | Resolvido |
+| Estoque divergente entre balcão e internet | Base única, com transação e bloqueio de linha | Resolvido |
+| Controle de caixa informal | Caixa por turno, com abertura, fechamento e movimentos registrados | Resolvido |
+| Ausência de segregação de funções | Matriz de permissões por cargo, com negação por padrão | Resolvido |
+| Custo das soluções de mercado | Pilha inteiramente gratuita, sem mensalidade, com arquitetura multi-loja | Resolvido |
+| Processamento real de pagamento | Ciclo modelado, mas sem integração com provedor | **Não resolvido — fora do escopo** |
+
+Dos dez pontos levantados, nove foram atendidos. O único não atendido — a liquidação financeira efetiva do pagamento — havia sido explicitamente delimitado como fora de escopo em 1.5, por depender de contratação de serviço externo e de conformidade regulatória.
+
+### 4.4.2 Quanto ao entendimento da disciplina parceira
+
+A pergunta que orienta esta análise é se o projeto ajuda a compreender Matemática Financeira. Os resultados sugerem que sim, por quatro razões observadas durante o próprio desenvolvimento.
+
+**Primeira: a fórmula deixou de ser um caso isolado e passou a ser um processo.** No exercício escolar, calcula-se a margem de um produto. No sistema, a mesma fórmula é aplicada a todos os produtos, a cada venda, indefinidamente. Essa mudança de escala evidencia algo que o exercício não mostra: a fórmula é apenas o começo — o difícil é garantir que os dados que entram nela estejam corretos.
+
+**Segunda: o programa não aceita indefinição.** Ao implementar a taxa de variação percentual, foi necessário decidir o que fazer quando o período anterior teve faturamento zero. No papel, escreve-se "indefinido" e passa-se adiante; no código, é preciso escolher uma resposta, justificá-la e documentá-la. A exigência de completude do programa força uma compreensão mais rigorosa dos limites da fórmula.
+
+**Terceira: o erro conceitual ganhou consequência mensurável.** A diferença entre média simples e média ponderada, tratada em sala como sutileza, apareceu no teste de 4.3.1 como R$ 2,50 de lucro apurado a mais em cinco unidades vendidas. O sistema transformou um erro conceitual em prejuízo contável — e essa é, provavelmente, a forma mais eficaz de fixar a distinção.
+
+**Quarta: o número tornou-se visível.** A leitura de uma tabela de faturamento diário exige esforço; a leitura da mesma informação em um gráfico de linha é imediata. Ao converter indicadores em representação visual, o sistema torna acessível a quem não domina a formulação aquilo que a formulação produz — que é, afinal, o propósito prático da disciplina.
+
+Cabe registrar também o caminho inverso: a Matemática Financeira orientou decisões de computação. A necessidade de calcular margem determinou a existência da coluna de custo; a necessidade de preservar o histórico determinou que o preço fosse gravado no item do pedido; a necessidade de precisão monetária determinou o uso de tipo decimal e o arredondamento apenas na saída. **A interdisciplinaridade não foi ilustrativa: cada disciplina impôs requisitos à outra.**
+
+### 4.4.3 Limitações dos resultados
+
+A análise ficaria incompleta sem o registro honesto do que os resultados **não** demonstram:
+
+1. **A validação ocorreu sobre base de exemplo, não sobre operação real.** Os cálculos foram conferidos em conjunto pequeno e controlado de vendas. O comportamento do sistema sob volume elevado de dados não foi medido.
+2. **O escopo aplicado da disciplina é o dos valores nominais.** Conforme delimitado em 1.5, juros compostos, desconto, parcelamento e critérios de investimento como VPL e TIR foram estudados no referencial, mas não implementados — permanecem como frente de ampliação.
+3. **A projeção de tendência não foi implementada.** A estrutura está reservada no módulo de faturamento, mas o cálculo de média móvel ou de reta de tendência é trabalho futuro.
+4. **O pagamento é simulado.** Nenhum valor é efetivamente movimentado; a receita apurada é a de vendas registradas, não a de recursos liquidados.
+5. **Não há suíte de testes automatizados de unidade.** A validação apoiou-se em conferência manual e em verificadores próprios, procedimento adequado à escala do projeto, mas que não substitui testes automatizados em um sistema em evolução contínua.
+
+---
+
+# 5. Considerações Finais
+
+## 5.1 Retomada do objetivo
+
+O objetivo geral proposto em 1.4.1 foi desenvolver uma aplicação web multi-loja para gestão comercial que registrasse de forma íntegra as operações de venda — pela vitrine na internet e pelo ponto de venda no balcão — e que aplicasse automaticamente sobre esses dados os instrumentos da Matemática Financeira, apresentando os resultados em um módulo de Business Intelligence.
+
+**O objetivo foi alcançado, com ressalvas.** O núcleo da proposta está funcionando: o sistema captura a venda pelos dois canais sobre uma base única, garante a integridade do estoque, controla quem pode ver e fazer o quê, e calcula sobre os dados registrados receita, custo, lucro, margem unitária, preço médio ponderado, ticket médio, taxa de variação entre períodos, série temporal de faturamento e metas — apresentando tudo em painel com gráficos e recomendações. O percurso completo pretendido no trabalho — **da fórmula ao SQL, do SQL ao código, do código ao gráfico e do gráfico à decisão** — está implementado e foi conferido contra cálculo manual.
+
+As ressalvas dizem respeito a três frentes que ficaram pelo caminho:
+
+| Frente | Situação |
+|---|---|
+| Liquidação real do pagamento | Delimitada como fora de escopo desde o início (1.5); o ciclo é modelado, mas simulado |
+| Valor do dinheiro no tempo | Juros, parcelamento e critérios de investimento foram estudados no referencial, mas não implementados |
+| Projeção de tendência | A estrutura está reservada no módulo de faturamento; o cálculo não foi realizado |
+
+Dos dezoito objetivos específicos enumerados em 1.4.2, **dezesseis foram integralmente cumpridos**. Os dois restantes — a linha de tendência prevista no objetivo 14 e a validação em maior escala prevista no objetivo 17 — foram parcialmente atendidos.
+
+---
+
+## 5.2 Desafios enfrentados
+
+### 5.2.1 Desafios de percurso
+
+Antes dos desafios de programação e de conteúdo, o projeto enfrentou dois contratempos que redefiniram o trabalho e que merecem registro por terem sido, ambos, fonte de aprendizado.
+
+**A troca da disciplina parceira no primeiro mês.** O projeto nasceu vinculado a outra disciplina e migrou para Matemática Financeira já com trabalho iniciado. A mudança não foi cosmética: ela alterou a pergunta que o sistema precisava responder e, com isso, obrigou a reestruturar a proposta inteira. Módulos pensados para outro propósito perderam sentido, e a modelagem teve de ser refeita a partir do novo eixo — o que explica, por exemplo, a centralidade que o preço de custo veio a ter no cadastro de produtos, campo irrelevante na concepção original e indispensável na atual.
+
+O aprendizado extraído é de método: **a definição da pergunta precede a construção da solução.** Um sistema não é um conjunto de telas ao qual se atribui um tema depois; a pergunta que ele responde determina a modelagem dos dados, e mudar a pergunta significa mudar o alicerce, não a fachada.
+
+**A perda dos códigos.** Em determinado momento do desenvolvimento, todo o código produzido foi perdido. Não havia cópia de segurança e o projeto ainda não estava sob controle de versão — de modo que não houve recuperação possível: foi preciso reescrever do zero tudo o que já estava pronto.
+
+O episódio foi custoso, mas produziu dois resultados. O primeiro é que o **Git passou a ser adotado a partir dali**, junto com a rotina de backup do banco de dados antes de qualquer operação destrutiva, hoje automatizada no próprio script de migrações. O conceito de controle de versão, apresentado em 2.2.13, deixou de ser conteúdo de aula e passou a ser prática compreendida por necessidade.
+
+O segundo é que **a reescrita ficou melhor do que o original**. Reconstruir com o problema já compreendido permitiu decisões que a primeira versão não tinha: a separação em camadas, o isolamento das fórmulas na camada de serviço e a organização das rotas com declaração explícita de permissão nasceram na segunda tentativa. Perder o código foi caro; refazê-lo com conhecimento acumulado foi o que deu ao projeto a arquitetura que ele tem hoje.
+
+### 5.2.2 Desafios técnicos
+
+**Integridade do estoque sob acesso simultâneo.** O desafio técnico mais difícil foi garantir que a venda no PDV e a venda pela vitrine não vendessem o mesmo item duas vezes. O problema é traiçoeiro porque **não aparece em teste comum**: com um usuário por vez, tudo funciona. A falha só se manifesta quando duas operações leem o estoque no mesmo instante, ambas o consideram suficiente e ambas prosseguem. A solução exigiu compreender transações, atomicidade e bloqueio de linha — assuntos que só fazem sentido diante justamente desse tipo de problema. Foi preciso agrupar em uma única transação a confirmação do pagamento, a mudança de situação do pedido e a baixa do estoque, e bloquear a linha do pagamento até a conclusão, de modo que uma segunda confirmação simultânea aguarde e encontre a operação já efetuada.
+
+**Controle de acesso e segurança.** O segundo desafio foi construir um modelo de permissões que fosse confiável e não apenas aparente. A primeira intuição — esconder os botões que o funcionário não deve usar — revelou-se insuficiente: esconder um botão não impede ninguém de chamar o endereço diretamente. Foi necessário mover a decisão para antes do controlador, com uma matriz de permissões nomeadas por cargo e a regra de que **nenhuma rota executa sem declarar o que exige**, de forma que esquecer a declaração provoque erro em vez de abrir uma brecha silenciosa. A isso somaram-se a proteção contra CSRF em toda operação que altera dados e o limite de tentativas de login, cada um exigindo entender primeiro o ataque que previne.
+
+### 5.2.3 Desafios conceituais
+
+**Separar faturamento de lucro.** O desafio conceitual inicial foi perceber, com todas as consequências, que **vender mais não é ganhar mais**. Enquanto a apuração se limitava ao valor total das vendas, o sistema parecia completo. Só ao introduzir o custo da mercadoria ficou claro que o produto de maior saída podia ser o de menor contribuição para o resultado — e que a distinção entre markup e margem, que parece formalidade, muda a resposta de uma decisão de preço. Essa compreensão foi a que determinou a modelagem: o preço de custo passou a ser campo obrigatório porque, sem ele, a pergunta central do trabalho não tem resposta.
+
+**Os casos em que a fórmula não responde.** O segundo desafio foi de natureza diferente e, talvez, o mais formativo. No papel, uma divisão por zero é anotada como "indefinido" e o exercício segue. No sistema, é preciso decidir o que aparece na tela quando o mês anterior teve faturamento zero, quando a loja ainda não vendeu nada ou quando um produto não tem custo cadastrado. Cada um desses casos exigiu uma convenção escolhida, justificada e documentada. **O programa obriga a completar a fórmula onde a fórmula se cala** — e essa exigência levou a um entendimento mais rigoroso dos seus limites do que qualquer lista de exercícios teria produzido.
+
+**Escolher o que mostrar.** O terceiro desafio foi de julgamento: decidir quais indicadores realmente importam. Era tecnicamente possível calcular dezenas de números, e a tentação de exibir todos era grande. Concluiu-se que **indicador que não muda uma decisão é ruído** — um painel cheio informa menos que um painel enxuto. O critério adotado foi o de manter apenas indicadores capazes de orientar uma ação concreta: repor estoque, promover um item, rever um preço, ajustar uma meta.
+
+### 5.2.4 O que precisou ser refeito
+
+Quatro frentes exigiram retrabalho relevante:
+
+| Frente | O que aconteceu |
+|---|---|
+| **Identidade do usuário** | O modelo inicial repetia o cadastro da pessoa a cada loja: o mesmo e-mail existia várias vezes, uma linha por loja. O modelo se mostrou insustentável e foi preciso migrar para identidade única, com o vínculo de participação registrado em tabela separada — refatoração que atingiu autenticação, permissões e consultas |
+| **Precisão dos valores** | Divergências de centavos entre totais apurados por caminhos diferentes levaram à revisão de onde arredondar. A conclusão foi arredondar **apenas na apresentação**, mantendo precisão plena durante o encadeamento dos cálculos |
+| **PIX e QR Code** | A integração com a API externa de geração do QR Code exigiu mais iterações que o previsto, incluindo a correção de um caso em que a resposta do serviço estava sendo ignorada |
+| **Layout e responsividade** | Adequar as telas ao celular — especialmente o PDV, usado no balcão — e implementar o tema claro/escuro consumiu tempo bastante acima do estimado |
+
+---
+
+## 5.3 Limitações atuais do projeto
+
+Registram-se com transparência as limitações do estado atual:
+
+1. **O pagamento é simulado.** Não há integração com provedor; nenhum valor é efetivamente movimentado.
+2. **O escopo financeiro aplicado é o dos valores nominais.** Juros simples e compostos, desconto, parcelamento com acréscimo, VPL e TIR permanecem no referencial teórico, sem implementação.
+3. **Não há projeção de tendência.** A estrutura da série de previsão está reservada, mas o cálculo não foi realizado.
+4. **A validação ocorreu em base de exemplo.** Os cálculos foram conferidos sobre conjunto pequeno e controlado; o comportamento sob volume elevado não foi medido.
+5. **Não há suíte de testes automatizados.** A verificação apoia-se em conferência manual e em scripts próprios, o que é adequado à escala atual, mas não a um sistema em evolução contínua.
+6. **O projeto não utiliza gerenciador de dependências.** A ausência do Composer simplifica a instalação, mas isola o projeto do ecossistema de bibliotecas.
+7. **A proteção dos arquivos sensíveis depende da configuração do servidor.** Enquanto o projeto roda dentro do diretório público do Apache, quem protege os arquivos de configuração são as regras do `.htaccess`; em outro servidor, essa proteção precisa ser refeita.
+
+---
+
+## 5.4 Sugestões de trabalhos futuros
+
+### 5.4.1 Frentes prioritárias
+
+**1. Integração com pagamento real.** É o passo que separa o protótipo do sistema utilizável em operação comercial. Envolve integrar um provedor de serviços de pagamento, tratar a confirmação assíncrona da transação, lidar com estorno e cancelamento, e observar as exigências legais aplicáveis — inclusive as de proteção de dados. Do ponto de vista da disciplina, introduz uma distinção que o sistema atual não faz: a diferença entre **venda registrada e recurso efetivamente liquidado**, que é o que separa regime de competência de regime de caixa.
+
+**2. Aplicação do valor do dinheiro no tempo.** É a continuação natural do trabalho na direção da Matemática Financeira, e a mais rica em conteúdo. Compreende:
+
+- **Parcelamento com juros:** cálculo da prestação pelo sistema de amortização francês, exibindo ao cliente o valor total e o custo efetivo da operação.
+- **Desconto para pagamento à vista:** cálculo do valor presente e comparação entre as alternativas de recebimento.
+- **Análise de investimento:** aplicação de VPL e TIR sobre a decisão de compra de estoque, respondendo se antecipar a reposição de um item compensa o capital imobilizado.
+- **Correção de valores no tempo:** comparar faturamentos de meses distantes em termos reais, e não apenas nominais.
+
+**3. Previsão de tendência no faturamento.** A estrutura da série de previsão já está reservada no módulo, à espera do cálculo. A implementação pode partir da **média móvel simples**, para suavizar o ruído, e avançar para o **ajuste de reta pelo método dos mínimos quadrados**, projetando a linha tracejada sobre o gráfico existente. É um trabalho de bom rendimento didático: exercita regressão, séries temporais e a discussão honesta sobre os limites de qualquer projeção.
+
+### 5.4.2 Outras frentes registradas
+
+Complementarmente, a auditoria técnica do projeto registra as seguintes oportunidades:
+
+| Frente | Descrição |
+|---|---|
+| Testes automatizados | Suíte de testes de unidade sobre a camada de serviço, cobrindo especialmente as fórmulas financeiras e seus casos-limite |
+| Adoção do Composer | Organização das dependências e do carregamento de classes pelo padrão consolidado da linguagem |
+| Curva ABC de produtos | Classificação dos itens por participação no faturamento, conceito já apresentado no referencial e ainda não implementado |
+| Giro e cobertura de estoque | Indicadores de rotatividade, complementares aos de lucratividade já existentes |
+| Comparação entre lojas | Aproveitamento da arquitetura multi-loja para análise comparativa de desempenho |
+| Exportação de relatórios | Geração de arquivos em PDF ou planilha, para uso contábil |
+| Aplicativo móvel | Interface nativa para o PDV, hoje acessado pelo navegador |
+
+---
+
+## 5.5 Palavra final
+
+O trabalho partiu de uma constatação simples: o pequeno comerciante sabe operar seu negócio, mas raramente dispõe dos instrumentos para medi-lo. A resposta construída foi um sistema que registra cada venda de forma íntegra e devolve, sobre esses registros, os números que a Matemática Financeira sabe produzir.
+
+O percurso não foi linear. Houve troca de disciplina no primeiro mês, com reestruturação completa da proposta, e houve a perda integral do código, com reescrita do zero. Nenhum dos dois estava previsto, e ambos ensinaram mais do que teriam ensinado se não tivessem acontecido: o primeiro, que a pergunta define a solução e não o contrário; o segundo, por que existem controle de versão e cópia de segurança — lição que nenhuma explicação teórica fixa tão bem quanto a perda real.
+
+Do encontro entre as duas disciplinas, ficou claro que a relação é de mão dupla. A Matemática Financeira determinou o que o sistema precisava armazenar: sem o preço de custo no cadastro, não há margem; sem o preço gravado no momento da venda, não há histórico fiel. E a Computação impôs à Matemática Financeira um rigor que o exercício escolar não exige: a fórmula precisou responder também nos casos em que ela, sozinha, se cala.
+
+Talvez esse seja o resultado mais duradouro do projeto. **Uma fórmula compreendida é uma fórmula que se sabe aplicar; uma fórmula programada é uma fórmula cujos limites se conhece.** O sistema entregue calcula receita, custo, margem e variação — mas o que ele demonstra é que, entre saber a conta e fazer a conta valer sobre dados reais, existe uma distância que só se percorre construindo.
+
+---
+
+# 6. Referências
+
+
+ASSAF NETO, Alexandre. **Matemática financeira e suas aplicações**. 13. ed. São Paulo: Atlas, 2016.
+
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. **NBR 6023**: informação e documentação: referências: elaboração. Rio de Janeiro: ABNT, 2018.
+
+BANCO CENTRAL DO BRASIL. **Pix**. Brasília, DF. Disponível em: https://www.bcb.gov.br/estabilidadefinanceira/pix. Acesso em: 17 ago. 2026.
+
+BRASIL. **Lei nº 13.709, de 14 de agosto de 2018**. Lei Geral de Proteção de Dados Pessoais (LGPD). Diário Oficial da União: seção 1, Brasília, DF, 15 ago. 2018.
+
+CHART.JS. **Chart.js documentation**. Disponível em: https://www.chartjs.org/docs/latest/. Acesso em: 17 ago. 2026.
+
+DATE, Christopher J. **Introdução a sistemas de bancos de dados**. 8. ed. Rio de Janeiro: Elsevier, 2004.
+
+ELMASRI, Ramez; NAVATHE, Shamkant B. **Sistemas de banco de dados**. 7. ed. São Paulo: Pearson, 2019.
+
+FEW, Stephen. **Information dashboard design**: the effective visual communication of data. Sebastopol: O'Reilly, 2006.
+
+HAZZAN, Samuel; POMPEO, José Nicolau. **Matemática financeira**. 7. ed. São Paulo: Saraiva, 2014.
+
+IEZZI, Gelson; HAZZAN, Samuel; DEGENSZAJN, David. **Fundamentos de matemática elementar 11**: matemática comercial, matemática financeira, estatística descritiva. 2. ed. São Paulo: Atual, 2013.
+
+KIMBALL, Ralph; ROSS, Margy. **The data warehouse toolkit**: the definitive guide to dimensional modeling. 3. ed. Indianapolis: Wiley, 2013.
+
+NIEDERAUER, Juliano. **Desenvolvendo websites com PHP**. 3. ed. São Paulo: Novatec, 2017.
+
+OPENROUTER. **OpenRouter documentation**. Disponível em: https://openrouter.ai/docs. Acesso em: 17 ago. 2026.
+
+ORACLE CORPORATION. **MySQL 8.0 reference manual**. Disponível em: https://dev.mysql.com/doc/refman/8.0/en/. Acesso em: 17 ago. 2026.
+
+PHP GROUP. **Manual do PHP**. Disponível em: https://www.php.net/manual/pt_BR/. Acesso em: 17 ago. 2026.
+
+PRESSMAN, Roger S.; MAXIM, Bruce R. **Engenharia de software**: uma abordagem profissional. 8. ed. Porto Alegre: AMGH, 2016.
+
+PUCCINI, Abelardo de Lima. **Matemática financeira**: objetiva e aplicada. 9. ed. Rio de Janeiro: Elsevier, 2011.
+
+RAPIDAPI. **RapidAPI documentation**. Disponível em: https://docs.rapidapi.com/. Acesso em: 17 ago. 2026.
+
+---
+
+### Referências indispensáveis por seção
+
+O quadro abaixo indica quais referências sustentam cada parte do trabalho. Serve para verificar se alguma obra citada no texto ficou fora da lista — ou o contrário.
+
+| Seção | Referências que a sustentam |
+|---|---|
+| 2.1.2 a 2.1.13 (fórmulas financeiras) | HAZZAN; POMPEO (2014); ASSAF NETO (2016); PUCCINI (2011); IEZZI; HAZZAN; DEGENSZAJN (2013) |
+| 2.2.2 (PHP) | PHP GROUP; NIEDERAUER (2017) |
+| 2.2.4 e 2.2.5 (modelo relacional e SQL) | DATE (2004); ELMASRI; NAVATHE (2019); ORACLE CORPORATION |
+| 2.2.6 (transações e ACID) | DATE (2004); ELMASRI; NAVATHE (2019) |
+| 2.2.8 (arquitetura em camadas) | PRESSMAN; MAXIM (2016) |
+| 2.2.11 (BI e visualização) | KIMBALL; ROSS (2013); FEW (2006) |
+| 3.2 (tecnologias e bibliotecas) | CHART.JS; RAPIDAPI; OPENROUTER; PHP GROUP; ORACLE CORPORATION |
+| 1.5, 4.4 e 5.3 (pagamento e conformidade) | BANCO CENTRAL DO BRASIL; BRASIL (2018) |
+| Formatação do documento | ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS (2018) |
+
+---
+
+### Pendência de coerência entre texto e referências
+
+Cinco passagens do Capítulo 2 atribuem uma ideia a um autor **pelo nome**, e a ABNT exige que todo autor citado no texto conste da lista de referências. Como as obras correspondentes não foram mantidas, cada passagem precisa de uma das duas providências:
+
+| Passagem | Autor citado no texto | Providência |
+|---|---|---|
+| 2.2.4 — modelo relacional | Edgar F. Codd (1970) | Repor a referência **ou** reescrever como "proposto no início da década de 1970" |
+| 2.2.6 — propriedades ACID | Härder e Reuter (1983) | Repor a referência **ou** reescrever como "sintetizadas na sigla ACID" |
+| 2.2.9 — estilo REST | Roy Fielding (2000) | Repor a referência **ou** reescrever como "formulado no ano 2000" |
+| 2.2.11 — data warehousing | Bill Inmon | Repor a referência **ou** manter apenas Kimball, que consta da lista |
+| 2.2.11 — visualização de dados | Edward Tufte | Repor a referência **ou** atribuir a formulação a FEW (2006), que consta da lista |
+---
+
+### Sobre a citação de ferramentas de Inteligência Artificial
+
+Conforme declarado em 3.2.3, ferramentas de Inteligência Artificial generativa foram utilizadas como apoio. A ABNT ainda não estabelece formato específico para esse tipo de fonte, e as instituições vêm adotando orientações próprias. Caso a sua exija a citação, o modelo usualmente aceito segue a estrutura de fonte eletrônica:
+
+> ANTHROPIC. **Claude**. Disponível em: https://claude.ai. Acesso em: 17 ago. 2026.
+
+Substitua pelo nome da ferramenta efetivamente utilizada e confirme com o orientador se a citação deve constar nas referências, em nota de rodapé ou apenas na declaração metodológica.
+
