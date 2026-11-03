@@ -54,13 +54,41 @@ class AnalyzingBIRepository
         return (int) $stmt->fetchColumn();
     }
 
-    /** Lucro estimado: (preço de venda no item − custo atual do produto) × quantidade. */
+    /**
+     * Custo do item: o congelado na venda (order_items.cost_price, desde a
+     * 0019). Só cai para o custo atual do cadastro se o item for anterior à
+     * coluna e o produto não existia no backfill — caso que hoje não ocorre,
+     * mas a consulta não deve depender disso.
+     */
+    private const CUSTO_ITEM = 'COALESCE(oi.cost_price, p.cost_price, 0)';
+
+    /**
+     * Parte do desconto do pedido que cabe a este item, proporcional à sua
+     * receita bruta no pedido:
+     *
+     *     desconto_item = desconto_pedido × (q × pv) / subtotal_pedido
+     *
+     * A soma das partes devolve o desconto inteiro. O CASE só executa a
+     * subconsulta para pedidos com desconto — a imensa maioria não tem.
+     */
+    private const DESCONTO_ITEM = 'CASE WHEN o.discount > 0
+            THEN o.discount * (oi.quantity * oi.price)
+                 / NULLIF((SELECT SUM(x.quantity * x.price) FROM order_items x WHERE x.order_id = o.id), 0)
+            ELSE 0 END';
+
+    /**
+     * Lucro estimado: Σ (pv − pc) × q − desconto rateado.
+     *
+     * pv é o preço gravado no item, pc o custo gravado no item. Antes o custo
+     * vinha do cadastro atual e o desconto do PDV era ignorado — o primeiro
+     * reescrevia o passado, o segundo inflava o lucro de toda venda com desconto.
+     */
     public function sumEstimatedProfit(int $storeId, ?string $fromDatetime, ?string $toDatetime): float
     {
-        $sql = 'SELECT COALESCE(SUM(oi.quantity * (oi.price - COALESCE(p.cost_price, 0))), 0)
+        $sql = 'SELECT COALESCE(SUM(oi.quantity * (oi.price - ' . self::CUSTO_ITEM . ') - ' . self::DESCONTO_ITEM . '), 0)
             FROM order_items oi
             INNER JOIN orders o ON o.id = oi.order_id AND o.store_id = ? AND o.status = ?
-            INNER JOIN products p ON p.id = oi.product_id AND p.store_id = o.store_id
+            LEFT JOIN products p ON p.id = oi.product_id
             WHERE 1=1';
         $params = [$storeId, 'pago'];
         if ($fromDatetime !== null) {
@@ -78,7 +106,7 @@ class AnalyzingBIRepository
     }
 
     /**
-     * Lucro por produto no período: (preço do item − custo do produto) × quantidade vendida.
+     * Lucro por produto no período: Σ (pv − pc) × q − desconto rateado, com pc congelado no item.
      *
      * @return list<array{
      *     product_id: int,
@@ -91,14 +119,20 @@ class AnalyzingBIRepository
      */
     public function fetchProductProfitByPeriod(int $storeId, ?string $fromDatetime, ?string $toDatetime): array
     {
+        // Custo e preço médios são PONDERADOS pela quantidade: com o custo
+        // congelado, o mesmo produto pode ter sido vendido a custos diferentes
+        // ao longo do período. O preço médio já é líquido do desconto rateado,
+        // para que margem = preço médio − custo médio feche com o lucro total.
         $sql = 'SELECT oi.product_id,
             MAX(p.name) AS product_name,
             SUM(oi.quantity) AS quantidade_vendida,
-            MAX(COALESCE(p.cost_price, 0)) AS custo_unitario,
             CASE WHEN SUM(oi.quantity) > 0
-                THEN SUM(oi.quantity * oi.price) / SUM(oi.quantity)
+                THEN SUM(oi.quantity * ' . self::CUSTO_ITEM . ') / SUM(oi.quantity)
+                ELSE 0 END AS custo_unitario,
+            CASE WHEN SUM(oi.quantity) > 0
+                THEN (SUM(oi.quantity * oi.price) - SUM(' . self::DESCONTO_ITEM . ')) / SUM(oi.quantity)
                 ELSE 0 END AS preco_venda_medio,
-            SUM(oi.quantity * (oi.price - COALESCE(p.cost_price, 0))) AS lucro_total
+            SUM(oi.quantity * (oi.price - ' . self::CUSTO_ITEM . ') - ' . self::DESCONTO_ITEM . ') AS lucro_total
             FROM order_items oi
             INNER JOIN orders o ON o.id = oi.order_id AND o.store_id = ? AND o.status = ?
             INNER JOIN products p ON p.id = oi.product_id AND p.store_id = o.store_id

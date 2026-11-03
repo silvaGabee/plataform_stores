@@ -144,6 +144,7 @@ class OrderService
                 'variant_key'  => $variantKey,
                 'quantity'     => $qty,
                 'price'        => $product['sale_price'],
+                'cost_price'   => $product['cost_price'] ?? null,
             ]);
         }
         return $this->orderRepo->find($orderId);

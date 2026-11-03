@@ -134,8 +134,8 @@ Desenvolver uma **aplicação web multi-loja para gestão comercial** que regist
 Registram-se três limites que definem com precisão o alcance do trabalho:
 
 1. **O processamento de pagamento é simulado.** O sistema modela integralmente o ciclo financeiro do pagamento — registro, confirmação, baixa de estoque e reflexo na receita e no lucro —, mas não se integra a um provedor de pagamentos real. O uso comercial efetivo exige essa integração.
-2. **Os indicadores operam sobre valores nominais.** O escopo atual cobre os conceitos de proporção, porcentagem, média e taxa de variação. Instrumentos de Matemática Financeira que envolvem o **valor do dinheiro no tempo** — juros simples e compostos, desconto, parcelamento com acréscimo, valor presente líquido e taxa interna de retorno — não são aplicados nesta versão e constituem a principal frente de ampliação do trabalho.
-3. **A projeção de tendência ainda não é calculada.** A estrutura da série de previsão está prevista e reservada no módulo de faturamento, mas o cálculo de tendência (por exemplo, por média móvel ou regressão linear) permanece como trabalho futuro.
+2. **Os indicadores de desempenho operam sobre valores nominais.** O BI cobre proporção, porcentagem, média, taxa de variação e tendência. Do **valor do dinheiro no tempo**, foi implementado o **parcelamento com juros compostos pela tabela Price**, no simulador do PDV (3.4.13). Desconto racional, valor presente líquido e taxa interna de retorno continuam no referencial teórico, sem aplicação.
+3. **A projeção de tendência é linear.** A linha de tendência do faturamento é uma reta ajustada por mínimos quadrados (3.4.12). Ela não modela sazonalidade nem eventos pontuais, e é apresentada como projeção, não como previsão garantida.
 
 ---
 
@@ -794,16 +794,28 @@ SELECT COALESCE(SUM(total), 0)
 
 **Teoria (2.1.9):** `L = Σ qᵢ · (pvᵢ − pcᵢ)`
 
-**Tradução:** a expressão é transcrita quase literalmente para SQL. A junção entre `order_items` e `products` traz, para a mesma linha, o preço praticado na venda e o custo cadastrado; a subtração produz a margem unitária; a multiplicação pela quantidade e o `SUM()` completam o somatório. A função `COALESCE` trata o caso de produto sem custo informado, evitando que a ausência do dado anule o resultado:
+**Tradução:** a expressão é transcrita quase literalmente para SQL. Cada item do pedido guarda, no momento da venda, o preço praticado (`oi.price`) **e o custo vigente** (`oi.cost_price`); a subtração produz a margem unitária; a multiplicação pela quantidade e o `SUM()` completam o somatório.
+
+Na primeira versão, o custo era lido do cadastro atual do produto (`products.cost_price`). Isso tinha uma consequência séria: **alterar o custo de um produto recalculava o lucro de todos os meses anteriores**, como se as vendas antigas tivessem sido feitas ao custo de hoje. O preço já era congelado no pedido; o custo passou a ser também (migration `0019`). Pedidos anteriores à mudança receberam o custo vigente uma única vez, já que o custo da época nunca havia sido registrado.
+
+Com o desconto concedido no PDV, a fórmula ganha um termo. O desconto `D` é dado sobre o pedido inteiro, e cada item absorve a parte proporcional à sua receita bruta — uma aplicação direta da repartição proporcional (2.1.13):
+
+`Dᵢ = D · (qᵢ · pvᵢ) / Σ (qⱼ · pvⱼ)`, e portanto `L = Σ [ qᵢ · (pvᵢ − pcᵢ) − Dᵢ ]`
 
 ```sql
-SELECT COALESCE(SUM(oi.quantity * (oi.price - COALESCE(p.cost_price, 0))), 0)
+SELECT COALESCE(SUM(
+         oi.quantity * (oi.price - COALESCE(oi.cost_price, p.cost_price, 0))
+       - CASE WHEN o.discount > 0
+              THEN o.discount * (oi.quantity * oi.price)
+                   / (SELECT SUM(x.quantity * x.price) FROM order_items x WHERE x.order_id = o.id)
+              ELSE 0 END
+       ), 0)
   FROM order_items oi
  INNER JOIN orders   o ON o.id = oi.order_id AND o.store_id = ? AND o.status = 'pago'
- INNER JOIN products p ON p.id = oi.product_id AND p.store_id = o.store_id
+  LEFT JOIN products p ON p.id = oi.product_id
 ```
 
-A correspondência é termo a termo: `Σ` → `SUM`, `qᵢ` → `oi.quantity`, `pvᵢ` → `oi.price`, `pcᵢ` → `p.cost_price`.
+A correspondência é termo a termo: `Σ` → `SUM`, `qᵢ` → `oi.quantity`, `pvᵢ` → `oi.price`, `pcᵢ` → `oi.cost_price`, `Dᵢ` → o `CASE`. Como as partes `Dᵢ` de um pedido somam exatamente `D`, o lucro total é o mesmo que se obteria subtraindo o desconto do pedido inteiro — mas o rateio permite atribuir o lucro **a cada produto**, o que o gráfico de lucro por produto exige.
 
 ### 3.4.3 Média ponderada — preço médio de venda
 
@@ -853,6 +865,8 @@ public static function growthPercent(float $current, float $previous): float
 
 Esse trecho ilustra com precisão a diferença entre a fórmula do caderno e a fórmula em produção: **o programa não pode deixar um caso indefinido sem resposta.** A convenção adotada precisa ser explicitada e documentada, tornando-se parte do modelo.
 
+Igualmente importante é **o que se compara**. A primeira versão confrontava o mês corrente, ainda incompleto, com o mês anterior inteiro. Com o histórico de demonstração carregado, o efeito ficou evidente: no dia 3, o painel acusava queda de 88% nas vendas e classificava quase todos os produtos como "parados". Era um erro de comparação, e não de movimento: três dias contra trinta. A comparação passou a ser entre **períodos equivalentes**, do dia 1º até o instante atual contra o mesmo intervalo do mês anterior, limitado ao último dia dele quando o mês anterior é mais curto. No mesmo cenário, a variação correta foi de +24,8%. A fórmula `i` não mudou; mudou a escolha de `Vf` e `Vi`. Essa escolha faz parte da modelagem, tanto quanto a fórmula.
+
 ### 3.4.6 Margem de contribuição unitária
 
 **Teoria (2.1.9):** `m = pv − pc`
@@ -885,13 +899,24 @@ if ($qc < $limite) {
 
 **Teoria (2.1.13):** `Pᵢ = (pᵢ / Σpⱼ) · T`, que no caso de pesos iguais se reduz a `T / n`.
 
-**Tradução:** a meta global da loja é dividida em partes iguais entre os funcionários ativos:
+**Tradução:** a meta global da loja é dividida em partes iguais entre os funcionários. A primeira versão arredondava cada parte de forma independente:
 
 ```php
-$perEmployee = round($goalAmount / $count, 2);
+$perEmployee = round($goalAmount / $count, 2);   // versão inicial
 ```
 
-*(em [backend/app/Controllers/Api/GoalsApiController.php](backend/app/Controllers/Api/GoalsApiController.php))*
+O arredondamento isolado quebra a soma: R$ 1.000,00 entre 3 pessoas resultava em 3 × R$ 333,33 = R$ 999,99 — um centavo da meta desaparecia. A correção trabalha em **centavos inteiros** e distribui o resto da divisão, um centavo por vez:
+
+`base = ⌊T / n⌋`, `resto = T − base · n`, e as `resto` primeiras partes recebem `base + 1`.
+
+```php
+$partes = \App\Domain\Finance\Money::splitEvenly($goalAmount, $count);
+// 1000,00 / 3 → [333,34, 333,33, 333,33]  (soma: 1000,00)
+```
+
+*(em [backend/app/Domain/Finance/Money.php](backend/app/Domain/Finance/Money.php))*
+
+Duas garantias decorrem da construção: a soma das partes é **exatamente** o total, e duas partes nunca diferem em mais de um centavo. O mesmo procedimento é reutilizado no parcelamento sem juros (3.4.13).
 
 ### 3.4.9 Série temporal com períodos completos
 
@@ -949,6 +974,48 @@ Fecha-se assim o percurso completo do trabalho: **da fórmula matemática à con
 
 ---
 
+### 3.4.12 Tendência do faturamento por mínimos quadrados
+
+**Teoria (2.1.12):** numerando os períodos `x = 0, 1, …, n − 1`, procura-se a reta `ŷ = a + b·x` que minimiza a soma dos quadrados dos desvios `Σ (y − ŷ)²`. A solução fechada é
+
+`b = Σ (x − x̄)(y − ȳ) / Σ (x − x̄)²`  e  `a = ȳ − b·x̄`
+
+e a qualidade do ajuste é medida pelo coeficiente de determinação `R² = 1 − Σ (y − ŷ)² / Σ (y − ȳ)²` — a fração da variação do faturamento que a reta explica.
+
+**Tradução:** as duas somas são acumuladas num único laço sobre a série, em [backend/app/Domain/Finance/Trend.php](backend/app/Domain/Finance/Trend.php):
+
+```php
+foreach ($y as $x => $yi) {
+    $dx   = $x - $xMedio;
+    $sxy += $dx * ($yi - $yMedio);
+    $sxx += $dx * $dx;
+}
+$b = $sxx > 0 ? $sxy / $sxx : 0.0;
+$a = $yMedio - $b * $xMedio;
+```
+
+Três decisões de modelagem acompanham a fórmula:
+
+1. **Só períodos completos entram no ajuste.** O dia de hoje e o mês corrente ainda estão em andamento; um valor parcial no fim da série puxaria a inclinação para baixo, e a tendência indicaria queda toda manhã. O período corrente é **projetado**, não usado para ajustar.
+2. **Mínimo de três pontos.** Por dois pontos passa sempre uma reta perfeita, que nada informa sobre tendência. Na visão mensal, o ajuste usa os seis últimos meses completos, ainda que o gráfico mostre três.
+3. **Faturamento não é negativo.** Uma reta descendente que cruze o zero é truncada em zero.
+
+A reta é desenhada como linha tracejada sobre o gráfico existente, acompanhada da inclinação por período e do R², para que o gestor leia a projeção junto com o grau de confiança que ela merece. Um R² baixo — comum em varejo, onde há forte variação diária — significa que a reta capta a direção geral, mas explica pouco da oscilação de um dia para o outro.
+
+### 3.4.13 Parcelamento pela tabela Price
+
+**Teoria (2.1.5 e 2.1.7):** no Sistema Francês de Amortização, as parcelas são iguais e periódicas, e cada uma remunera o saldo devedor a juros compostos. A parcela iguala o valor financiado `P` ao valor presente da série uniforme:
+
+`PMT = P · i / (1 − (1 + i)⁻ⁿ)`
+
+Em cada período `k`: `Jₖ = Sₖ₋₁ · i` (juros), `Aₖ = PMT − Jₖ` (amortização) e `Sₖ = Sₖ₋₁ − Aₖ` (saldo).
+
+**Tradução:** o simulador, em [backend/app/Domain/Finance/Installments.php](backend/app/Domain/Finance/Installments.php), é exibido no PDV quando o operador escolhe cartão. Para o valor da venda e a taxa mensal informada, mostra as opções de 1x a 12x, o total pago, os juros e a **taxa anual equivalente** `(1 + i)¹² − 1` — que torna visível o efeito da capitalização composta: 1% ao mês não são 12% ao ano, e sim 12,68%. A tabela de amortização completa pode ser aberta na mesma tela.
+
+O arredondamento segue a prática de uma fatura real: cada valor é arredondado ao centavo, e o resíduo acumulado é absorvido pela última parcela, que amortiza exatamente o saldo restante. Assim a tabela sempre fecha — `Σ Aₖ = P` e o saldo final é zero. No exemplo clássico de R$ 1.000,00 a 2% ao mês em 12 vezes, a parcela é R$ 94,56 e o total R$ 1.134,70 (e não 12 × 94,56 = 1.134,72, pois a última parcela é ajustada). Com taxa zero, a fórmula se reduz a `P / n`, calculada pelo mesmo rateio em centavos de 3.4.8.
+
+A simulação não altera o valor registrado da venda: os juros do parcelamento no cartão ficam com a operadora, e a loja recebe o preço à vista.
+
 ## 3.5 Procedimentos de validação
 
 A corretude de um sistema de cálculo financeiro não se demonstra pelo funcionamento da tela, mas pela conferência do resultado. Adotaram-se três procedimentos.
@@ -957,7 +1024,11 @@ A corretude de um sistema de cálculo financeiro não se demonstra pelo funciona
 
 **2. Verificação por scripts automatizados.** Três verificadores próprios foram executados: `routes_check.php`, que confirma que nenhuma rota executa sem declarar permissão; `authz_check.php`, que testa a matriz de permissões e a proteção CSRF por requisições HTTP reais; e `concurrency_check.php`, que submete o estoque e a confirmação de pagamento a acessos simultâneos, verificando se as transações impedem inconsistência.
 
-**3. Teste de casos-limite.** Foram verificados especificamente os pontos em que a fórmula matemática encontra situação indefinida ou de fronteira: loja sem nenhuma venda registrada (divisão por zero no ticket médio), período anterior com faturamento nulo (divisão por zero na taxa de variação), produto sem custo cadastrado (margem indeterminada) e dias sem movimento dentro da série temporal.
+**3. Testes automatizados das fórmulas.** As fórmulas financeiras foram isoladas em classes sem acesso a banco (`App\Domain\Finance`) e cobertas por testes de unidade em [backend/tests/Unit/FinanceMathTest.php](backend/tests/Unit/FinanceMathTest.php), executados com `php backend/tests/run.php`. Os valores esperados foram calculados à mão — teste de mesa —, e não copiados da saída do programa, para que o teste não se limite a confirmar o que o código já faz. São 20 casos: rateio exato em centavos, regressão linear (reta perfeita, série constante e um exemplo resolvido passo a passo), projeção, tabela Price (parcela, fechamento da tabela, juros decrescentes, taxa zero, taxa anual equivalente e entradas inválidas) e taxa de variação.
+
+**4. Conferência e medição em volume.** A ferramenta [backend/tools/bi_benchmark.php](backend/tools/bi_benchmark.php) cria um banco separado, gera 50 mil pedidos sintéticos com dados reprodutíveis (semente fixa) e confronta os números do BI com um cálculo independente feito item a item. Verifica também que o lucro das vendas passadas permanece igual depois que todos os custos do cadastro são alterados, e mede o tempo de cada consulta. Os resultados estão em 4.3.4.
+
+**5. Teste de casos-limite.** Foram verificados especificamente os pontos em que a fórmula matemática encontra situação indefinida ou de fronteira: loja sem nenhuma venda registrada (divisão por zero no ticket médio), período anterior com faturamento nulo (divisão por zero na taxa de variação), produto sem custo cadastrado (margem indeterminada) e dias sem movimento dentro da série temporal.
 
 ---
 
@@ -1130,9 +1201,32 @@ Como argumentado em 3.4.10, indicador confiável exige dado confiável. Foram ex
 | **Proteção CSRF** | Requisição de alteração sem token válido | Recusa com código 403 |
 | **Limite de tentativas** | Sucessivas tentativas de login com senha errada | Bloqueio temporário após 8 tentativas |
 
-### 4.3.4 Síntese dos testes
+### 4.3.4 Conferência e desempenho em volume
 
-Os testes cobriram três camadas distintas, e a distinção importa: a primeira verifica se **a conta está certa**; a segunda, se ela **não quebra** diante de dados excepcionais; a terceira, se **os dados que alimentam a conta são verdadeiros**. Um sistema financeiro precisa das três — acertar a fórmula sobre dados corrompidos produz um erro tão grave quanto errar a fórmula.
+Com 50.000 pedidos e 124.330 itens gerados pela ferramenta de benchmark, todos os indicadores coincidiram com o cálculo independente:
+
+| Conferência | Esperado | Obtido |
+|---|---:|---:|
+| Faturamento (pedidos pagos) | R$ 40.151.727,39 | R$ 40.151.727,39 |
+| Quantidade de pedidos pagos | 42.525 | 42.525 |
+| Lucro (custo congelado, desconto rateado) | R$ 18.545.550,68 | R$ 18.545.550,68 |
+| Soma do lucro por produto | R$ 18.545.550,68 | R$ 18.545.550,68 |
+| Lucro após o custo do cadastro subir 50% | R$ 18.545.550,68 | R$ 18.545.550,68 |
+
+A medição revelou que, nesse volume, o painel levava quase dois segundos para carregar. A análise do plano de execução (`EXPLAIN`) mostrou que o banco percorria todos os pedidos da loja e filtrava status e data linha a linha. Dois índices compostos foram criados (migration `0020`), e a mesma medição foi repetida:
+
+| Consulta (mediana de 5 execuções) | Antes | Depois |
+|---|---:|---:|
+| Painel completo do BI | 1.950 ms | 541 ms |
+| Faturamento de 30 dias com tendência | 194 ms | 29 ms |
+| Lucro estimado (todo o período) | 1.561 ms | 376 ms |
+| Lucro por produto (todo o período) | 1.768 ms | 762 ms |
+
+O episódio ilustra o procedimento de validação em sua forma completa: a medição precede a otimização, a otimização é justificada pelo plano de execução, e a conferência dos valores é repetida depois da mudança para garantir que ganhar velocidade não custou corretude.
+
+### 4.3.5 Síntese dos testes
+
+Os testes cobriram quatro camadas distintas, e a distinção importa: a primeira verifica se **a conta está certa**; a segunda, se ela **não quebra** diante de dados excepcionais; a terceira, se **os dados que alimentam a conta são verdadeiros**; a quarta, se a conta **continua certa e rápida quando o volume cresce**. Um sistema financeiro precisa das quatro — acertar a fórmula sobre dados corrompidos produz um erro tão grave quanto errar a fórmula, e um painel que leva segundos para abrir deixa de ser consultado.
 
 ---
 
@@ -1175,11 +1269,11 @@ Cabe registrar também o caminho inverso: a Matemática Financeira orientou deci
 
 A análise ficaria incompleta sem o registro honesto do que os resultados **não** demonstram:
 
-1. **A validação ocorreu sobre base de exemplo, não sobre operação real.** Os cálculos foram conferidos em conjunto pequeno e controlado de vendas. O comportamento do sistema sob volume elevado de dados não foi medido.
-2. **O escopo aplicado da disciplina é o dos valores nominais.** Conforme delimitado em 1.5, juros compostos, desconto, parcelamento e critérios de investimento como VPL e TIR foram estudados no referencial, mas não implementados — permanecem como frente de ampliação.
-3. **A projeção de tendência não foi implementada.** A estrutura está reservada no módulo de faturamento, mas o cálculo de média móvel ou de reta de tendência é trabalho futuro.
+1. **O volume foi testado com dados sintéticos, não com operação real.** A conferência e a medição de desempenho foram feitas sobre 50 mil pedidos gerados (4.3.4). Dados reais podem ter distribuição diferente — concentração em poucos produtos, picos sazonais —, e o desempenho em um servidor de produção, com acessos simultâneos, não foi medido.
+2. **O valor do dinheiro no tempo foi aplicado só ao parcelamento.** A tabela Price está implementada (3.4.13); desconto racional, VPL e TIR foram estudados no referencial, mas não aplicados.
+3. **A tendência é linear.** A reta de mínimos quadrados (3.4.12) não capta sazonalidade nem eventos pontuais, e seu R² costuma ser baixo em séries diárias de varejo.
 4. **O pagamento é simulado.** Nenhum valor é efetivamente movimentado; a receita apurada é a de vendas registradas, não a de recursos liquidados.
-5. **Não há suíte de testes automatizados de unidade.** A validação apoiou-se em conferência manual e em verificadores próprios, procedimento adequado à escala do projeto, mas que não substitui testes automatizados em um sistema em evolução contínua.
+5. **O custo dos pedidos anteriores à correção é aproximado.** Antes da migration `0019` o custo da venda não era registrado; esses pedidos receberam o custo vigente na data da correção.
 
 ---
 
@@ -1196,10 +1290,9 @@ As ressalvas dizem respeito a três frentes que ficaram pelo caminho:
 | Frente | Situação |
 |---|---|
 | Liquidação real do pagamento | Delimitada como fora de escopo desde o início (1.5); o ciclo é modelado, mas simulado |
-| Valor do dinheiro no tempo | Juros, parcelamento e critérios de investimento foram estudados no referencial, mas não implementados |
-| Projeção de tendência | A estrutura está reservada no módulo de faturamento; o cálculo não foi realizado |
+| Valor do dinheiro no tempo | Parcelamento pela tabela Price implementado no PDV; desconto racional, VPL e TIR permanecem no referencial |
 
-Dos dezoito objetivos específicos enumerados em 1.4.2, **dezesseis foram integralmente cumpridos**. Os dois restantes — a linha de tendência prevista no objetivo 14 e a validação em maior escala prevista no objetivo 17 — foram parcialmente atendidos.
+Dos dezoito objetivos específicos enumerados em 1.4.2, **todos foram cumpridos**. Os dois que estavam parcialmente atendidos foram concluídos: a linha de tendência do objetivo 14, por regressão linear (3.4.12), e a validação em maior escala do objetivo 17, com 50 mil pedidos (4.3.4).
 
 ---
 
@@ -1251,10 +1344,10 @@ Quatro frentes exigiram retrabalho relevante:
 Registram-se com transparência as limitações do estado atual:
 
 1. **O pagamento é simulado.** Não há integração com provedor; nenhum valor é efetivamente movimentado.
-2. **O escopo financeiro aplicado é o dos valores nominais.** Juros simples e compostos, desconto, parcelamento com acréscimo, VPL e TIR permanecem no referencial teórico, sem implementação.
-3. **Não há projeção de tendência.** A estrutura da série de previsão está reservada, mas o cálculo não foi realizado.
-4. **A validação ocorreu em base de exemplo.** Os cálculos foram conferidos sobre conjunto pequeno e controlado; o comportamento sob volume elevado não foi medido.
-5. **Não há suíte de testes automatizados.** A verificação apoia-se em conferência manual e em scripts próprios, o que é adequado à escala atual, mas não a um sistema em evolução contínua.
+2. **O valor do dinheiro no tempo foi aplicado só ao parcelamento.** A tabela Price está no PDV; desconto racional, VPL e TIR permanecem no referencial teórico. O parcelamento escolhido também não é gravado com o pagamento — aparece no cupom, mas não fica registrado no banco.
+3. **A tendência é linear.** A projeção não modela sazonalidade.
+4. **O volume foi testado com dados sintéticos.** 50 mil pedidos gerados conferiram e foram medidos; operação real e acessos simultâneos em produção, não.
+5. **Os testes automatizados cobrem o domínio, não as consultas.** As fórmulas têm testes de unidade; as consultas SQL do BI são conferidas pela ferramenta de benchmark, que precisa ser executada à parte por depender de banco.
 6. **O projeto não utiliza gerenciador de dependências.** A ausência do Composer simplifica a instalação, mas isola o projeto do ecossistema de bibliotecas.
 7. **A proteção dos arquivos sensíveis depende da configuração do servidor.** Enquanto o projeto roda dentro do diretório público do Apache, quem protege os arquivos de configuração são as regras do `.htaccess`; em outro servidor, essa proteção precisa ser refeita.
 
@@ -1268,12 +1361,12 @@ Registram-se com transparência as limitações do estado atual:
 
 **2. Aplicação do valor do dinheiro no tempo.** É a continuação natural do trabalho na direção da Matemática Financeira, e a mais rica em conteúdo. Compreende:
 
-- **Parcelamento com juros:** cálculo da prestação pelo sistema de amortização francês, exibindo ao cliente o valor total e o custo efetivo da operação.
+- **Parcelamento com juros:** *implementado* — ver 3.4.13. A continuação é registrar o parcelamento junto ao pagamento e comparar com o Sistema de Amortização Constante (SAC).
 - **Desconto para pagamento à vista:** cálculo do valor presente e comparação entre as alternativas de recebimento.
 - **Análise de investimento:** aplicação de VPL e TIR sobre a decisão de compra de estoque, respondendo se antecipar a reposição de um item compensa o capital imobilizado.
 - **Correção de valores no tempo:** comparar faturamentos de meses distantes em termos reais, e não apenas nominais.
 
-**3. Previsão de tendência no faturamento.** A estrutura da série de previsão já está reservada no módulo, à espera do cálculo. A implementação pode partir da **média móvel simples**, para suavizar o ruído, e avançar para o **ajuste de reta pelo método dos mínimos quadrados**, projetando a linha tracejada sobre o gráfico existente. É um trabalho de bom rendimento didático: exercita regressão, séries temporais e a discussão honesta sobre os limites de qualquer projeção.
+**3. Previsão de tendência no faturamento.** A reta de mínimos quadrados está implementada (3.4.12). O passo seguinte é tratar a **sazonalidade** — o varejo vende diferente em cada dia da semana e em cada época do ano —, por exemplo decompondo a série em tendência e componente sazonal, ou comparando cada período com o mesmo período do ciclo anterior.
 
 ### 5.4.2 Outras frentes registradas
 

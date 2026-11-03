@@ -83,9 +83,11 @@ CREATE TABLE `order_items` (
   `variant_key` varchar(80) DEFAULT NULL,
   `quantity` int(11) NOT NULL,
   `price` decimal(12,2) NOT NULL,
+  `cost_price` decimal(12,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `product_id` (`product_id`),
   KEY `idx_order` (`order_id`),
+  KEY `idx_order_cover` (`order_id`,`product_id`,`quantity`,`price`,`cost_price`),
   CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -113,6 +115,7 @@ CREATE TABLE `orders` (
   KEY `idx_created` (`created_at`),
   KEY `fk_orders_address` (`address_id`),
   KEY `idx_access_token` (`access_token`),
+  KEY `idx_store_status_created` (`store_id`,`status`,`created_at`),
   CONSTRAINT `fk_orders_address` FOREIGN KEY (`address_id`) REFERENCES `user_addresses` (`id`) ON DELETE SET NULL,
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`),
@@ -350,3 +353,6 @@ INSERT INTO schema_migrations (version) VALUES ('0014_rate_limits.sql');
 INSERT INTO schema_migrations (version) VALUES ('0015_store_members.sql');
 INSERT INTO schema_migrations (version) VALUES ('0017_users_single_identity.sql');
 INSERT INTO schema_migrations (version) VALUES ('0016_consolidate_user_identity.php');
+INSERT INTO schema_migrations (version) VALUES ('0018_orders_pdv_fields.sql');
+INSERT INTO schema_migrations (version) VALUES ('0019_order_items_cost_price.sql');
+INSERT INTO schema_migrations (version) VALUES ('0020_bi_indexes.sql');

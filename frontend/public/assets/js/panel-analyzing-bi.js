@@ -54,8 +54,14 @@
     var q = obj.quantidade_vendida != null ? obj.quantidade_vendida : 0;
     var g = obj[growthKey];
     var gNum = g != null ? parseFloat(g) : null;
-    var gStr = gNum != null && !isNaN(gNum) ? formatPct(gNum) : '—';
-    var gCls = gNum != null && !isNaN(gNum) && gNum < 0 ? ' bi-trend--down' : gNum > 0 ? ' bi-trend--up' : '';
+    var anterior = obj.quantidade_periodo_anterior != null ? parseFloat(obj.quantidade_periodo_anterior) : null;
+    var semBase = gNum == null || isNaN(gNum);
+    // Sem venda no período de comparação a variação não existe (divisão por
+    // zero): diz isso em vez de mostrar um percentual inventado.
+    var gStr = semBase
+      ? '— <span class="bi-card-metric-note">(antes: 0, sem base para comparar)</span>'
+      : formatPct(gNum) + (anterior != null ? ' <span class="bi-card-metric-note">(antes: ' + formatQty(anterior) + ')</span>' : '');
+    var gCls = semBase ? '' : gNum < 0 ? ' bi-trend--down' : gNum > 0 ? ' bi-trend--up' : '';
     el.innerHTML =
       '<p class="bi-card-name">' +
       escapeHtml(nome) +
@@ -343,6 +349,35 @@
     return p[2] + '/' + p[1];
   }
 
+  /**
+   * Texto sob o gráfico explicando a linha tracejada: inclinação da reta por
+   * período e R² (o quanto a reta explica a variação real). Projeção não é
+   * promessa — o texto diz de onde ela vem.
+   */
+  function renderForecastNote(payload) {
+    var el = document.getElementById('bi-revenue-forecast');
+    if (!el) return;
+    var meta = (payload.meta && payload.meta.previsao) || null;
+    if (!payload.serie_previsao || !payload.serie_previsao.length || !meta) {
+      var motivo = meta && meta.motivo_sem_previsao === 'sem_vendas_no_periodo'
+        ? 'Sem vendas nos períodos completos analisados: não há tendência a projetar.'
+        : '';
+      el.textContent = motivo;
+      el.classList.toggle('hidden', !motivo);
+      return;
+    }
+    var unidade = payload.granularidade === 'mes' ? 'mês' : 'dia';
+    var b = Number(meta.inclinacao_por_periodo) || 0;
+    var r2 = Number(meta.r2) || 0;
+    var direcao = Math.abs(b) < 0.005 ? 'estável' : (b > 0 ? 'alta de ' + formatMoney(b) + ' por ' + unidade : 'queda de ' + formatMoney(Math.abs(b)) + ' por ' + unidade);
+    var forca = r2 >= 0.7 ? 'forte' : (r2 >= 0.3 ? 'moderada' : 'fraca');
+    el.innerHTML = '<span class="bi-revenue-forecast-swatch" aria-hidden="true"></span>' +
+      '<span>Tendência (linha tracejada): <strong>' + direcao + '</strong>. ' +
+      'Reta ajustada por mínimos quadrados sobre ' + meta.periodos_ajuste + ' ' + (unidade === 'mês' ? 'meses' : 'dias') + ' completos; ' +
+      'R² = ' + r2.toFixed(2).replace('.', ',') + ' (aderência ' + forca + '). É uma projeção, não uma garantia.</span>';
+    el.classList.remove('hidden');
+  }
+
   function setRevenueChartError(msg) {
     var el = document.getElementById('bi-revenue-chart-error');
     if (!el) return;
@@ -412,13 +447,29 @@
       })
       .then(function (payload) {
         var serie = payload.serie || [];
+        var previsao = payload.serie_previsao || [];
         var gran = payload.granularidade === 'mes' ? 'mes' : 'dia';
-        var labels = serie.map(function (row) {
-          return formatRevenueAxisLabel(row.data, gran);
+
+        // Eixo X = datas reais + datas projetadas além do fim da série.
+        var datas = serie.map(function (row) { return row.data; });
+        previsao.forEach(function (row) {
+          if (datas.indexOf(row.data) === -1) datas.push(row.data);
         });
-        var values = serie.map(function (row) {
-          return parseFloat(row.valor) || 0;
+        var realPorData = {};
+        serie.forEach(function (row) { realPorData[row.data] = parseFloat(row.valor) || 0; });
+        var prevPorData = {};
+        previsao.forEach(function (row) { prevPorData[row.data] = parseFloat(row.valor) || 0; });
+
+        var labels = datas.map(function (d) {
+          return formatRevenueAxisLabel(d, gran);
         });
+        var values = datas.map(function (d) {
+          return Object.prototype.hasOwnProperty.call(realPorData, d) ? realPorData[d] : null;
+        });
+        var forecastValues = datas.map(function (d) {
+          return Object.prototype.hasOwnProperty.call(prevPorData, d) ? prevPorData[d] : null;
+        });
+        renderForecastNote(payload);
         var primary = biCssVar('--primary', '#2563eb');
         var fillSoft = parseColorToRgba(primary, 0.14);
 
@@ -438,7 +489,25 @@
             pointBorderWidth: 2
           }
         ];
-        /* serie_previsao (mesmo eixo X que `serie`): quando existir no API, acrescentar 2.º dataset com borderDash: [6,4] */
+        if (previsao.length) {
+          var trendColor = biCssVar('--warning', '#d97706');
+          datasets.push({
+            label: 'Tendência',
+            data: forecastValues,
+            fill: false,
+            tension: 0,
+            spanGaps: false,
+            borderColor: trendColor,
+            backgroundColor: trendColor,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: biCssVar('--bg-card', '#fff'),
+            pointBorderColor: trendColor,
+            pointBorderWidth: 2
+          });
+        }
 
         biRevenueChart = new Chart(canvas, {
           type: 'line',
@@ -449,7 +518,7 @@
             interaction: { mode: 'index', intersect: false },
             plugins: {
               legend: {
-                display: false,
+                display: previsao.length > 0,
                 labels: { color: biCssVar('--text', '#0f172a'), boxWidth: 12 }
               },
               tooltip: {
@@ -459,7 +528,8 @@
                   },
                   label: function (ctx) {
                     var v = ctx.parsed.y;
-                    return ' ' + formatMoney(v);
+                    if (v === null || v === undefined) return null;
+                    return ' ' + (ctx.dataset.label || '') + ': ' + formatMoney(v);
                   }
                 }
               }
@@ -546,8 +616,8 @@
     loadFaturamentoSeries(periodoInicial);
 
     renderChart(data.lucro_produtos);
-    renderProductCardBody('bi-card-top-body', data.produto_mais_vendido, 'crescimento_percentual', 'vs. mês anterior');
-    renderProductCardBody('bi-card-bottom-body', data.produto_menos_vendido, 'variacao_percentual', 'Variação vs. mês anterior');
+    renderProductCardBody('bi-card-top-body', data.produto_mais_vendido, 'crescimento_percentual', 'Variação vs. mesmo período do mês anterior');
+    renderProductCardBody('bi-card-bottom-body', data.produto_menos_vendido, 'variacao_percentual', 'Variação vs. mesmo período do mês anterior');
     renderStalled(data.produtos_parados);
     renderCritical(data.estoque_critico);
     renderIdeas(data.ideias_investimento);

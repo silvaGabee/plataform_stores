@@ -59,12 +59,13 @@ ob_start();
         <div class="bi-revenue-chart-wrap">
             <canvas id="bi-revenue-chart" aria-label="Gráfico de linha: faturamento ao longo do tempo"></canvas>
         </div>
+        <p id="bi-revenue-forecast" class="bi-revenue-forecast hidden" aria-live="polite"></p>
         <p id="bi-revenue-chart-error" class="bi-msg bi-msg--error hidden" role="alert"></p>
     </section>
 
     <section id="bi-chart-section" class="bi-chart-section hidden" aria-labelledby="bi-chart-title">
         <h2 id="bi-chart-title" class="bi-section-title">Lucro por produto</h2>
-        <p class="bi-section-desc">Lucro do mês atual por produto: (preço de venda − custo cadastrado) × quantidade vendida em pedidos pagos. Ex.: custo R$ 4, venda R$ 6 → margem R$ 2; com 10 unidades vendidas, lucro R$ 20.</p>
+        <p class="bi-section-desc">Lucro do mês atual por produto: (preço de venda − custo na data da venda) × quantidade vendida em pedidos pagos, já descontados os descontos concedidos. Ex.: custo R$ 4, venda R$ 6 → margem R$ 2; com 10 unidades vendidas, lucro R$ 20.</p>
         <div id="bi-chart-bars" class="bi-chart-root"></div>
         <p id="bi-chart-empty" class="bi-muted hidden">Sem dados para o gráfico: ainda não há vendas pagas com lucro positivo neste mês.</p>
     </section>

@@ -15,6 +15,7 @@ use App\Controllers\Api\CheckoutApiController;
 use App\Controllers\Api\GoalsApiController;
 use App\Controllers\Api\AnalyzingBIApiController;
 use App\Controllers\Api\VitrineCategoryApiController;
+use App\Controllers\Api\FinanceApiController;
 use App\Http\Guard;
 
 /**
@@ -113,6 +114,9 @@ return [
     'POST /api/loja/{slug}/cash/close' => [CashApiController::class, 'close', 'store.cash.operate'],
     'GET /api/loja/{slug}/cash/{id}/movements' => [CashApiController::class, 'movements', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/movements' => [CashApiController::class, 'addMovement', 'store.cash.operate'],
+
+    // Simulador de parcelamento (tabela Price) usado no PDV. Só calcula.
+    'GET /api/loja/{slug}/finance/installments' => [FinanceApiController::class, 'installments', 'store.pdv.operate'],
 
     'GET /api/loja/{slug}/reports/sales' => [ReportApiController::class, 'salesByPeriod', 'store.reports.read'],
     'GET /api/loja/{slug}/reports/top-products' => [ReportApiController::class, 'topProducts', 'store.reports.read'],

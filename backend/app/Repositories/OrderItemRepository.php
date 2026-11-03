@@ -26,7 +26,7 @@ class OrderItemRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO order_items (order_id, product_id, variant_key, quantity, price) VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO order_items (order_id, product_id, variant_key, quantity, price, cost_price) VALUES (?, ?, ?, ?, ?, ?)"
         );
         $variantKey = isset($data['variant_key']) ? trim((string) $data['variant_key']) : '';
         $stmt->execute([
@@ -35,6 +35,8 @@ class OrderItemRepository
             $variantKey !== '' ? $variantKey : null,
             $data['quantity'],
             $data['price'],
+            // Custo do momento da venda — ver migration 0019.
+            $data['cost_price'] ?? null,
         ]);
         return (int) $this->pdo->lastInsertId();
     }

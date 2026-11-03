@@ -78,11 +78,14 @@ class GoalsApiController extends Controller
             $employees = (new \App\Repositories\StoreMemberRepository())->listMembers($storeId);
             $count = count($employees);
             if ($count > 0) {
-                $perEmployee = round($goalAmount / $count, 2);
+                // Rateio em centavos: as partes somam exatamente a meta da loja.
+                // Antes cada parte era round(meta / n, 2) e R$ 1.000 entre 3
+                // fechava em R$ 999,99.
+                $partes = \App\Domain\Finance\Money::splitEvenly($goalAmount, $count);
                 $empGoalRepo = new EmployeeGoalRepository();
                 $userGoals = [];
-                foreach ($employees as $u) {
-                    $userGoals[(int) $u['id']] = $perEmployee;
+                foreach (array_values($employees) as $i => $u) {
+                    $userGoals[(int) $u['id']] = $partes[$i];
                 }
                 $empGoalRepo->setBulk($storeId, $period, $userGoals);
             }

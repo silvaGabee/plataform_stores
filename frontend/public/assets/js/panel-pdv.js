@@ -633,6 +633,14 @@
    */
   var checkout = { order: null };
 
+  var RATE_KEY = 'pdv:rate:' + CFG.slug;
+  function loadRate() {
+    try { var v = parseFloat(localStorage.getItem(RATE_KEY)); return isNaN(v) ? 0 : v; } catch (e) { return 0; }
+  }
+  function saveRate(v) {
+    try { localStorage.setItem(RATE_KEY, String(v)); } catch (e) { /* sem persistência */ }
+  }
+
   function ensureOrder() {
     if (checkout.order) return Promise.resolve(checkout.order);
     return api('/orders', {
@@ -672,6 +680,9 @@
     var amount = total();
     var method = 'dinheiro';
     var pixPayment = null;
+    // Parcelamento no cartão: n parcelas e taxa a.m. (a taxa é lembrada por
+    // loja, já que costuma ser a mesma da maquininha o dia inteiro).
+    var inst = { n: 1, rate: loadRate(), sim: null };
 
     var methods = ['dinheiro', 'cartao', 'pix'].map(function (m, i) {
       var ic = m === 'dinheiro' ? ICON.cash : m === 'cartao' ? ICON.card : ICON.pix;
@@ -744,9 +755,19 @@
             setTimeout(function () { input.focus(); }, 20);
           } else if (method === 'cartao') {
             panel.innerHTML = '<div class="pdv-pay-hint">' + icon(ICON.card, 28) +
-              '<div><strong>Passe o cartão na maquininha</strong><p>Cobre ' + money(amount) + ' em débito ou crédito e confirme somente depois da aprovação.</p></div></div>';
+              '<div><strong>Passe o cartão na maquininha</strong><p>Cobre ' + money(amount) + ' em débito ou crédito e confirme somente depois da aprovação.</p></div></div>' +
+              '<div class="pdv-inst">' +
+                '<div class="pdv-inst-row">' +
+                  '<label class="pdv-field"><span class="pdv-field-label">Parcelas</span>' +
+                    '<select class="pdv-input" id="pdv-inst-n"><option value="1">1x de ' + esc(money(amount)) + '</option></select></label>' +
+                  '<label class="pdv-field"><span class="pdv-field-label">Juros ao mês (%)</span>' +
+                    '<input type="text" inputmode="decimal" class="pdv-input" id="pdv-inst-rate" value="' + esc(String(inst.rate).replace('.', ',')) + '" placeholder="0 = sem juros"></label>' +
+                '</div>' +
+                '<div class="pdv-inst-summary" id="pdv-inst-summary"></div>' +
+                '<details class="pdv-inst-details"><summary>Ver tabela Price (amortização)</summary><div id="pdv-inst-table"></div></details>' +
+              '</div>';
             btn.querySelector('span').textContent = 'Pagamento aprovado';
-            btn.focus();
+            bindInstallments();
           } else {
             if (pixPayment) { renderPix(); return; }
             panel.innerHTML = '<div class="pdv-pay-hint">' + icon(ICON.pix, 28) +
@@ -754,6 +775,46 @@
             btn.querySelector('span').textContent = 'Gerar QR Code';
             btn.focus();
           }
+        }
+
+        /** Simulação calculada no servidor (App/Domain/Finance/Installments). */
+        var instTimer = null;
+        function bindInstallments() {
+          var sel = $('pdv-inst-n');
+          var rate = $('pdv-inst-rate');
+          sel.addEventListener('change', function () { inst.n = parseInt(sel.value, 10) || 1; simulate(); });
+          rate.addEventListener('input', function () {
+            clearTimeout(instTimer);
+            instTimer = setTimeout(function () { inst.rate = parseMoney(rate.value); saveRate(inst.rate); simulate(); }, 250);
+          });
+          simulate();
+        }
+
+        function simulate() {
+          var q = '?valor=' + encodeURIComponent(amount.toFixed(2)) + '&taxa=' + encodeURIComponent(String(inst.rate)) +
+            '&parcelas=' + inst.n + '&max=12';
+          api('/finance/installments' + q).then(function (res) {
+            if (method !== 'cartao' || !$('pdv-inst-n')) return;
+            inst.sim = res.simulacao;
+            $('pdv-inst-n').innerHTML = res.opcoes.map(function (o) {
+              return '<option value="' + o.parcelas + '"' + (o.parcelas === inst.n ? ' selected' : '') + '>' +
+                o.parcelas + 'x de ' + money(o.parcela) + (o.juros_total > 0 ? ' (total ' + money(o.total) + ')' : ' sem juros') + '</option>';
+            }).join('');
+            var sim = res.simulacao;
+            $('pdv-inst-summary').innerHTML =
+              '<div><span>Parcela</span><strong>' + sim.parcelas + 'x ' + money(sim.parcela) + '</strong></div>' +
+              '<div><span>Total pago pelo cliente</span><strong>' + money(sim.total) + '</strong></div>' +
+              '<div><span>Juros</span><strong>' + money(sim.juros_total) + '</strong></div>' +
+              '<div><span>Taxa anual equivalente</span><strong>' + sim.taxa_anual_equivalente.toFixed(2).replace('.', ',') + '%</strong></div>' +
+              (sim.juros_total > 0 ? '<p class="pdv-muted">Os juros ficam com a operadora do cartão. A loja registra a venda por ' + money(amount) + '.</p>' : '');
+            $('pdv-inst-table').innerHTML = '<div class="pdv-table-wrap"><table class="pdv-table"><thead><tr><th>Nº</th><th class="num">Parcela</th><th class="num">Juros</th><th class="num">Amortização</th><th class="num">Saldo</th></tr></thead><tbody>' +
+              sim.tabela.map(function (l) {
+                return '<tr><td>' + l.n + '</td><td class="num">' + money(l.parcela) + '</td><td class="num">' + money(l.juros) + '</td><td class="num">' + money(l.amortizacao) + '</td><td class="num">' + money(l.saldo) + '</td></tr>';
+              }).join('') +
+              '</tbody><tfoot><tr><td>Total</td><td class="num">' + money(sim.total) + '</td><td class="num">' + money(sim.juros_total) + '</td><td class="num">' + money(sim.principal) + '</td><td></td></tr></tfoot></table></div>';
+          }).catch(function (e) {
+            if ($('pdv-inst-summary')) $('pdv-inst-summary').innerHTML = '<p class="pdv-diff is-short">' + esc(e.message) + '</p>';
+          });
         }
 
         function renderPix() {
@@ -789,7 +850,7 @@
         });
         modal.el.addEventListener('keydown', keyMethod);
         function keyMethod(e) {
-          if (state.busy || e.target.tagName === 'INPUT') return;
+          if (state.busy || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
           var map = { '1': 'dinheiro', '2': 'cartao', '3': 'pix' };
           if (map[e.key]) { e.preventDefault(); method = map[e.key]; renderPanel(); }
         }
@@ -829,6 +890,7 @@
           }).then(function (r) {
             setBusy(false);
             var sale = buildSale(r.order, method, received);
+            if (method === 'cartao' && inst.sim && inst.sim.parcelas > 1) sale.installments = inst.sim;
             modal.close(true);
             finishSale(sale);
           }).catch(function (e) {
@@ -872,7 +934,8 @@
       size: 'sm',
       body: '<div class="pdv-success">' +
           '<span class="pdv-success-icon">' + icon(ICON.check, 34) + '</span>' +
-          '<p class="pdv-success-order">Pedido #' + sale.id + ' · ' + METHOD_LABEL[sale.method] + '</p>' +
+          '<p class="pdv-success-order">Pedido #' + sale.id + ' · ' + METHOD_LABEL[sale.method] +
+            (sale.installments ? ' ' + sale.installments.parcelas + 'x de ' + money(sale.installments.parcela) : '') + '</p>' +
           '<p class="pdv-success-total">' + money(sale.total) + '</p>' +
           (sale.method === 'dinheiro' && sale.change > 0
             ? '<div class="pdv-success-change"><span>Troco</span><strong>' + money(sale.change) + '</strong></div>'
@@ -907,6 +970,7 @@
           (sale.discount > 0 ? '<tr><td>Desconto</td><td class="r-right">− ' + money(sale.discount) + '</td></tr>' : '') +
           '<tr class="r-total"><td>TOTAL</td><td class="r-right">' + money(sale.total) + '</td></tr>' +
           '<tr><td>' + esc(METHOD_LABEL[sale.method] || sale.method) + '</td><td class="r-right">' + money(sale.received != null ? sale.received : sale.total) + '</td></tr>' +
+          (sale.installments ? '<tr><td>' + sale.installments.parcelas + 'x de ' + money(sale.installments.parcela) + '</td><td class="r-right">' + money(sale.installments.total) + '</td></tr>' : '') +
           (sale.change > 0 ? '<tr><td>Troco</td><td class="r-right">' + money(sale.change) + '</td></tr>' : '') +
         '</table><hr>' +
         (sale.customer ? '<p>Cliente: ' + esc(sale.customer) + '</p>' : '') +

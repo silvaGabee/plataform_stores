@@ -129,7 +129,7 @@ echo PHP_EOL . 'Uma pessoa, várias lojas, uma senha' . PHP_EOL;
 
 $userRepo = new UserRepository();
 $memberRepo = new StoreMemberRepository();
-$pdo->exec("DELETE FROM stores WHERE slug LIKE '__ident__%'");
+$pdo->exec("DELETE FROM stores WHERE slug IN ('__ident__a', '__ident__b')");
 
 $pdo->prepare('INSERT INTO stores (name, slug) VALUES (?, ?)')->execute(['Ident A', '__ident__a']);
 $lojaA = (int) $pdo->lastInsertId();
@@ -168,7 +168,7 @@ $ok('a pessoa continua existindo', $userRepo->find($funcId) !== null);
 $ok('e mantém o vínculo com a outra loja', $memberRepo->storeIdsForUser($funcId) !== []);
 
 // ------------------------------------------------------------------ limpeza
-$pdo->exec("DELETE FROM stores WHERE slug LIKE '__ident__%'");
+$pdo->exec("DELETE FROM stores WHERE slug IN ('__ident__a', '__ident__b')");
 @unlink($jar);
 
 echo PHP_EOL . $total . ' verificações — ' . ($falhas === 0 ? 'TUDO PASSOU' : $falhas . ' FALHARAM') . PHP_EOL;

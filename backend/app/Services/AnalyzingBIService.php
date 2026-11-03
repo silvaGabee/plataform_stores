@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Finance\Trend;
 use App\Repositories\AnalyzingBIRepository;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -26,7 +27,16 @@ class AnalyzingBIService
         $firstThisMonth = $now->modify('first day of this month')->setTime(0, 0, 0);
         $lastThisMonth = $now->modify('last day of this month')->setTime(23, 59, 59);
         $firstPrevMonth = $firstThisMonth->modify('-1 month');
-        $lastPrevMonth = $firstThisMonth->modify('-1 second')->setTime(23, 59, 59);
+        // Comparação entre períodos EQUIVALENTES: do dia 1º até agora, contra
+        // do dia 1º até o mesmo dia e hora do mês anterior. Comparar o mês
+        // corrente (incompleto) com o anterior inteiro dava "queda de 88%"
+        // todo início de mês e punha quase todo produto em "parados".
+        $decorrido = $now->getTimestamp() - $firstThisMonth->getTimestamp();
+        $fimPrevMonth = $firstThisMonth->modify('-1 second');
+        $lastPrevMonth = $firstPrevMonth->modify('+' . $decorrido . ' seconds');
+        if ($lastPrevMonth > $fimPrevMonth) {
+            $lastPrevMonth = $fimPrevMonth; // ex.: dia 31 contra um mês de 30 dias
+        }
 
         $currStart = $firstThisMonth->format('Y-m-d H:i:s');
         $currEnd = $lastThisMonth->format('Y-m-d H:i:s');
@@ -92,7 +102,8 @@ class AnalyzingBIService
                 'produto_id' => $top['product_id'],
                 'nome' => $top['nome'],
                 'quantidade_vendida' => round($top['qty_curr'], 4),
-                'crescimento_percentual' => round(self::growthPercent($top['qty_curr'], $top['qty_prev']), 2),
+                'quantidade_periodo_anterior' => round($top['qty_prev'], 4),
+                'crescimento_percentual' => self::productGrowth($top['qty_curr'], $top['qty_prev']),
             ];
 
             usort($currPositive, static function (array $a, array $b): int {
@@ -107,7 +118,8 @@ class AnalyzingBIService
                 'produto_id' => $bottom['product_id'],
                 'nome' => $bottom['nome'],
                 'quantidade_vendida' => round($bottom['qty_curr'], 4),
-                'variacao_percentual' => round(self::growthPercent($bottom['qty_curr'], $bottom['qty_prev']), 2),
+                'quantidade_periodo_anterior' => round($bottom['qty_prev'], 4),
+                'variacao_percentual' => self::productGrowth($bottom['qty_curr'], $bottom['qty_prev']),
             ];
         }
 
@@ -166,8 +178,7 @@ class AnalyzingBIService
             ],
             'faturamento_tempo' => [
                 'endpoint' => 'GET /api/loja/{slug}/analyzing-bi/faturamento?periodo=7d|30d|3m',
-                'serie_previsao' => null,
-                'nota' => 'Reservado para linha de previsão (tracejada) e texto explicativo por IA.',
+                'nota' => 'A série do endpoint traz serie_previsao: tendência por mínimos quadrados sobre períodos completos.',
             ],
             'nota' => 'Estrutura opcional para POST futuro ao assistente de IA com o mesmo contexto do painel.',
         ];
@@ -251,6 +262,20 @@ class AnalyzingBIService
         return array_slice($out, 0, 12);
     }
 
+    /**
+     * Variação de um produto entre os dois períodos, ou null sem base.
+     *
+     * Se o produto não vendeu nada no período anterior, (V − 0) / 0 não existe.
+     * growthPercent() responde 100% por convenção, o que serve ao faturamento
+     * da loja; num card de produto, "100%" verde para quem vendeu 1 unidade
+     * contra 0 parecia crescimento expressivo. Aqui a tela recebe null e diz
+     * que não havia venda no período de comparação.
+     */
+    public static function productGrowth(float $current, float $previous): ?float
+    {
+        return $previous > 0 ? round(self::growthPercent($current, $previous), 2) : null;
+    }
+
     public static function growthPercent(float $current, float $previous): float
     {
         if ($previous == 0.0) {
@@ -270,7 +295,7 @@ class AnalyzingBIService
      *   granularidade: string,
      *   intervalo: array{inicio: string, fim: string},
      *   serie: list<array{data: string, valor: float}>,
-     *   serie_previsao: null,
+     *   serie_previsao: list<array{data: string, valor: float}>|null,
      *   meta: array<string, mixed>
      * }
      */
@@ -305,6 +330,8 @@ class AnalyzingBIService
             ? $this->fillRevenueSeriesMonths($rows, $start, $end)
             : $this->fillRevenueSeriesDays($rows, $start, $end);
 
+        $previsao = $this->buildForecast($storeId, $periodo, $granularidade, $start, $now);
+
         return [
             'periodo' => $periodo,
             'granularidade' => $granularidade,
@@ -313,13 +340,91 @@ class AnalyzingBIService
                 'fim' => $end->format('Y-m-d'),
             ],
             'serie' => $serie,
-            'serie_previsao' => null,
+            'serie_previsao' => $previsao['serie'],
             'meta' => [
                 'status_pedidos' => ['pago', 'enviado'],
                 'observacao_status' => 'No modelo atual, “concluído” no fluxo de venda corresponde a pedidos já pagos ou enviados; não há valor ENUM “concluido” na tabela.',
-                'previsao_futura' => 'Campo serie_previsao reservado para alinhamento temporal com a série real (ex.: linha tracejada).',
+                'previsao' => $previsao['meta'],
             ],
         ];
+    }
+
+    /** Quantos períodos projetar, contando o período corrente (incompleto). */
+    private const HORIZONTE = ['7d' => 3, '30d' => 7, '3m' => 2];
+
+    /** Meses completos usados no ajuste mensal (o gráfico mostra só 3). */
+    private const MESES_AJUSTE = 6;
+
+    /**
+     * Linha de tendência por mínimos quadrados (ver App\Domain\Finance\Trend).
+     *
+     * A reta é ajustada só com períodos COMPLETOS: o dia de hoje e o mês
+     * corrente ainda estão acontecendo, e um valor parcial no fim da série
+     * puxaria a inclinação para baixo — a tendência mostraria queda toda
+     * manhã. O período corrente entra na projeção, não no ajuste.
+     *
+     * A série devolvida começa no último período completo, com o valor REAL
+     * dele (é onde a linha tracejada se apoia na linha cheia), e segue com os
+     * valores projetados.
+     *
+     * @return array{serie: list<array{data: string, valor: float}>|null, meta: array<string, mixed>}
+     */
+    private function buildForecast(int $storeId, string $periodo, string $granularidade, DateTimeImmutable $start, DateTimeImmutable $now): array
+    {
+        $mensal = $granularidade === 'mes';
+        $inicioCorrente = $mensal
+            ? $now->modify('first day of this month')->setTime(0, 0, 0)
+            : $now->setTime(0, 0, 0);
+        $fimAjuste = $inicioCorrente->modify('-1 second');
+        $inicioAjuste = $mensal
+            ? $inicioCorrente->modify('-' . self::MESES_AJUSTE . ' months')
+            : $start;
+
+        $rows = $this->repo->fetchRevenueByPeriod(
+            $storeId,
+            $inicioAjuste->format('Y-m-d H:i:s'),
+            $fimAjuste->format('Y-m-d H:i:s'),
+            $mensal ? 'month' : 'day'
+        );
+        $base = $mensal
+            ? $this->fillRevenueSeriesMonths($rows, $inicioAjuste, $fimAjuste)
+            : $this->fillRevenueSeriesDays($rows, $inicioAjuste, $fimAjuste);
+        $valores = array_column($base, 'valor');
+
+        $meta = [
+            'metodo' => 'regressao_linear_minimos_quadrados',
+            'periodos_ajuste' => count($valores),
+            'ajuste_inicio' => $inicioAjuste->format('Y-m-d'),
+            'ajuste_fim' => $fimAjuste->format('Y-m-d'),
+            'observacao' => 'Ajuste só com períodos completos; o período corrente é projetado, não usado no ajuste.',
+        ];
+
+        $reg = Trend::linearRegression($valores);
+        // Sem venda nenhuma no período de ajuste não há tendência a mostrar.
+        if ($reg === null || array_sum($valores) <= 0) {
+            $meta['motivo_sem_previsao'] = $reg === null ? 'periodos_insuficientes' : 'sem_vendas_no_periodo';
+
+            return ['serie' => null, 'meta' => $meta];
+        }
+
+        $passo = $mensal ? 'first day of next month' : '+1 day';
+        $formato = $mensal ? 'Y-m-01' : 'Y-m-d';
+        $ultimo = end($base);
+        $serie = [['data' => $ultimo['data'], 'valor' => $ultimo['valor']]];
+        $cur = $inicioCorrente;
+        foreach (Trend::forecast($valores, self::HORIZONTE[$periodo] ?? 3) as $v) {
+            $serie[] = ['data' => $cur->format($formato), 'valor' => $v];
+            $cur = $cur->modify($passo);
+        }
+
+        $meta['coeficientes'] = [
+            'a' => round($reg['a'], 4),
+            'b' => round($reg['b'], 4),
+        ];
+        $meta['inclinacao_por_periodo'] = round($reg['b'], 2);
+        $meta['r2'] = round($reg['r2'], 4);
+
+        return ['serie' => $serie, 'meta' => $meta];
     }
 
     /**
