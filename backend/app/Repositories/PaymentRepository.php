@@ -96,4 +96,61 @@ class PaymentRepository
         $stmt = $this->pdo->prepare("UPDATE payments SET pix_qr_code = ? WHERE id = ?");
         return $stmt->execute([$qrCode, $id]);
     }
+
+    /**
+     * Vendas de PDV pagas desde um instante (abertura do caixa), por forma de
+     * pagamento. Só dinheiro entra na gaveta — cartão e PIX aparecem aqui para
+     * o operador conferir o turno inteiro no fechamento.
+     *
+     * @return list<array{method: string, count: int, total: float, discount: float}>
+     */
+    public function pdvTotalsByMethodSince(int $storeId, string $since): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT p.method,
+                    COUNT(DISTINCT o.id) AS count,
+                    COALESCE(SUM(p.amount), 0) AS total,
+                    COALESCE(SUM(o.discount), 0) AS discount
+               FROM payments p
+               JOIN orders o ON o.id = p.order_id
+              WHERE o.store_id = ?
+                AND o.order_type = 'pdv'
+                AND p.status = 'confirmado'
+                AND o.created_at >= ?
+              GROUP BY p.method"
+        );
+        $stmt->execute([$storeId, $since]);
+
+        return array_map(static fn (array $r): array => [
+            'method' => (string) $r['method'],
+            'count' => (int) $r['count'],
+            'total' => round((float) $r['total'], 2),
+            'discount' => round((float) $r['discount'], 2),
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /**
+     * Últimas vendas de PDV pagas desde um instante, com a forma de pagamento.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function pdvRecentSalesSince(int $storeId, string $since, int $limit = 10): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT o.id, o.total, o.discount, o.pdv_customer_name, o.created_at,
+                    p.method, u.name AS operator_name,
+                    (SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi WHERE oi.order_id = o.id) AS items
+               FROM orders o
+               JOIN payments p ON p.order_id = o.id AND p.status = 'confirmado'
+               LEFT JOIN users u ON u.id = o.created_by
+              WHERE o.store_id = ?
+                AND o.order_type = 'pdv'
+                AND o.created_at >= ?
+              ORDER BY o.id DESC
+              LIMIT " . max(1, min(50, $limit))
+        );
+        $stmt->execute([$storeId, $since]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

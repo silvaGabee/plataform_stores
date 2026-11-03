@@ -278,12 +278,12 @@ if (!function_exists('vitrine_category_icon_catalog')) {
             [
                 'key' => 'feminino',
                 'label' => 'Feminino / Moda fitness',
-                'url' => 'https://api.iconify.design/lucide:shirt.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/shirt.svg?color=white&width=34',
             ],
             [
                 'key' => 'masculino',
                 'label' => 'Masculino',
-                'url' => 'https://api.iconify.design/lucide:user-round.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/user-round.svg?color=white&width=34',
             ],
             [
                 'key' => 'masculino_simbolo',
@@ -293,12 +293,12 @@ if (!function_exists('vitrine_category_icon_catalog')) {
             [
                 'key' => 'treino',
                 'label' => 'Treino / Academia',
-                'url' => 'https://api.iconify.design/lucide:dumbbell.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/dumbbell.svg?color=white&width=34',
             ],
             [
                 'key' => 'corrida',
                 'label' => 'Corrida',
-                'url' => 'https://api.iconify.design/lucide:footprints.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/footprints.svg?color=white&width=34',
             ],
             [
                 'key' => 'caminhada',
@@ -318,42 +318,42 @@ if (!function_exists('vitrine_category_icon_catalog')) {
             [
                 'key' => 'tenis',
                 'label' => 'Ténis',
-                'url' => 'https://api.iconify.design/game-icons:running-shoe.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/game-icons/running-shoe.svg?color=white&width=34',
             ],
             [
                 'key' => 'acessorios',
                 'label' => 'Acessórios',
-                'url' => 'https://api.iconify.design/lucide:backpack.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/backpack.svg?color=white&width=34',
             ],
             [
                 'key' => 'yoga',
                 'label' => 'Yoga / Pilates',
-                'url' => 'https://api.iconify.design/lucide:flower.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/flower.svg?color=white&width=34',
             ],
             [
                 'key' => 'suplementos',
                 'label' => 'Suplementos / Shaker',
-                'url' => 'https://api.iconify.design/mdi:bottle-soda-classic-outline.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/mdi/bottle-soda-classic-outline.svg?color=white&width=34',
             ],
             [
                 'key' => 'ofertas',
                 'label' => 'Ofertas',
-                'url' => 'https://api.iconify.design/lucide:badge-percent.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/badge-percent.svg?color=white&width=34',
             ],
             [
                 'key' => 'lancamentos',
                 'label' => 'Lançamentos',
-                'url' => 'https://api.iconify.design/lucide:sparkles.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/sparkles.svg?color=white&width=34',
             ],
             [
                 'key' => 'premium',
                 'label' => 'Premium',
-                'url' => 'https://api.iconify.design/lucide:gem.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/gem.svg?color=white&width=34',
             ],
             [
                 'key' => 'plus_size',
                 'label' => 'Plus Size',
-                'url' => 'https://api.iconify.design/lucide:heart.svg?color=white&width=34',
+                'url' => 'https://api.iconify.design/lucide/heart.svg?color=white&width=34',
             ],
             [
                 'key' => 'nike',

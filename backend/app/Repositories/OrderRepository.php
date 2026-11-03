@@ -74,7 +74,7 @@ class OrderRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, discount, pdv_customer_name, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $data['store_id'],
@@ -85,6 +85,8 @@ class OrderRepository
             $data['address_id'] ?? null,
             $data['status'] ?? 'pendente',
             $data['total'] ?? 0,
+            $data['discount'] ?? 0,
+            $data['pdv_customer_name'] ?? null,
             // Segredo do link do comprovante: é o que substitui o id sequencial
             // como prova de que quem abriu a página é quem fez o pedido.
             bin2hex(random_bytes(16)),
@@ -98,14 +100,24 @@ class OrderRepository
         return $stmt->execute([$status, $id]);
     }
 
-    /** Recalcula o total do pedido a partir dos itens restantes. */
+    /**
+     * Recalcula o total do pedido a partir dos itens restantes.
+     *
+     * O desconto do PDV continua valendo, mas nunca deixa o total negativo:
+     * se os itens restantes valem menos que o desconto, ele é reduzido junto.
+     */
     public function recalcTotal(int $orderId): void
     {
         $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(quantity * price), 0) FROM order_items WHERE order_id = ?");
         $stmt->execute([$orderId]);
-        $total = (float) $stmt->fetchColumn();
-        $up = $this->pdo->prepare("UPDATE orders SET total = ? WHERE id = ?");
-        $up->execute([$total, $orderId]);
+        $subtotal = (float) $stmt->fetchColumn();
+        $up = $this->pdo->prepare(
+            "UPDATE orders
+                SET discount = LEAST(discount, ?),
+                    total = ? - LEAST(discount, ?)
+              WHERE id = ?"
+        );
+        $up->execute([$subtotal, $subtotal, $subtotal, $orderId]);
     }
 
     /** Lista pedidos pagos para a aba Entregas: em andamento todos; entregues só os 5 mais recentes. */

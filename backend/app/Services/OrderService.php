@@ -54,7 +54,12 @@ class OrderService
      * ela NÃO reserva nada. A garantia real está em confirmPayment(), onde a
      * baixa é atômica.
      */
-    public function createOrder(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy = null, ?string $deliveryType = null, ?int $addressId = null): array
+    /**
+     * @param array{discount?: float, customer_name?: ?string} $pdv
+     *        Só para venda de balcão: desconto em reais e nome do cliente.
+     *        Ignorado em pedidos online.
+     */
+    public function createOrder(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy = null, ?string $deliveryType = null, ?int $addressId = null, array $pdv = []): array
     {
         return \App\Database\Database::transaction(
             fn (): array => $this->createOrderInTransaction(
@@ -64,12 +69,13 @@ class OrderService
                 $orderType,
                 $createdBy,
                 $deliveryType,
-                $addressId
+                $addressId,
+                $orderType === 'pdv' ? $pdv : []
             )
         );
     }
 
-    private function createOrderInTransaction(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy, ?string $deliveryType, ?int $addressId): array
+    private function createOrderInTransaction(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy, ?string $deliveryType, ?int $addressId, array $pdv): array
     {
         $total = 0;
         foreach ($items as $item) {
@@ -95,6 +101,20 @@ class OrderService
             }
             $total += $product['sale_price'] * $qty;
         }
+        $total = round($total, 2);
+
+        // O desconto é validado aqui, contra o subtotal calculado no servidor
+        // com os preços do banco — nunca contra um total vindo do navegador.
+        $discount = round((float) ($pdv['discount'] ?? 0), 2);
+        if ($discount < 0) {
+            throw new \InvalidArgumentException('Desconto inválido.');
+        }
+        if ($discount > $total) {
+            throw new \InvalidArgumentException('O desconto não pode ser maior que o valor da venda.');
+        }
+        $customerName = trim((string) ($pdv['customer_name'] ?? ''));
+        $customerName = $customerName !== '' ? mb_substr($customerName, 0, 120) : null;
+
         $orderId = $this->orderRepo->create([
             'store_id'      => $storeId,
             'customer_id'   => $customerId,
@@ -103,7 +123,9 @@ class OrderService
             'delivery_type' => $deliveryType ?? 'retirada',
             'address_id'   => $addressId,
             'status'       => 'pendente',
-            'total'        => $total,
+            'total'        => round($total - $discount, 2),
+            'discount'     => $discount,
+            'pdv_customer_name' => $customerName,
         ]);
         foreach ($items as $item) {
             $productId = (int) ($item['product_id'] ?? 0);

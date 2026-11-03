@@ -147,7 +147,9 @@ class PaymentApiController extends Controller
     /**
      * Confirmação de pagamento.
      * Gerente: qualquer confirmação (ex.: PIX pendente no dashboard).
-     * Funcionário: só pode confirmar pagamento em dinheiro de pedido PDV (finalizar venda no caixa).
+     * Funcionário: só confirma pagamento de pedido PDV — é ele quem está no
+     * balcão vendo a nota, a maquininha aprovar ou o PIX cair. Pagamento de
+     * pedido online continua exclusivo do gerente.
      */
     public function confirm(string $slug): void
     {
@@ -162,10 +164,6 @@ class PaymentApiController extends Controller
             $payment = (new PaymentRepository())->find($paymentId);
             if (!$payment || (int) $payment['store_id'] !== $storeId) {
                 $this->json(['error' => 'Pagamento não encontrado'], 404);
-            }
-            $method = strtolower((string) ($payment['method'] ?? ''));
-            if ($method !== 'dinheiro') {
-                $this->json(['error' => 'Apenas o gerente pode confirmar este pagamento.'], 403);
             }
             $order = (new OrderRepository())->find((int) $payment['order_id']);
             if (!$order || strtolower((string) ($order['order_type'] ?? '')) !== 'pdv') {

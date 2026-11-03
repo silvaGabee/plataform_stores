@@ -49,8 +49,8 @@ final class Permissions
         'store.cash.operate'    => [self::GERENTE, self::FUNCIONARIO],
 
         // Confirmar pagamento é do gerente. O funcionário tem uma exceção
-        // estreita — dinheiro em pedido do PDV — resolvida dentro de
-        // PaymentApiController::confirm, porque depende do pagamento concreto.
+        // estreita — pagamento de pedido do PDV — resolvida dentro de
+        // PaymentApiController::confirm, porque depende do pedido concreto.
         'store.payments.read'   => [self::GERENTE],
         'store.payments.confirm' => [self::GERENTE, self::FUNCIONARIO],
 

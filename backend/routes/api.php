@@ -103,11 +103,12 @@ return [
     'POST /api/loja/{slug}/payments' => [PaymentApiController::class, 'create', Guard::AUTENTICADO],
     'GET /api/loja/{slug}/payments/pending' => [PaymentApiController::class, 'listPending', 'store.payments.read'],
     'GET /api/loja/{slug}/payments/{id}/status' => [PaymentApiController::class, 'status', Guard::AUTENTICADO],
-    // Funcionário só confirma dinheiro de pedido PDV — regra dentro do controller,
-    // porque depende do pagamento concreto.
+    // Funcionário só confirma pagamento de pedido PDV — regra dentro do
+    // controller, porque depende do pedido concreto.
     'POST /api/loja/{slug}/payments/confirm' => [PaymentApiController::class, 'confirm', 'store.payments.confirm'],
 
     'GET /api/loja/{slug}/cash/status' => [CashApiController::class, 'status', 'store.cash.operate'],
+    'GET /api/loja/{slug}/cash/summary' => [CashApiController::class, 'summary', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/open' => [CashApiController::class, 'open', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/close' => [CashApiController::class, 'close', 'store.cash.operate'],
     'GET /api/loja/{slug}/cash/{id}/movements' => [CashApiController::class, 'movements', 'store.cash.operate'],

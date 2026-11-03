@@ -101,6 +101,8 @@ CREATE TABLE `orders` (
   `tracking_code` varchar(100) DEFAULT NULL,
   `status` enum('pendente','pago','cancelado','enviado') NOT NULL DEFAULT 'pendente',
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `pdv_customer_name` varchar(120) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `access_token` char(32) DEFAULT NULL,
   PRIMARY KEY (`id`),

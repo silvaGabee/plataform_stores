@@ -11,7 +11,7 @@ use App\Repositories\PaymentRepository;
 use App\Repositories\StockMovementRepository;
 use App\Repositories\CashRegisterRepository;
 use App\Repositories\CashMovementRepository;
-use App\Repositories\UserRepository;
+use App\Repositories\StoreMemberRepository;
 use App\Repositories\UserAddressRepository;
 
 class OrderApiController extends Controller
@@ -145,10 +145,20 @@ class OrderApiController extends Controller
         }
         $input = $this->getJsonInput();
         $orderType = $input['order_type'] ?? 'online';
+        $pdv = [];
         if ($orderType === 'pdv') {
             $this->requireStorePanelAccess($storeId);
-            // No PDV quem escolhe o cliente é o operador autenticado.
-            $customerId = (int) ($input['customer_id'] ?? 0);
+            // Cliente de balcão não tem conta: a venda fica no nome do próprio
+            // operador e o nome digitado vai para pdv_customer_name.
+            //
+            // Antes a tela buscava GET /users para pegar "o primeiro usuário"
+            // da loja como cliente — rota exclusiva do gerente, então o
+            // funcionário simplesmente não conseguia finalizar venda.
+            $customerId = (int) ($_SESSION['user_id'] ?? $_SESSION['logged_user_id'] ?? 0);
+            $pdv = [
+                'discount' => (float) ($input['discount'] ?? 0),
+                'customer_name' => isset($input['customer_name']) ? (string) $input['customer_name'] : null,
+            ];
         } else {
             // Compra pela vitrine: o cliente é sempre quem está logado.
             //
@@ -188,7 +198,7 @@ class OrderApiController extends Controller
             return;
         }
         try {
-            $order = $this->orderService()->createOrder($storeId, $customerId, $items, $orderType, $createdBy ? (int) $createdBy : null, $deliveryType, $addressId);
+            $order = $this->orderService()->createOrder($storeId, $customerId, $items, $orderType, $createdBy ? (int) $createdBy : null, $deliveryType, $addressId, $pdv);
             $this->json(['success' => true, 'order' => $order]);
         } catch (\Throwable $e) {
             $this->json(['error' => $e->getMessage()], 400);
@@ -207,12 +217,10 @@ class OrderApiController extends Controller
         if ($opId < 1) {
             return null;
         }
-        $userRepo = new UserRepository();
-        $op = $userRepo->find($opId);
-        if (!$op || (int) ($op['store_id'] ?? 0) !== $storeId) {
-            return null;
-        }
-        $type = strtolower((string) ($op['user_type'] ?? ''));
+        // O cargo vem de store_members. Antes era lido de users.user_type e
+        // users.store_id, colunas removidas na 0017 — a checagem falhava sempre
+        // e nenhuma venda era creditada ao funcionário que a fez.
+        $type = (new StoreMemberRepository())->role($opId, $storeId);
         if (!in_array($type, ['funcionario', 'gerente'], true)) {
             return null;
         }
