@@ -6,7 +6,6 @@ use App\Controllers\Api\ProductApiController;
 use App\Controllers\Api\OrderApiController;
 use App\Controllers\Api\PaymentApiController;
 use App\Controllers\Api\CashApiController;
-use App\Controllers\Api\ReportApiController;
 use App\Controllers\Api\UserApiController;
 use App\Controllers\Api\RoleApiController;
 use App\Controllers\Api\StockMovementApiController;
@@ -41,7 +40,7 @@ return [
     'POST /api/loja/{slug}/cart/sync' => [CartApiController::class, 'sync', Guard::PUBLICO],
     'POST /api/loja/{slug}/cart/clear' => [CartApiController::class, 'clear', Guard::PUBLICO],
 
-    // Checkout: identidade sempre da sessão (ver Fase 0 em docs/).
+    // Checkout: identidade sempre da sessão, nunca de parâmetro da URL.
     'GET /api/loja/{slug}/checkout/addresses' => [CheckoutApiController::class, 'addresses', Guard::AUTENTICADO],
     'POST /api/loja/{slug}/checkout/addresses' => [CheckoutApiController::class, 'createAddress', Guard::AUTENTICADO],
     'PUT /api/loja/{slug}/checkout/addresses/{id}' => [CheckoutApiController::class, 'updateAddress', Guard::AUTENTICADO],
@@ -57,8 +56,6 @@ return [
     'POST /api/loja/{slug}/store/appearance' => [StoreApiController::class, 'updateStoreAppearance', 'store.settings.write'],
     'GET /api/loja/{slug}/pix-config' => [StoreApiController::class, 'getPixConfig', 'store.settings.read'],
     'POST /api/loja/{slug}/pix-config' => [StoreApiController::class, 'updatePixConfig', 'store.settings.write'],
-    'GET /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'getDashboardConfig', 'store.settings.read'],
-    'POST /api/loja/{slug}/dashboard-config' => [StoreApiController::class, 'updateDashboardConfig', 'store.settings.write'],
     'GET /api/loja/{slug}/banner' => [StoreApiController::class, 'getBanner', 'store.settings.read'],
     'POST /api/loja/{slug}/banner' => [StoreApiController::class, 'uploadBanner', 'store.settings.write'],
     'DELETE /api/loja/{slug}/banner' => [StoreApiController::class, 'deleteBanner', 'store.settings.write'],
@@ -117,12 +114,6 @@ return [
 
     // Simulador de parcelamento (tabela Price) usado no PDV. Só calcula.
     'GET /api/loja/{slug}/finance/installments' => [FinanceApiController::class, 'installments', 'store.pdv.operate'],
-
-    'GET /api/loja/{slug}/reports/sales' => [ReportApiController::class, 'salesByPeriod', 'store.reports.read'],
-    'GET /api/loja/{slug}/reports/top-products' => [ReportApiController::class, 'topProducts', 'store.reports.read'],
-    'GET /api/loja/{slug}/reports/low-stock' => [ReportApiController::class, 'lowStock', 'store.reports.read'],
-    'GET /api/loja/{slug}/reports/employees' => [ReportApiController::class, 'employeePerformance', 'store.reports.read'],
-    'GET /api/loja/{slug}/reports/revenue' => [ReportApiController::class, 'revenue', 'store.reports.read'],
 
     // Os aliases sem /loja/ (GET /api/{slug}/analyzing-bi) foram removidos:
     // nada no front os chamava, e um padrão de rota tão genérico competia com

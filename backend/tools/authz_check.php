@@ -147,10 +147,10 @@ $casos = [
     ['ver pedidos',         'GET',  "/api/loja/{$slug}/orders",              200, 200, 401],
     ['ver entregas',        'GET',  "/api/loja/{$slug}/orders/entregas",     200, 200, 401],
     ['caixa',               'GET',  "/api/loja/{$slug}/cash/status",         200, 200, 401],
-    ['relatório de vendas', 'GET',  "/api/loja/{$slug}/reports/sales",       200, 200, 401],
+    ['resumo do caixa',     'GET',  "/api/loja/{$slug}/cash/summary",        200, 200, 401],
     ['ver metas',           'GET',  "/api/loja/{$slug}/goals",               200, 200, 401],
     ['ver cargos',          'GET',  "/api/loja/{$slug}/roles",               200, 200, 401],
-    ['config da vitrine',   'GET',  "/api/loja/{$slug}/dashboard-config",    200, 403, 401],
+    ['banner da vitrine',   'GET',  "/api/loja/{$slug}/banner",              200, 403, 401],
 
     // Só gerente:
     ['Analyzing BI',        'GET',  "/api/loja/{$slug}/analyzing-bi",        200, 403, 401],

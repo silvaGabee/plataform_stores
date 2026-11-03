@@ -16,17 +16,6 @@ class PixService
     ) {}
 
     /**
-     * Gera QR Code PIX.
-     * Se RAPIDAPI_KEY e chave PIX estiverem configurados, usa pix-qr-code1.p.rapidapi.com.
-     * Sem ela, o QR é desenhado aqui mesmo, a partir do BR Code — sem mandar a
-     * chave PIX do lojista para serviço nenhum (ver App\Support\QrCode).
-     */
-    public function generateQrCode(int $storeId, float $amount, string $description = 'Pagamento'): ?string
-    {
-        return $this->generate($storeId, $amount, $description)['qr_code'];
-    }
-
-    /**
      * Dados de pagamento PIX: imagem do QR e copia e cola, da MESMA origem.
      *
      * Vinham de chamadas separadas — a imagem da API e o texto montado aqui.

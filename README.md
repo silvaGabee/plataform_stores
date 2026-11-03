@@ -1,158 +1,61 @@
-# Plataforma de Lojas
+# Plataform Stores
 
-Sistema web **multi-loja** em PHP: numa única instalação convivem várias lojas, cada uma com **vitrine pública** (catálogo, carrinho, checkout), **painel administrativo** e **API JSON** usada pelo JavaScript do painel e da loja.
+Sistema web **multi-loja** em PHP: numa única instalação convivem várias lojas, cada uma com **vitrine pública** (catálogo, carrinho, checkout), **painel administrativo** (PDV, estoque, entregas, equipe) e o **Analyzing BI**, módulo de indicadores de Matemática Financeira.
 
-A arquitetura é em camadas simples (**rotas → controllers → services → repositórios**, PDO no MySQL).
+A arquitetura é em camadas (**rotas → Guard → controllers → services → repositórios**, PDO no MySQL/MariaDB). **A aplicação roda sem Composer**: o `backend/bootstrap.php` registra o autoload das classes `App\` sozinho. O `composer.json` existe só para as ferramentas de desenvolvimento (PHPStan, php-cs-fixer).
 
-**A aplicação roda sem Composer** — o deploy é copiar a pasta, e o `bootstrap.php` registra o autoload das classes `App\` sozinho. Existe um `composer.json` que declara PSR-4 e a versão mínima de PHP (**8.0**), usado apenas para as ferramentas de desenvolvimento (PHPStan, CS-Fixer); quando `vendor/` existe, o bootstrap prefere o autoloader dele.
+A documentação acadêmica do projeto está em [DOCUMENTACAO.md](DOCUMENTACAO.md).
 
 ---
 
 ## Índice
 
 1. [O que o sistema faz](#o-que-o-sistema-faz)
-2. [Arquitetura e fluxo](#arquitetura-e-fluxo)
-3. [Requisitos](#requisitos)
-4. [Instalação passo a passo](#instalação-passo-a-passo)
+2. [Arquitetura](#arquitetura)
+3. [Estrutura de pastas](#estrutura-de-pastas)
+4. [Instalação](#instalação)
 5. [Configuração](#configuração)
-6. [Estrutura de pastas](#estrutura-de-pastas)
-7. [Rotas principais (páginas)](#rotas-principais-páginas)
-8. [API REST (resumo)](#api-rest-resumo)
-9. [Utilizadores e sessões](#utilizadores-e-sessões)
-10. [Base de dados](#base-de-dados)
-11. [Ficheiros estáticos e uploads](#ficheiros-estáticos-e-uploads)
-12. [Problemas comuns](#problemas-comuns)
-13. [Segurança e produção](#segurança-e-produção)
-14. [Licença e aviso](#licença-e-aviso)
+6. [Rotas e API](#rotas-e-api)
+7. [Usuários, permissões e segurança](#usuários-permissões-e-segurança)
+8. [Banco de dados](#banco-de-dados)
+9. [Testes e ferramentas](#testes-e-ferramentas)
+10. [Arquivos estáticos e uploads](#arquivos-estáticos-e-uploads)
+11. [Problemas comuns](#problemas-comuns)
+12. [Produção](#produção)
 
 ---
 
 ## O que o sistema faz
 
-| Área | Descrição |
-|------|-----------|
-| **Plataforma** | Login (`/`), lista de lojas (`/lojas`), cadastro de conta (`/criar-conta`), criação de loja (`/criar-loja`), página **Minha conta** (`/minha-conta`) com opção de excluir conta (com restrições se existirem pedidos ou caixa associados). |
-| **Vitrine** | URL `/loja/{slug}/…`: vitrine, produto, carrinho, checkout (dinheiro, cartão, PIX), pedido, meus pedidos, meus endereços. Entrega na loja ou entrega com endereços. |
-| **Painel** | URL `/painel/{slug}/…`: dashboard, produtos, estoque, entregas (Kanban), PDV, funcionários, clientes, hierarquia de cargos, relatórios (widgets configuráveis), configurações (incl. PIX). |
-| **API** | Prefixo `/api/…`: carrinho, checkout/endereços, loja, produtos, imagens, pedidos, pagamentos, caixa, relatórios, metas, utilizadores, cargos, movimentos de stock. |
+| Área | Endereço | Conteúdo |
+|------|----------|----------|
+| **Plataforma** | `/`, `/lojas`, `/criar-conta`, `/criar-loja`, `/minha-conta` | Login, lista de lojas, cadastro, criação de loja, conta (com exclusão bloqueada se houver pedidos ou caixa ligados a ela) |
+| **Vitrine** | `/loja/{slug}/…` | Catálogo com banner e categorias, produto com cor e tamanho, carrinho, checkout (dinheiro, cartão, PIX), retirada ou entrega, pedido, meus pedidos, meus endereços |
+| **Painel** | `/painel/{slug}/…` | Dashboard, produtos, estoque por variação, entregas (Kanban), PDV com caixa por turno e simulador de parcelamento, funcionários, hierarquia de cargos, Analyzing BI, configurações (aparência e PIX) |
+| **API** | `/api/…` | JSON consumido pelo JavaScript da vitrine e do painel |
 
-**PIX:** opcionalmente usa **RapidAPI** para QR Code (`RAPIDAPI_KEY` no `.env`, lido em `backend/config/app.php`). Sem chave, o fluxo PIX depende da implementação atual do projeto.
+Recursos opcionais: **RapidAPI** para a imagem do QR Code PIX (sem chave, o QR é gerado localmente) e **OpenRouter** para o assistente de IA do painel.
 
 ---
 
-## Arquitetura e fluxo
+## Arquitetura
 
 ```mermaid
 flowchart LR
-  subgraph web [Browser]
-    HTML[Views PHP]
-    JS[JS em assets]
-  end
-  subgraph entry [Entrada HTTP]
-    P[public/index.php]
-    F[frontend/public/index.php]
-  end
-  subgraph backend [backend/]
-    R[Router]
-    C[Controllers]
-    S[Services]
-    REP[Repositories]
-    DB[(MySQL)]
-  end
-  P --> F
-  F --> R
-  R --> C
-  C --> S
-  C --> REP
-  S --> REP
-  REP --> DB
-  C --> HTML
-  JS -->|fetch /api| R
+    A[Navegador] -->|HTTP| B[frontend/public/index.php]
+    B --> C[Router]
+    C --> D[Guard<br/>permissão da rota]
+    D --> E[Controller]
+    E --> F[Service<br/>regra e cálculo]
+    F --> G[Repository]
+    G --> H[(MySQL / MariaDB)]
+    E --> I[View HTML]
+    E --> J[JSON]
 ```
 
-- **`public/index.php`** (raiz) apenas inclui **`frontend/public/index.php`**, para manter URLs do tipo `…/plataform_stores/public/` no XAMPP sem mudar o DocumentRoot.
-- **`frontend/public/index.php`** inicia sessão, define rotas, serve `/assets/…` e `/uploads/…` quando aplicável, e encaminha pedidos para controllers em **`backend/app/`**.
-- Constantes **`PLATAFORM_ROOT`** e **`PLATAFORM_BACKEND`** são definidas em `backend/bootstrap.php` (caminhos absolutos para config, views e uploads).
-
----
-
-## Requisitos
-
-| Componente | Versão / notas |
-|------------|------------------|
-| PHP | 8.0+ com extensões `pdo_mysql`, `json`, `session`, `fileinfo` (recomendado para validar uploads de imagens) |
-| MySQL ou MariaDB | 5.7+ |
-| Servidor web | Apache com **`mod_rewrite`** (ex.: XAMPP no Windows) ou equivalente |
-
----
-
-## Instalação passo a passo
-
-1. Copie a pasta do projeto para `htdocs` (ou o diretório público do seu servidor).
-2. Crie a base de dados executando **`backend/database/schema.sql`**:
-
-   ```
-   mysql -u root < backend/database/schema.sql
-   ```
-
-   O `schema.sql` é o **retrato completo** do schema atual e já regista as migrações como aplicadas — uma instalação nova não precisa de mais nada. **Num banco que já existe, não execute este arquivo**; use o passo 3.
-3. Confirme (ou atualize) o estado das migrações:
-
-   ```
-   php backend/scripts/migrate.php --status    lista o que falta
-   php backend/scripts/migrate.php             aplica as pendentes
-   ```
-
-   Numa instalação nova deve dizer *0 pendentes*. Antes de aplicar qualquer coisa a um banco com dados, o runner gera sozinho um dump em `storage/backups/`.
-4. Configure **`backend/config/database.php`**: `host`, `dbname`, `username`, `password`, `charset`.
-5. Configure **`backend/config/app.php`**: especialmente **`url`** (URL base pública; usada como *fallback* — em muitos casos o sistema infere host e pasta a partir do pedido HTTP).
-6. Ajuste **`RewriteBase`** em **`public/.htaccess`** para o caminho **após** `htdocs` (ex.: `/plataform_stores/public/`). Se apontar o DocumentRoot diretamente para **`frontend/public/`**, ajuste também **`frontend/public/.htaccess`** da mesma forma.
-7. Na **raiz do projeto**, copie **`.env.example`** para **`.env`** e preencha. `APP_DEBUG=true` só na máquina de desenvolvimento; `RAPIDAPI_KEY` e `OPENROUTER_API_KEY` são opcionais. **Nunca commite chaves reais** — o `.env` é ignorado pelo Git e bloqueado por HTTP.
-8. Garanta permissão de escrita em **`frontend/public/uploads/products/`** e em **`storage/logs/`** (destino dos erros registados).
-9. Opcional, mas recomendado para começar: popule com uma loja de exemplo.
-
-   ```
-   php backend/scripts/seed.php
-   ```
-
-   Cria uma loja com 7 produtos (3 com matriz de cor/tamanho), categorias da vitrine, metas e três contas — gerente, funcionário e cliente — com senha `gerente123`. **Troque essas senhas** antes de expor a instalação a qualquer rede.
-10. Aceda no navegador à URL configurada (ex.: `http://localhost/plataform_stores/public/`).
-
----
-
-## Configuração
-
-### `backend/config/database.php`
-
-Ligação PDO ao MySQL: host, nome da base, utilizador, senha.
-
-### `backend/config/app.php`
-
-| Chave | Função |
-|-------|--------|
-| `name` | Nome da aplicação |
-| `url` | URL base (ex.: `http://localhost/plataform_stores/public`) — *fallback* quando não há `SCRIPT_NAME` útil (ex.: CLI) |
-| `timezone` | Fuso horário PHP (ex.: `America/Sao_Paulo`) |
-| `debug` | Lida de `APP_DEBUG` no `.env`. Ausente = `false`. Ligada, junta o campo `debug` às respostas de erro |
-| `rapidapi_key` | Preenchida a partir da variável de ambiente `RAPIDAPI_KEY` |
-
-Nenhuma destas chaves se edita no ficheiro: `url` e `debug` vêm do `.env`, para que publicar não dependa de alguém lembrar de alterar um ficheiro versionado.
-
-### `.env` (raiz do repositório)
-
-Carregado em `backend/bootstrap.php`. Use **`.env.example`** como modelo:
-
-| Variável | Função |
-|----------|--------|
-| `APP_DEBUG` | `true` expõe mensagens de exceção nas respostas e no HTML. **`false` fora de desenvolvimento** |
-| `APP_URL` | URL base pública (*fallback*) |
-| `DB_NAME`, `DB_HOST`, `DB_USER`, `DB_PASSWORD` | Sobrescrevem `backend/config/database.php`. Útil para apontar a outro banco sem editar arquivo versionado — por exemplo, ensaiar uma migration numa cópia |
-| `RAPIDAPI_KEY` | Chave RapidAPI para geração de QR Code PIX (opcional) |
-| `OPENROUTER_API_KEY` | Chave do assistente de IA do painel (opcional) |
-
-### Apache (`RewriteBase`)
-
-O valor tem de coincidir com o caminho público da aplicação. Se a URL for `http://localhost/meuprojeto/public/lojas`, o `RewriteBase` costuma ser `/meuprojeto/public/`.
+- **`public/index.php`** só inclui `frontend/public/index.php`, para manter URLs como `…/plataform_stores/public/` no XAMPP. O `index.php` da raiz redireciona para `public/`.
+- **`frontend/public/index.php`** é o front controller: serve estáticos, inicia a sessão, carrega as rotas e despacha.
+- As fórmulas financeiras ficam isoladas em `backend/app/Domain/Finance/` (rateio, tendência, tabela Price) e em `AnalyzingBIService` / `AnalyzingBIRepository`.
 
 ---
 
@@ -161,240 +64,197 @@ O valor tem de coincidir com o caminho público da aplicação. Se a URL for `ht
 ```
 plataform_stores/
 ├── backend/
-│   ├── bootstrap.php          # .env, constantes PLATAFORM_*, autoload App\
+│   ├── bootstrap.php            # .env, constantes PLATAFORM_*, autoload App\
 │   ├── app/
-│   │   ├── Controllers/       # Web + Api/*
-│   │   ├── Services/
-│   │   ├── Repositories/
-│   │   ├── Database/
-│   │   ├── Helpers/           # functions.php (config, base_url, redirect, …)
+│   │   ├── Auth/                # Permissions (matriz por cargo), RateLimiter
+│   │   ├── Controllers/         # páginas + Api/* (JSON)
+│   │   ├── Database/            # conexão PDO, transação, backup
+│   │   ├── Domain/              # Finance/ (Money, Trend, Installments), Product/
+│   │   ├── Helpers/functions.php
+│   │   ├── Http/Guard.php       # autorização antes do controller
+│   │   ├── Payment/             # validação de cartão (Luhn)
+│   │   ├── Repositories/        # SQL
+│   │   ├── Services/            # regra de negócio
+│   │   ├── Support/QrCode.php   # gerador de QR local
 │   │   └── Router.php
-│   ├── config/                # app.php, database.php
-│   ├── routes/                # web.php, api.php
-│   ├── views/                 # layout, login, lojas, store/*, panel/*
-│   └── database/
-│       ├── schema.sql
-│       └── migrations/
+│   ├── config/                  # app.php, database.php, regrasIA.txt
+│   ├── database/                # schema.sql + migrations/
+│   ├── routes/                  # web.php, api.php
+│   ├── scripts/                 # migrate, backup, seed
+│   ├── tests/                   # runner próprio + Unit/
+│   ├── tools/                   # verificações contra banco/HTTP e benchmark
+│   └── views/                   # plataforma, store/*, panel/*
 ├── frontend/public/
-│   ├── index.php              # Front controller (rotas, assets, uploads)
-│   ├── .htaccess
-│   ├── assets/                # css/, js/, favicon
-│   └── uploads/               # imagens de produtos (ex.: products/)
-├── public/
-│   ├── index.php              # require → ../frontend/public/index.php
-│   └── .htaccess
-├── index.php                  # Opcional: encaminha para public/
-├── .env                       # Não versionar (criar localmente)
+│   ├── index.php                # front controller
+│   ├── static.php               # entrega de assets e uploads com cache
+│   ├── assets/                  # css/app.css, js/*, images/, favicon
+│   └── uploads/                 # produtos, banners e ícones das lojas
+├── public/                      # ponte para frontend/public (XAMPP)
+├── storage/                     # logs/ e backups/ (não versionados)
+├── .github/workflows/ci.yml
+├── DOCUMENTACAO.md
 └── README.md
 ```
 
 ---
 
-## Rotas principais (páginas)
+## Instalação
 
-Definição completa em **`backend/routes/web.php`**.
+Requisitos: PHP 8.0+ (`pdo_mysql`, `json`, `session`, `fileinfo`), MySQL 5.7+ ou MariaDB, Apache com `mod_rewrite` (o XAMPP já atende).
 
-| Método | Caminho | Descrição |
-|--------|---------|-----------|
-| GET | `/` | Login (redireciona para `/lojas` se já autenticado) |
-| POST | `/login` | Autenticação |
-| GET | `/sair` | Logout |
-| GET | `/lojas` | Lista de lojas (autenticado) |
-| GET | `/minha-conta` | Dados da conta |
-| POST | `/minha-conta/excluir` | Excluir conta (validações no servidor) |
-| GET/POST | `/criar-conta` | Cadastro de utilizador |
-| GET/POST | `/criar-loja` | Criar nova loja |
-| GET | `/loja/{slug}` | Vitrine |
-| GET | `/loja/{slug}/produto/{id}` | Detalhe do produto |
-| GET | `/loja/{slug}/carrinho` | Carrinho |
-| GET | `/loja/{slug}/checkout` | Checkout |
-| GET | `/loja/{slug}/pedido/{id}` | Pedido |
-| GET | `/loja/{slug}/meus-pedidos` | Pedidos do cliente |
-| GET | `/loja/{slug}/meus-enderecos` | Endereços |
-| GET | `/painel/{slug}` | Dashboard do painel |
-| GET | `/painel/{slug}/produtos` … | Produtos, estoque, entregas, PDV, funcionários, clientes, hierarquia, relatórios, configurações |
+1. Copie a pasta para o `htdocs`.
+2. Crie o banco:
+
+   ```
+   mysql -u root < backend/database/schema.sql
+   ```
+
+   O `schema.sql` é o retrato completo do schema e já registra as migrações como aplicadas. **Não execute em um banco que já tem dados** (ele contém `DROP TABLE IF EXISTS`); nesse caso use o `migrate.php`.
+3. Copie `.env.example` para `.env` e preencha.
+4. Ajuste o `RewriteBase` em `public/.htaccess` para o caminho depois do `htdocs` (ex.: `/plataform_stores/public/`).
+5. Garanta permissão de escrita em `frontend/public/uploads/` e `storage/`.
+6. Opcional: popule com uma loja de exemplo.
+
+   ```
+   php backend/scripts/seed.php
+   ```
+
+   Cria uma loja com produtos, categorias, metas e três contas (`gerente@loja.test`, `funcionario@loja.test`, `cliente@loja.test`) com a senha `gerente123`. **Troque essas senhas** antes de expor a instalação.
+7. Acesse `http://localhost/plataform_stores/public/`.
 
 ---
 
-## API REST (resumo)
+## Configuração
 
-Todas as rotas estão em **`backend/routes/api.php`**. O prefixo no browser é o mesmo da sua instalação (ex.: `…/public/api/loja/minha-loja/...`).
+### `.env` (raiz)
 
-| Grupo | Exemplos de endpoints |
-|-------|------------------------|
-| Carrinho | `POST …/cart/sync`, `…/cart/clear` |
-| Checkout / endereços | `GET/POST/PUT/DELETE …/checkout/addresses` |
-| Loja / PIX / dashboard | `GET …/pix-config`, `POST …/pix-config`, `GET/POST …/dashboard-config` |
-| Produtos | `GET/POST …/products`, imagens, stock |
-| Pedidos | `GET/POST …/orders`, estágios de entrega |
+| Variável | Função |
+|----------|--------|
+| `APP_DEBUG` | `true` mostra mensagens de exceção. **`false` fora de desenvolvimento** |
+| `APP_URL` | URL base pública (usada quando não dá para inferir pela requisição, como no CLI) |
+| `DB_NAME`, `DB_HOST`, `DB_USER`, `DB_PASSWORD` | Sobrescrevem `backend/config/database.php` |
+| `RAPIDAPI_KEY` | Imagem do QR Code PIX (opcional) |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, … | Assistente de IA do painel (opcional) |
+
+O `.env` é ignorado pelo Git e bloqueado por HTTP. As regras do assistente de IA ficam em `backend/config/regrasIA.txt`.
+
+---
+
+## Rotas e API
+
+Páginas em [backend/routes/web.php](backend/routes/web.php); API em [backend/routes/api.php](backend/routes/api.php).
+
+| Grupo | Exemplos |
+|-------|----------|
+| Carrinho e checkout | `POST …/cart/sync`, `…/checkout/addresses` |
+| Loja | `…/pix-config`, `…/banner`, `…/store-icon`, `…/store/appearance` |
+| Catálogo | `…/products`, imagens, estoque por variação, categorias da vitrine |
+| Pedidos e entregas | `…/orders`, estágios de entrega |
 | Pagamentos | `POST …/payments`, confirmação, pendentes |
-| Caixa | abrir/fechar turno, movimentos |
-| Relatórios | vendas, top produtos, stock baixo, funcionários, receita, clientes |
-| Metas | `GET/POST …/goals`, metas da loja e por funcionário |
-| Utilizadores e cargos | CRUD de users, roles, hierarquia |
-| Stock | listagens de movimentos |
+| Caixa e PDV | abrir/fechar turno, movimentos, resumo, `…/finance/installments` (tabela Price) |
+| Analyzing BI | `…/analyzing-bi`, `…/analyzing-bi/faturamento` |
+| Metas | `…/goals`, meta da loja e por funcionário |
+| Equipe | usuários, cargos, hierarquia |
+| Assistente de IA | `…/ai/*` |
 
-Respostas de erro da API costumam vir em JSON com campo `error`. Pedidos a `/api/` desativam `display_errors` no `index.php` para não corromper JSON.
+Erros da API voltam em JSON com o campo `error`.
 
 ---
 
-## Utilizadores e sessões
+## Usuários, permissões e segurança
 
-- **Plataforma:** sessão com `logged_user_id`, etc., após login em `/`. Cabeçalho com **Minha conta** e **Sair** quando autenticado. O cookie é `httponly`/`samesite=Lax` e o id é renovado a cada login e logout.
-- **Loja (vitrine):** navegar e adicionar ao carrinho não exige conta. **Finalizar compra, ver "Meus pedidos" e "Meus endereços" exigem login** — a identidade sai sempre da sessão, nunca de um parâmetro `email`.
-- **Comprovante do pedido:** `/loja/{slug}/pedido/{id}` abre para a equipa da loja, para o dono logado, ou para quem tiver o link com `?t={access_token}`. Sem um dos três, responde 404.
-### Permissões
+**Identidade única:** uma pessoa, uma conta, uma senha. `users.email` é único; o cargo é o vínculo com a loja em `store_members (user_id, store_id, role)`. A mesma pessoa pode ser gerente de uma loja e funcionária de outra. Excluir alguém da equipe desfaz o vínculo, não apaga a conta.
 
-Quem pode o quê está em **`backend/app/Auth/Permissions.php`** — uma matriz de permissões nomeadas por cargo. O modelo é: o **gerente** gerencia a loja; o **funcionário** a opera.
+**Permissões:** matriz em [backend/app/Auth/Permissions.php](backend/app/Auth/Permissions.php). O gerente gerencia a loja; o funcionário a opera.
 
 | Área | Gerente | Funcionário |
 |------|:-------:|:-----------:|
 | Dashboard, PDV, caixa, entregas | ✔ | ✔ |
-| Ver catálogo, estoque, pedidos, relatórios, cargos | ✔ | ✔ |
-| Criar/editar/apagar produto, ajustar estoque, categorias | ✔ | — |
-| Equipe, cargos (gestão), metas | ✔ | — |
+| Ver catálogo, estoque, pedidos, cargos, metas | ✔ | ✔ |
+| Criar/editar produto, ajustar estoque, categorias | ✔ | — |
+| Equipe, gestão de cargos, definir metas | ✔ | — |
 | Analyzing BI, configurações, chave PIX | ✔ | — |
 | Confirmar pagamento | ✔ | só dinheiro no PDV |
 
-**Toda rota declara o que exige** no terceiro elemento do handler, e o `App\Http\Guard` decide antes de o controller rodar:
+Toda rota declara a permissão no terceiro elemento do handler, e o `App\Http\Guard` decide antes do controller. **Rota sem declaração não executa.**
 
 ```php
 'POST /api/loja/{slug}/products' => [ProductApiController::class, 'create', 'store.catalog.write'],
-'GET  /loja/{slug}'              => [StoreFrontController::class, 'vitrine', Guard::PUBLICO],
+'GET /loja/{slug}'               => [StoreFrontController::class, 'vitrine', Guard::PUBLICO],
 ```
 
-Rota sem declaração **não executa**: levanta exceção. Ao criar um endpoint, escolha a permissão na matriz e rode `php backend/tools/routes_check.php`.
+Esconder botão na view (`user_can(...)`) não é proteção; quem decide é o Guard.
 
-Nas views, use `user_can('store.catalog.write', $storeId)` para mostrar ou esconder ações — lembrando que esconder botão não é proteção; a decisão que vale é a do Guard.
-
-### CSRF
-
-Todo `POST`/`PUT`/`PATCH`/`DELETE` exige o token. Nos formulários, `<?= csrf_field() ?>`. No JavaScript nada é preciso: **`assets/js/csrf.js` intercepta `window.fetch`** e envia o cabeçalho `X-CSRF-Token` sozinho — ele é carregado no `<head>` dos três layouts, antes de qualquer script que faça requisição.
-
-Token vencido volta como `403` com o cabeçalho `X-CSRF-Retry`, e o interceptador recarrega a página.
-
-### Limite de tentativas
-
-`App\Auth\RateLimiter` (tabela `rate_limits`): 8 tentativas de login por IP+e-mail a cada 15 minutos, 5 contas por IP por hora, 30 perguntas ao assistente de IA por usuário a cada 10 minutos.
-
-- **Painel:** acesso de **gerente** ou **funcionário** daquela loja, conforme a matriz acima.
-### Identidade
-
-**Uma pessoa, uma conta, uma senha.** `users.email` é único globalmente e a tabela guarda só a identidade — nome, e-mail, senha.
-
-O cargo é o **vínculo com a loja**, em `store_members (user_id, store_id, role)`. A mesma pessoa pode ser gerente numa loja, funcionária em outra e cliente numa terceira, com a mesma senha em todas. Quem não tem vínculo nenhum é cliente.
-
-```php
-$memberRepo->role($userId, $storeId);        // 'gerente' | 'funcionario' | null
-$memberRepo->storeIdsForUser($userId);       // lojas onde a pessoa trabalha
-$memberRepo->upsert($userId, $storeId, $r);  // contrata ou muda o cargo
-$memberRepo->remove($userId, $storeId);      // demite — a pessoa continua existindo
-```
-
-Consequências práticas: **excluir alguém da equipe desfaz o vínculo, não apaga a conta** (ela pode ser cliente de outra loja); **contratar quem já tem conta apenas vincula**, mantendo a senha que a pessoa já usa; e criar uma segunda loja não cria uma segunda conta.
+- **CSRF:** todo `POST`/`PUT`/`PATCH`/`DELETE` exige token. Formulários usam `csrf_field()`; no JavaScript, `assets/js/csrf.js` intercepta o `fetch` e envia o cabeçalho sozinho.
+- **Sessão:** cookie `httponly`/`samesite=Lax`, id renovado no login e no logout. A identidade do comprador vem sempre da sessão.
+- **Limite de tentativas** (`App\Auth\RateLimiter`): 8 logins por IP+e-mail a cada 15 minutos, 5 contas por IP por hora, 30 perguntas ao assistente por usuário a cada 10 minutos.
+- **Comprovante do pedido:** abre para a equipe da loja, para o dono logado ou para quem tiver o link com `?t={access_token}`.
 
 ---
 
-## Base de dados
+## Banco de dados
 
-Tabelas principais: `stores`, `users`, `products`, `product_variants`, `orders`, `order_items`, `payments`, `user_addresses`, `cash_registers`, `roles`, `employee_roles`, metas (`store_goals`, `employee_goals`), `schema_migrations`.
+| Situação | Comando |
+|----------|---------|
+| Instalação nova | `mysql -u root < backend/database/schema.sql` |
+| Banco existente | `php backend/scripts/migrate.php` (faz backup antes, se houver dados) |
+| Ver o que falta | `php backend/scripts/migrate.php --status` |
+| Backup manual | `php backend/scripts/backup.php [rótulo]` |
 
-### Os dois caminhos
+**Migração nova:** crie `backend/database/migrations/NNNN_descricao.sql` com o próximo número (a ordem é alfabética). Não use `DELIMITER`; para DDL condicional use `SET @sql = IF(...); PREPARE …` (veja `0007_stores_banner_path.sql`). Depois, atualize o `schema.sql` e registre a migração na tabela `schema_migrations` dele, para que os dois caminhos continuem iguais.
 
-| Situação | O que executar |
-|----------|----------------|
-| Instalação nova | `mysql -u root < backend/database/schema.sql` — retrato completo, já em dia |
-| Banco que já existe | `php backend/scripts/migrate.php` — aplica só o que falta |
-
-Os dois produzem o mesmo schema. Nunca execute o `schema.sql` sobre um banco com dados: ele contém `DROP TABLE IF EXISTS`.
-
-### Scripts
-
-| Comando | Função |
-|---------|--------|
-| `php backend/scripts/migrate.php` | Aplica as migrações pendentes (faz dump antes, se houver dados) |
-| `php backend/scripts/migrate.php --status` | Lista aplicadas e pendentes, sem alterar nada |
-| `php backend/scripts/migrate.php --baseline` | Marca todas como aplicadas **sem executar** — para um banco que já recebeu as alterações à mão |
-| `php backend/scripts/backup.php [rótulo]` | Dump para `storage/backups/` |
-| `php backend/scripts/seed.php [--force]` | Popula com a loja de exemplo |
-| `php backend/tools/concurrency_check.php` | Verifica estoque, transações e confirmação de pagamento contra o banco |
-| `php backend/tools/routes_check.php` | Confere que toda rota declara uma permissão válida |
-| `php backend/tools/authz_check.php` | Exercita a matriz de permissões e o CSRF por HTTP (precisa do seed e do servidor no ar) |
-| `php backend/tools/identity_check.php` | Verifica a identidade única: e-mail único, vínculos por loja, sessão estável entre logins |
-| `php backend/tests/run.php` | Suíte de testes de unidade do domínio (não precisa de banco) |
-| `php backend/tests/lint.php` | Sintaxe de todo o PHP e JS do projeto |
-
-### Migrações novas
-
-Crie `backend/database/migrations/NNNN_descricao.sql` com o próximo número — a ordem de execução é a alfabética do nome. Sem `DELIMITER` e sem `CREATE PROCEDURE`: `DELIMITER` é diretiva do cliente `mysql`, não do servidor, e migração que a use não pode ser executada por PDO. Para DDL condicional, use o padrão `SET @sql = IF(...); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;` (veja `0007_stores_banner_path.sql`).
-
-Depois de criar uma migração, regenere o `schema.sql` para que os dois caminhos continuem equivalentes:
-
-```
-mysqldump -u root --no-data --skip-comments plataform_stores
-```
-
-### Antes de mexer no schema
-
-`log_bin` está desligado no XAMPP por padrão: **não há como desfazer um `DROP`**. Rode `php backend/scripts/backup.php` antes de qualquer operação destrutiva, e teste recriação de schema num banco descartável, nunca no de trabalho. O `migrate.php` já faz o dump sozinho — mas ele só cobre o que passa por ele.
+O XAMPP não tem `log_bin` ligado: **não há como desfazer um `DROP`**. Faça backup antes de qualquer operação destrutiva.
 
 ---
 
-## Ficheiros estáticos e uploads
+## Testes e ferramentas
 
-Servidos por **`frontend/public/static.php`**, incluído no topo do front controller — **antes do `session_start()`**, e isso é essencial: a sessão faz o PHP mandar `Cache-Control: no-store` em toda resposta, e enquanto os assets passavam depois dela o navegador rebaixava o CSS inteiro a cada página.
+| Comando | O que faz |
+|---------|-----------|
+| `php backend/tests/lint.php` | Sintaxe de todo o PHP e JS |
+| `php backend/tests/run.php [filtro]` | Testes de unidade (carrinho, cartão, PIX, QR, estoque, fórmulas financeiras). Não precisa de banco |
+| `php backend/tools/routes_check.php` | Toda rota declara uma permissão válida |
+| `php backend/tools/concurrency_check.php` | Estoque e confirmação de pagamento sob concorrência, contra o banco |
+| `php backend/tools/authz_check.php [url]` | Matriz de permissões e CSRF por HTTP (precisa do seed e do servidor no ar) |
+| `php backend/tools/identity_check.php [url]` | Identidade única e vínculos por loja |
+| `php backend/tools/bi_benchmark.php` | Gera 50 mil pedidos num banco separado, confere o BI e mede o tempo das consultas |
+| `php backend/tools/seed_bi_demo.php --loja=slug` | Histórico de vendas de demonstração para o BI (`--remover` desfaz) |
 
-As URLs saem de `asset()` com `?v=<mtime>`, o que permite `max-age` de um ano com segurança: editar o ficheiro muda o mtime e portanto a URL. Há `ETag` e resposta `304`, e só as extensões conhecidas são servidas.
+O GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) roda sintaxe e unidade em PHP 8.0 e 8.3, a integração contra um MariaDB limpo e o PHPStan.
 
-Se apontar o `DocumentRoot` para `frontend/public/`, o Apache serve os estáticos sozinho e nada disto é usado — que é o ideal.
+Teste novo: crie `backend/tests/Unit/AlgumaCoisaTest.php`, estenda `Tests\TestCase` e comece os métodos com `test`.
 
+---
 
-- CSS/JS: **`frontend/public/assets/`** (servidos pela rota `/assets/…` no `index.php`).
-- Imagens de produto: **`frontend/public/uploads/products/`**; caminhos relativos guardados na base (ex.: `products/nome.jpg`).
-- Tema claro/escuro: `theme.js` e variáveis CSS em `app.css`.
+## Arquivos estáticos e uploads
+
+Servidos por `frontend/public/static.php`, antes do `session_start()` (senão a sessão força `Cache-Control: no-store` em tudo). As URLs saem de `asset()` com `?v=<mtime>`, o que permite cache de um ano: editar o arquivo muda a URL.
+
+- CSS e JS: `frontend/public/assets/` (um único `app.css`, tema claro/escuro por variáveis CSS).
+- Uploads: `frontend/public/uploads/` (`products/`, `store-banners/`, `store-icons/`); o banco guarda o caminho relativo.
+
+Se o `DocumentRoot` apontar para `frontend/public/`, o Apache serve os estáticos direto.
 
 ---
 
 ## Problemas comuns
 
 | Sintoma | O que verificar |
-|---------|------------------|
-| **404** em rotas amigáveis | `mod_rewrite`, `AllowOverride`, `RewriteBase` no `.htaccess` correto |
-| **Login não redireciona** | URL com `localhost` vs `127.0.0.1` misturada com `app.url`; buffers de saída; ver `redirect()` e `base_url()` em `backend/app/Helpers/functions.php` |
-| **Erro de base de dados** | `backend/config/database.php`, MySQL a correr, schema e migrações aplicados |
-| **Imagens de produto não gravam** | Permissões em `frontend/public/uploads/products/` |
-| **JSON da API inválido** | Warnings do PHP na resposta — corrigir `debug` e erros no servidor |
+|---------|-----------------|
+| 404 nas rotas | `mod_rewrite`, `AllowOverride` e `RewriteBase` |
+| Login não redireciona | `localhost` × `127.0.0.1` misturados com `APP_URL` |
+| Erro de banco | MySQL ligado, `.env`/`database.php`, migrações aplicadas |
+| Imagens não gravam | Permissão de escrita em `frontend/public/uploads/` |
+| JSON da API inválido | Warning do PHP na resposta; ver `storage/logs/` |
 
 ---
 
-## Testes
+## Produção
 
-```
-php backend/tests/lint.php     sintaxe de todo o PHP e JS
-php backend/tests/run.php      testes de unidade do domínio
-php backend/tests/run.php Card roda só as classes cujo nome casa
-```
+- HTTPS, senhas fortes no banco e `APP_DEBUG=false`.
+- Aponte o `DocumentRoot` para `frontend/public/`. Dentro do `htdocs`, quem protege `.env`, `backend/`, `storage/` e `.git/` são os `.htaccess`; em outro servidor (nginx) ou sem `AllowOverride`, essa proteção some.
+- **O pagamento é simulado.** Um cartão que passa no Luhn marca o pedido como pago. Antes de cobrança real, integre um provedor de pagamento.
+- **PIX:** o *copia e cola* é gerado localmente e a confirmação é manual, pelo gerente.
+- Revise backups, permissões de arquivo e LGPD antes de uso real.
 
-A suíte **não precisa de Composer nem de banco de dados** — são testes de unidade sobre o domínio (carrinho, cartão, estoque por variação). O runner é próprio, em `backend/tests/`, porque um PHPUnit que não se consegue executar na máquina onde o projeto vive não protege nada. A API das asserções imita a do PHPUnit, então migrar é trocar a classe-base.
-
-Para escrever um teste novo: crie `backend/tests/Unit/AlgumaCoisaTest.php`, estenda `Tests\TestCase` e dê aos métodos nomes começando com `test`.
-
-O que depende de banco ou de HTTP fica em `backend/tools/` (tabela acima). O **GitHub Actions** (`.github/workflows/ci.yml`) roda tudo: sintaxe e unidade em PHP 8.0 e 8.3, integração contra um MariaDB de verdade partindo de uma instalação limpa, e PHPStan nível 5.
-
----
-
-## Segurança e produção
-
-- Use **HTTPS**, senhas fortes no MySQL, **`APP_DEBUG=false`** no `.env`.
-- Não publique **`.env`** nem credenciais no repositório.
-- **Raiz pública:** aponte o `DocumentRoot` para **`frontend/public/`**. Enquanto o projeto vive dentro de `htdocs`, quem protege `.env`, `backend/`, `storage/`, `docs/` e `.git/` são os `.htaccess` — se mudar de servidor (nginx) ou desligar `AllowOverride`, essa proteção some e o código-fonte volta a ser descarregável.
-- **Pagamento é simulação.** Não há gateway: um cartão que passe no Luhn marca o pedido como pago, baixa estoque e conta como receita no BI. Antes de qualquer cobrança real, integre um PSP — ver [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md).
-- **PIX:** a chave do lojista não sai daqui. O cliente recebe o *copia e cola* (BR Code gerado localmente); a imagem do QR só é buscada se `RAPIDAPI_KEY` estiver configurada. A confirmação continua sendo manual, feita pelo gerente — não há verificação com o banco.
-- **Dívida técnica conhecida e priorizada** está em [docs/AUDITORIA-E-PLANO.md](docs/AUDITORIA-E-PLANO.md). O que ainda falta: identidade duplicada em `users` (uma linha por loja), ausência de Composer e de testes automatizados, e os itens de performance.
-- Revise permissões de ficheiros, backups e conformidade (LGPD, pagamentos, termos de uso) antes de uso real.
-
----
-
-## Licença e aviso
-
-Este repositório é um **projeto de aplicação web** para estudo ou uso próprio. O código é oferecido **como está**, sem garantia de adequação a um caso concreto; quem implanta deve rever segurança, backups e legislação aplicável.
+Projeto acadêmico, oferecido como está.

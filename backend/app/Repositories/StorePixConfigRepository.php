@@ -53,12 +53,4 @@ class StorePixConfigRepository
             $storeId,
         ]);
     }
-
-    public function getOrCreateForStore(int $storeId): array
-    {
-        $config = $this->findByStore($storeId);
-        if ($config) return $config;
-        $this->create(['store_id' => $storeId]);
-        return $this->findByStore($storeId);
-    }
 }

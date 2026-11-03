@@ -66,12 +66,6 @@ class ReportService
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
-    public function storeRevenue(int $storeId, ?string $dateFrom = null, ?string $dateTo = null): float
-    {
-        $data = $this->storeRevenueByType($storeId, $dateFrom, $dateTo);
-        return $data['total'];
-    }
-
     /**
      * Retorna faturamento separado por tipo: físico (PDV) e online.
      * @return array{revenue_fisico: float, revenue_online: float, total: float}

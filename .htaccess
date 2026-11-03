@@ -20,7 +20,7 @@
 # RewriteRule (e não RedirectMatch) porque em .htaccess o padrão é casado
 # contra o caminho RELATIVO a esta pasta. RedirectMatch casaria contra a URL
 # inteira e derrubaria uma vitrine cujo slug fosse ".git"-like em qualquer
-# nível — as pastas backend/, storage/ e docs/ se protegem sozinhas, cada uma
+# nível — as pastas backend/ e storage/ se protegem sozinhas, cada uma
 # com seu próprio .htaccess, pelo mesmo motivo.
 RewriteEngine On
 RewriteRule ^\.git(/|$) - [F,L]

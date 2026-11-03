@@ -16,5 +16,3 @@ storage/backups/*
 /vendor/
 composer.lock
 .php-cs-fixer.cache
-storage/backups/*
-!storage/backups/.gitkeep

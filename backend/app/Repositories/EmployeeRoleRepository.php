@@ -52,12 +52,6 @@ class EmployeeRoleRepository
         }
     }
 
-    public function assign(int $userId, int $roleId): void
-    {
-        $stmt = $this->pdo->prepare("INSERT IGNORE INTO employee_roles (user_id, role_id) VALUES (?, ?)");
-        $stmt->execute([$userId, $roleId]);
-    }
-
     public function remove(int $userId, int $roleId): bool
     {
         $stmt = $this->pdo->prepare("DELETE FROM employee_roles WHERE user_id = ? AND role_id = ?");

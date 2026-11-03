@@ -193,28 +193,6 @@ class AnalyzingBIRepository
     }
 
     /**
-     * Quantidades vendidas por produto e mês (YYYY-MM) no intervalo.
-     *
-     * @return list<array{product_id: int, product_name: string, ym: string, qty: float}>
-     */
-    public function fetchProductMonthlyQuantities(int $storeId, string $periodStart, string $periodEnd): array
-    {
-        $sql = 'SELECT oi.product_id,
-            MAX(p.name) AS product_name,
-            DATE_FORMAT(o.created_at, \'%Y-%m\') AS ym,
-            SUM(oi.quantity) AS qty
-            FROM order_items oi
-            INNER JOIN orders o ON o.id = oi.order_id AND o.store_id = ? AND o.status = ?
-            INNER JOIN products p ON p.id = oi.product_id AND p.store_id = o.store_id
-            WHERE o.created_at >= ? AND o.created_at <= ?
-            GROUP BY oi.product_id, ym';
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([$storeId, 'pago', $periodStart, $periodEnd]);
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
      * @return list<array{id: int, name: string, stock_quantity: int|float, min_stock: int|float}>
      */
     public function fetchCriticalStock(int $storeId): array
@@ -227,23 +205,6 @@ class AnalyzingBIRepository
         $stmt->execute([$storeId]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * Estoque atual por produto (loja).
-     *
-     * @return array<int, float|int>
-     */
-    public function fetchStockQuantitiesByProduct(int $storeId): array
-    {
-        $stmt = $this->pdo->prepare('SELECT id, stock_quantity FROM products WHERE store_id = ?');
-        $stmt->execute([$storeId]);
-        $map = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $map[(int) $row['id']] = (float) $row['stock_quantity'];
-        }
-
-        return $map;
     }
 
     /**

@@ -91,12 +91,6 @@ class PaymentRepository
         return $stmt->execute([$status, $id]);
     }
 
-    public function updatePixQr(int $id, ?string $qrCode): bool
-    {
-        $stmt = $this->pdo->prepare("UPDATE payments SET pix_qr_code = ? WHERE id = ?");
-        return $stmt->execute([$qrCode, $id]);
-    }
-
     /**
      * Vendas de PDV pagas desde um instante (abertura do caixa), por forma de
      * pagamento. Só dinheiro entra na gaveta — cartão e PIX aparecem aqui para

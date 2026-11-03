@@ -187,10 +187,6 @@
     if (this.img) this.img.removeAttribute('src');
   };
 
-  BannerCropEditor.prototype._cropChanged = function () {
-    return this._zoom !== 1 || Math.abs(this._panX) > 0.5 || Math.abs(this._panY) > 0.5;
-  };
-
   BannerCropEditor.prototype._getCropRect = function () {
     var vw = this.viewport.clientWidth;
     var vh = this.viewport.clientHeight;
@@ -291,51 +287,14 @@
         return;
       }
 
-      function finishOriginal() {
-        if (self.applyBtn) {
-          self.applyBtn.disabled = false;
-          self.applyBtn.textContent = 'Aplicar e guardar';
-        }
-        self.close();
-        self.onApply(blob, 'banner.gif', 'image/gif');
+      // GIF animado é guardado como veio: recortar exigiria decodificar e
+      // recodificar cada quadro no navegador.
+      if (self.applyBtn) {
+        self.applyBtn.disabled = false;
+        self.applyBtn.textContent = 'Aplicar e guardar';
       }
-
-      if (!self._cropChanged()) {
-        finishOriginal();
-        return;
-      }
-
-      var crop = self._getCropRect();
-      if (!crop) {
-        finishOriginal();
-        return;
-      }
-
-      if (typeof global.BannerGifExport === 'undefined') {
-        finishOriginal();
-        return;
-      }
-
-      global.BannerGifExport.cropAnimatedGif(
-        blob,
-        crop,
-        OUT_W,
-        OUT_H,
-        function (outBlob) {
-          if (self.applyBtn) {
-            self.applyBtn.disabled = false;
-            self.applyBtn.textContent = 'Aplicar e guardar';
-          }
-          self.close();
-          self.onApply(outBlob, 'banner.gif', 'image/gif');
-        },
-        function () {
-          finishOriginal();
-          self.onExportError(
-            'Não foi possível recortar o GIF com animação; foi guardada a versão original. Para recortar, use um GIF já no tamanho 1920×512 ou converta para vídeo/MP4.'
-          );
-        }
-      );
+      self.close();
+      self.onApply(blob, 'banner.gif', 'image/gif');
     });
   };
 

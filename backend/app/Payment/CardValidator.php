@@ -8,8 +8,8 @@ use InvalidArgumentException;
 /**
  * Valida os dados de cartão informados no checkout.
  *
- * Isto NÃO autoriza pagamento: o projeto não tem adquirente (ver
- * docs/AUDITORIA-E-PLANO.md). A classe confere formato e devolve apenas o que
+ * Isto NÃO autoriza pagamento: o projeto não tem adquirente (ver a
+ * seção 5.2 do DOCUMENTACAO.md). A classe confere formato e devolve apenas o que
  * pode ser guardado — nome, bandeira e os quatro últimos dígitos. O número
  * completo e o CVV existem só dentro destes métodos e nunca são persistidos.
  */

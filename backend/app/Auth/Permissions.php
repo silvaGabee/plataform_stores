@@ -55,7 +55,6 @@ final class Permissions
         'store.payments.confirm' => [self::GERENTE, self::FUNCIONARIO],
 
         // Relatórios operacionais o funcionário vê; o BI é do gerente.
-        'store.reports.read'    => [self::GERENTE, self::FUNCIONARIO],
         'store.bi.read'         => [self::GERENTE],
 
         // Metas: o funcionário vê as suas, só o gerente define.

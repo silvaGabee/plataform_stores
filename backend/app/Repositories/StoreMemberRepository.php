@@ -90,11 +90,4 @@ class StoreMemberRepository
 
         return (int) $stmt->fetchColumn();
     }
-
-    /** Desfaz todos os vínculos da loja (usado ao excluí-la). */
-    public function removeAllForStore(int $storeId): void
-    {
-        $stmt = $this->pdo->prepare('DELETE FROM store_members WHERE store_id = ?');
-        $stmt->execute([$storeId]);
-    }
 }

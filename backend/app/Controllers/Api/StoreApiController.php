@@ -7,7 +7,6 @@ use App\Database\Database;
 use App\Services\StoreService;
 use App\Repositories\StoreRepository;
 use App\Repositories\StorePixConfigRepository;
-use App\Repositories\StoreDashboardConfigRepository;
 use App\Repositories\UserRepository;
 
 class StoreApiController extends Controller
@@ -51,35 +50,6 @@ class StoreApiController extends Controller
         } else {
             $repo->update($storeId, $input);
         }
-        $this->json(['success' => true]);
-    }
-
-    /** Retorna os blocos do dashboard personalizado da loja. */
-    public function getDashboardConfig(string $slug): void
-    {
-        $storeId = $this->getStoreIdFromSlug($slug);
-        if (!$storeId) {
-            $this->json(['error' => 'Loja não encontrada'], 404);
-        }
-        $this->requireStorePanelAccess($storeId);
-        $repo = new StoreDashboardConfigRepository();
-        $config = $repo->getByStore($storeId);
-        $widgets = $config['widgets'] ?? [];
-        $this->json(['widgets' => $widgets]);
-    }
-
-    /** Salva o layout do dashboard (lista de blocos). Apenas gerente. */
-    public function updateDashboardConfig(string $slug): void
-    {
-        $storeId = $this->getStoreIdFromSlug($slug);
-        if (!$storeId) {
-            $this->json(['error' => 'Loja não encontrada'], 404);
-        }
-        $this->requireGerenteOfStore($storeId);
-        $input = $this->getJsonInput();
-        $widgets = isset($input['widgets']) && is_array($input['widgets']) ? $input['widgets'] : [];
-        $repo = new StoreDashboardConfigRepository();
-        $repo->setWidgets($storeId, $widgets);
         $this->json(['success' => true]);
     }
 

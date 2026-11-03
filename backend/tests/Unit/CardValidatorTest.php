@@ -8,7 +8,7 @@ use Tests\TestCase;
  * Validação dos dados de cartão no checkout.
  *
  * Este código NÃO autoriza pagamento — não existe adquirente no projeto (ver
- * docs/AUDITORIA-E-PLANO.md). Ele só valida o formato e extrai o que pode ser
+ * seção 5.2 do DOCUMENTACAO.md). Ele só valida o formato e extrai o que pode ser
  * guardado: nome, bandeira e os quatro últimos dígitos. O número completo e o
  * CVV nunca saem daqui, e é isso que estes testes protegem.
  */
