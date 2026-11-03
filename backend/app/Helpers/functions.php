@@ -1117,6 +1117,31 @@ if (!function_exists('product_variant_matrix_color_meta_normalize')) {
 }
 
 /** URL do ícone da loja na vitrine (aba e cabeçalho); sem imagem própria usa o ícone da plataforma. */
+if (!function_exists('hex_color_is_dark')) {
+    /**
+     * A cor (#RRGGBB) é escura? Pela luminância relativa do WCAG 2.x:
+     *
+     *     L = 0,2126·R + 0,7152·G + 0,0722·B   (canais linearizados)
+     *
+     * Escura quando texto branco tem mais contraste sobre ela do que texto
+     * preto — o limiar dessa troca é L ≈ 0,179.
+     */
+    function hex_color_is_dark(string $hex): bool
+    {
+        if (!preg_match('/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i', $hex, $m)) {
+            return false;
+        }
+        $lin = static function (string $h): float {
+            $c = hexdec($h) / 255;
+
+            return $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        };
+        $l = 0.2126 * $lin($m[1]) + 0.7152 * $lin($m[2]) + 0.0722 * $lin($m[3]);
+
+        return $l < 0.179;
+    }
+}
+
 if (!function_exists('store_brand_icon_url')) {
     function store_brand_icon_url(?array $store): string
     {

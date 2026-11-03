@@ -3043,7 +3043,10 @@ html[data-theme="light"] .store-vitrine-category-name {
 }
 .store-vitrine-body {
   flex: 1;
-  padding: 1.75rem 0 4rem;
+  /* Lateral de 1.25rem (a mesma do .container): com 0 aqui, entre 640px e
+     960px o catálogo encostava nas bordas e a contagem de produtos era
+     cortada. Abaixo de 640px a regra do celular reduz para 0.65rem. */
+  padding: 1.75rem 1.25rem 4rem;
 }
 /* .container com margin:auto dentro de flex column encolhe à largura do conteúdo (coluna única de produtos) */
 .store-vitrine-page > .container,
@@ -10516,8 +10519,15 @@ body:not(:has(.home-landing)) .btn-header-ghost:hover {
   }
   .home-hero-visual {
     order: -1;
+    /* Todo o conteúdo é absolute: sem largura explícita, margin:auto
+       encolhia o bloco a 0px e só sobrava uma linha vertical na tela. */
+    width: 100%;
     max-width: 420px;
     margin: 0 auto;
+    /* A janela desenhada cresce com a largura; altura fixa (280px) deixava
+       a ilustração transbordar sobre o título no tablet. Quadrado acompanha. */
+    min-height: 0;
+    aspect-ratio: 1 / 1;
   }
 }
 .home-eyebrow {
@@ -11892,22 +11902,15 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
 .bi-kpis-row--stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+/* Celular/tablet: grade de 2 colunas, e o 3.º indicador (lucro) ocupa a
+   linha inteira. Antes era uma faixa com rolagem horizontal sem nenhuma
+   pista visual — no celular o lucro estimado simplesmente não aparecia. */
 @media (max-width: 900px) {
   .bi-kpis-row--stats {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    gap: clamp(0.65rem, 1.8vw, 1rem);
-    padding-bottom: 0.35rem;
-    scrollbar-gutter: stable;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .bi-kpis-row--stats .bi-kpi {
-    flex: 0 0 auto;
-    width: min(272px, 86vw);
-    min-width: min(272px, 86vw);
+  .bi-kpis-row--stats .bi-kpi:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 }
 .bi-kpi--hero .bi-kpi-value {
@@ -12671,4 +12674,169 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
     width: 100%;
     order: 10;
   }
+}
+
+/* ========== Vitrine com cor de fundo própria ==========
+ * O texto que fica direto sobre a cor da loja segue a luminância do FUNDO
+ * (classes store-bg-dark/light e store-cats-dark/light, calculadas em
+ * layout_store.php por hex_color_is_dark), não o tema de quem visita.
+ * Os cards de produto têm fundo próprio e continuam seguindo o tema.
+ */
+.store-front.store-custom-bg.store-bg-dark {
+  --on-bg: #f8fafc;
+  --on-bg-soft: #cbd5e1;
+  --on-bg-muted: #94a3b8;
+  --on-bg-hover: rgba(255, 255, 255, 0.08);
+  --on-bg-line: rgba(255, 255, 255, 0.14);
+}
+.store-front.store-custom-bg.store-bg-light {
+  --on-bg: #0f172a;
+  --on-bg-soft: #334155;
+  --on-bg-muted: #475569;
+  --on-bg-hover: rgba(15, 23, 42, 0.06);
+  --on-bg-line: rgba(15, 23, 42, 0.14);
+}
+.store-front.store-custom-bg .store-header .store-brand { color: var(--on-bg); }
+.store-front.store-custom-bg .store-header .store-brand-slogan { color: var(--on-bg-muted); }
+.store-front.store-custom-bg .store-header .store-nav-link:not(.panel-link) { color: var(--on-bg-soft) !important; }
+.store-front.store-custom-bg .store-header .store-nav-link:not(.panel-link):hover { color: var(--on-bg) !important; background: var(--on-bg-hover); }
+.store-front.store-custom-bg .store-header .store-header-divider { background: var(--on-bg-line); }
+.store-front.store-custom-bg .store-vitrine-section-title { color: var(--on-bg); }
+.store-front.store-custom-bg .store-vitrine-section-desc { color: var(--on-bg-muted); }
+.store-front.store-custom-bg .store-footer { color: var(--on-bg-muted); }
+
+/* Faixa de categorias: pode ter cor própria (--store-categories-bg). */
+.store-front.store-custom-bg.store-cats-dark .store-vitrine-categories-wrap {
+  --cat-text: #e2e8f0;
+  --cat-muted: #94a3b8;
+  --cat-hover: rgba(255, 255, 255, 0.08);
+  --cat-active: rgba(96, 165, 250, 0.2);
+  --cat-active-text: #bfdbfe;
+  --cat-icon-filter: none;
+}
+.store-front.store-custom-bg.store-cats-light .store-vitrine-categories-wrap {
+  --cat-text: #1e293b;
+  --cat-muted: #475569;
+  --cat-hover: rgba(15, 23, 42, 0.06);
+  --cat-active: rgba(37, 99, 235, 0.12);
+  --cat-active-text: #1e40af;
+  --cat-icon-filter: brightness(0) saturate(100%);
+}
+.store-front.store-custom-bg .store-vitrine-categories-title { color: var(--cat-muted); }
+.store-front.store-custom-bg .store-vitrine-category-name { color: var(--cat-text); }
+.store-front.store-custom-bg .store-vitrine-category-link:hover { background: var(--cat-hover); }
+.store-front.store-custom-bg .store-vitrine-category-link--active { background: var(--cat-active); }
+.store-front.store-custom-bg .store-vitrine-category-link--active .store-vitrine-category-name { color: var(--cat-active-text); }
+.store-front.store-custom-bg .store-vitrine-category-icon--storefront img { filter: var(--cat-icon-filter); opacity: 0.92; }
+/* O degradê que indica "tem mais à direita" precisa nascer da cor real da
+   faixa — fixo em cinza-claro, virava um bloco branco sobre fundo escuro. */
+.store-front.store-custom-bg .h-scroll-mask--store-vitrine::before {
+  background: linear-gradient(90deg, var(--store-categories-bg, var(--store-bg)) 0%, transparent 100%);
+}
+.store-front.store-custom-bg .h-scroll-mask--store-vitrine::after {
+  background: linear-gradient(270deg, var(--store-categories-bg, var(--store-bg)) 0%, transparent 100%);
+}
+
+/* ========== Folga para os botões flutuantes ==========
+ * No celular/tablet o assistente (FAB) e o botão de tema ficam empilhados no
+ * canto inferior direito e cobriam o último botão de cada página ("Alterar
+ * slogan", "Editar"…). A folga deixa o fim da página rolar acima deles.
+ */
+@media (max-width: 900px) {
+  body.panel .panel-main-body {
+    padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+  }
+  body.store-front .store-footer {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ========== Botões flutuantes do painel no celular/tablet ==========
+ * Abaixo de 1024px a intenção sempre foi: assistente embaixo, tema logo
+ * acima. Mas a regra-base do .panel-ai-fab (bottom: 5.75rem) vem DEPOIS da
+ * media query no arquivo e a vencia — o tema subia para 5.25rem e caía em
+ * cima do assistente, que ficava impossível de tocar. `body.panel` dá a
+ * especificidade que faltava.
+ */
+@media (max-width: 1023px) {
+  body.panel .panel-ai-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    right: max(0.75rem, env(safe-area-inset-right));
+  }
+  body.panel .theme-toggle {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    right: max(0.75rem, env(safe-area-inset-right));
+  }
+}
+
+/* Áreas que ficam DIRETO sobre a cor da loja: página de produto e cabeçalho
+   das subpáginas (carrinho, checkout, pedidos, endereços). Redefinem os
+   tokens de texto/superfície pela luminância do fundo, e não pelo tema de
+   quem visita — com tema claro sobre fundo escuro, nome do produto, rótulos
+   de cor/tamanho e títulos das páginas sumiam. `color` é repetido aqui porque
+   a cor herdada do body já vem resolvida e não enxerga a troca de token. */
+.store-front.store-custom-bg.store-bg-dark {
+  --on-bg-card: rgba(255, 255, 255, 0.07);
+}
+.store-front.store-custom-bg.store-bg-light {
+  --on-bg-card: #ffffff;
+}
+.store-front.store-custom-bg .product-page,
+.store-front.store-custom-bg .store-subpage-top,
+.store-front.store-custom-bg .store-subpage-head,
+.store-front.store-custom-bg .checkout-back,
+.store-front.store-custom-bg .store-subpage-lead {
+  --text: var(--on-bg);
+  --text-muted: var(--on-bg-muted);
+  --border: var(--on-bg-line);
+  --border-subtle: var(--on-bg-hover);
+  --bg-card: var(--on-bg-card);
+  color: var(--text);
+}
+.store-front.store-custom-bg .store-subpage-lead,
+.store-front.store-custom-bg .checkout-back { color: var(--on-bg-muted); }
+/* Botão de compra: preto sobre fundo escuro some; segue o fundo. */
+.store-front.store-custom-bg.store-bg-dark .product-detail-cart-btn:not(:disabled) {
+  background: #f8fafc;
+  color: #0f172a;
+}
+.store-front.store-custom-bg.store-bg-dark .product-detail-cart-btn:not(:disabled):hover {
+  background: #ffffff;
+}
+.store-front.store-custom-bg.store-bg-light .product-detail-cart-btn:not(:disabled) {
+  background: #171717;
+  color: #ffffff;
+}
+
+/* Janelas (.modal) do painel: com z-index 100 ficavam sob a barra superior
+   do celular (120) — o título "Novo produto" era cortado — e sob os botões
+   flutuantes (9998/9999), que cobriam botões como "Excluir funcionário".
+   Acima de ambos; abaixo só do menu lateral (10040) e do assistente (10050). */
+body.panel .modal {
+  z-index: 10020;
+}
+
+/* Cabeçalho da vitrine no celular: marca numa linha, links na seguinte, todos
+   juntos. Antes "Voltar para Lojas" caía sozinho numa terceira linha e o
+   cabeçalho ocupava ~170px da tela antes do banner. */
+@media (max-width: 520px) {
+  .store-header { padding: 0.6rem 0; }
+  /* O .container dá 1.25rem também em cima e embaixo: 40px vazios aqui. */
+  .store-header-inner.container { padding-top: 0.2rem; padding-bottom: 0.2rem; gap: 0.45rem; }
+  .store-header-links {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 0.15rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .store-header-links::-webkit-scrollbar { display: none; }
+  .store-header-links .store-nav-link {
+    flex-shrink: 0;
+    padding: 0.45rem 0.42rem;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  .store-header-links .store-back-link { margin-left: auto; }
+  .store-header-divider { display: none; }
 }

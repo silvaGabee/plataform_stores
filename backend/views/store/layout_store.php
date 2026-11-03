@@ -36,7 +36,20 @@ if ($storeBannerBg) {
     $bodyStyle .= " --store-banner-bg: " . htmlspecialchars($storeBannerBg, ENT_QUOTES, 'UTF-8') . ";";
 }
 ?>
-<body class="store-front<?= $storeBackgroundColor ? ' store-custom-bg' : '' ?>"<?= $bodyStyle ? ' style="' . $bodyStyle . '"' : '' ?>>
+<?php
+// O texto que fica direto sobre a cor da loja (cabeçalho, categorias,
+// títulos, rodapé) segue a cor do FUNDO, não o tema claro/escuro de quem
+// visita: com fundo azul-marinho e tema claro, nome da loja e categorias
+// eram pintados quase de preto e sumiam.
+$storeSurfaceClass = '';
+if ($storeBackgroundColor) {
+    $storeSurfaceClass .= hex_color_is_dark($storeBackgroundColor) ? ' store-bg-dark' : ' store-bg-light';
+    $catsSurface = $storeCategoriesBg ?: $storeBackgroundColor;
+    $storeSurfaceClass .= hex_color_is_dark($catsSurface) ? ' store-cats-dark' : ' store-cats-light';
+    $bodyStyle .= ' --store-bg: ' . htmlspecialchars($storeBackgroundColor, ENT_QUOTES, 'UTF-8') . ';';
+}
+?>
+<body class="store-front<?= $storeBackgroundColor ? ' store-custom-bg' : '' ?><?= $storeSurfaceClass ?>"<?= $bodyStyle ? ' style="' . $bodyStyle . '"' : '' ?>>
     <?php $storeSlogan = trim((string) ($store['slogan'] ?? '')); ?>
     <header class="store-header">
         <div class="container store-header-inner">
