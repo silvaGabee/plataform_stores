@@ -540,3 +540,9 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .panel-config-page .panel-config-file-browse-icon { display: inline-flex; }
 @media (max-width: 560px) { .pp-filter { flex: 1 1 100%; } }
 .panel-config-page .panel-color-trigger { border: 2px solid var(--border) !important; box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08); }
+
+/* Ícone no cabeçalho da página de categoria: fica fora da faixa de categorias,
+   então não herda --cat-icon-filter; os SVGs são brancos e sumiam no fundo claro. */
+.store-front .store-category-page-head--v2 .store-category-page-icon.store-vitrine-category-icon--storefront { width: 3.25rem; height: 3.25rem; min-width: 0; min-height: 0; border-radius: 14px; background: var(--primary-soft, rgba(37, 99, 235, .1)); border: 1px solid rgba(37, 99, 235, .18); }
+.store-front .store-category-page-head--v2 .store-category-page-icon.store-vitrine-category-icon--storefront img { width: 2rem; height: 2rem; filter: brightness(0) saturate(100%); opacity: .82; }
+html[data-theme="dark"] .store-front .store-category-page-head--v2 .store-category-page-icon.store-vitrine-category-icon--storefront img { filter: none; opacity: .95; }
