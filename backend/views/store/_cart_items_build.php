@@ -27,8 +27,10 @@ foreach (store_cart_normalize_lines($cart) as $line) {
         'quantity' => $qty,
         'variant_key' => $variantKey,
         'cart_key' => store_cart_line_storage_key((int) $p['id'], $variantKey),
-        'line_stock' => product_sale_available_stock($p, $variantKey),
+        // Disponível para este cliente: o físico menos o que está reservado
+        // por outros pedidos aguardando pagamento.
+        'line_stock' => \App\Services\StockReservation::available($p, $variantKey),
         'variant_label' => product_variant_key_label($p, $variantKey),
     ];
-    $cartTotal += (float) $p['sale_price'] * $qty;
+    $cartTotal += product_effective_price($p) * $qty;
 }

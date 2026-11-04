@@ -18,7 +18,8 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
-        $products = $service->listForStore((int) $store['id'], true);
+        $this->expirePending((int) $store['id']);
+        $products = storefront_products($service->listForStore((int) $store['id'], true), (int) $store['id']);
         $this->render('store/vitrine', [
             'store' => $store,
             'products' => $products,
@@ -47,7 +48,8 @@ class StoreFrontController extends Controller
             'icon_url' => vitrine_category_icon_url($key),
         ];
         $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
-        $products = $service->listForStoreByCategory((int) $store['id'], $categoryId, true);
+        $this->expirePending((int) $store['id']);
+        $products = storefront_products($service->listForStoreByCategory((int) $store['id'], $categoryId, true), (int) $store['id']);
         $this->render('store/categoria', [
             'store' => $store,
             'category' => $category,
@@ -78,12 +80,15 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
+        $this->expirePending((int) $store['id']);
         $product = $service->getByIdAndStore((int) $id, (int) $store['id']);
         if (!$product) {
             http_response_code(404);
             echo 'Produto não encontrado';
             return;
         }
+        // Tamanho/cor reservado por quem está pagando aparece como esgotado.
+        $product = \App\Services\StockReservation::applyTo($product);
         $vitrineCategory = null;
         $catId = (int) ($product['vitrine_category_id'] ?? 0);
         if ($catId > 0) {
@@ -123,12 +128,24 @@ class StoreFrontController extends Controller
         }
         $checkoutCustomerName = (string) ($me['name'] ?? '');
         $checkoutCustomerEmail = (string) ($me['email'] ?? '');
+        // Pedido do cliente ainda aguardando pagamento: o checkout avisa e leva
+        // de volta ao PIX, em vez de deixar criar um pedido repetido.
+        $this->expirePending((int) $store['id']);
+        $pendentes = array_values(array_filter(
+            (new OrderRepository())->listByCustomer((int) $store['id'], (int) $me['id'], 10),
+            static fn (array $o): bool => $o['status'] === 'pendente'
+        ));
+        foreach ($pendentes as &$pend) {
+            $pend['order_url'] = $this->orderUrl($store, $pend);
+        }
+        unset($pend);
         $this->render('store/checkout', [
             'store' => $store,
             'cart' => $cart,
             'title' => 'Finalizar compra',
             'checkout_customer_name' => $checkoutCustomerName,
             'checkout_customer_email' => $checkoutCustomerEmail,
+            'pending_orders' => $pendentes,
         ]);
     }
 
@@ -136,6 +153,7 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $orderRepo = new OrderRepository();
+        $this->expirePending((int) $store['id']);
         $order = $orderRepo->findByIdAndStore((int) $id, $store['id']);
         if (!$order || !$this->canViewOrder($order, (int) $store['id'])) {
             // 404 e não 403: confirmar que o pedido existe já é informação útil
@@ -162,7 +180,11 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $me = $this->requireCustomerLogin($slug, 'meus-pedidos');
-        $orders = (new OrderRepository())->listByCustomerNotDelivered((int) $store['id'], (int) $me['id']);
+        $this->expirePending((int) $store['id']);
+        // Todos os pedidos do cliente (aguardando pagamento, em andamento,
+        // entregues e cancelados). Antes só os pagos e não entregues apareciam:
+        // quem gerou um PIX e saiu da página não tinha como voltar a ele.
+        $orders = (new OrderRepository())->listByCustomer((int) $store['id'], (int) $me['id']);
         // O link do comprovante precisa levar o token junto.
         foreach ($orders as &$order) {
             $order['order_url'] = $this->orderUrl($store, $order);
@@ -188,6 +210,20 @@ class StoreFrontController extends Controller
             'addresses' => $addresses,
             'customer_name' => (string) ($me['name'] ?? ''),
         ]);
+    }
+
+    /** Cancela pedidos com prazo de pagamento vencido (libera o estoque reservado). */
+    private function expirePending(int $storeId): void
+    {
+        (new \App\Services\OrderService(
+            new OrderRepository(),
+            new OrderItemRepository(),
+            new ProductRepository(),
+            new PaymentRepository(),
+            new \App\Repositories\StockMovementRepository(),
+            new \App\Repositories\CashRegisterRepository(),
+            new \App\Repositories\CashMovementRepository()
+        ))->expirarPendentes($storeId);
     }
 
     /** Exige sessão de cliente; sem ela manda para o login e volta depois. */

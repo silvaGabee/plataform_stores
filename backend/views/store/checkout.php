@@ -9,13 +9,23 @@ $content = ob_start();
             <h1 class="checkout-title">Finalizar compra</h1>
             <p class="checkout-lead">Confira seus dados e escolha como receber e pagar.</p>
         </header>
+        <?php if (!empty($pending_orders)): $__p = $pending_orders[0]; ?>
+            <div class="ui-notice ui-notice--warn" role="status">
+                <?= ui_icon('clock', 20) ?>
+                <div>
+                    <strong>Você tem o pedido #<?= (int) $__p['id'] ?> aguardando pagamento</strong>
+                    <p>Se ainda quer esses itens, conclua o pagamento dele em vez de fazer um pedido novo.</p>
+                </div>
+                <a class="btn btn-primary btn-sm" href="<?= htmlspecialchars($__p['order_url'], ENT_QUOTES, 'UTF-8') ?>#pagamento">Retomar pagamento</a>
+            </div>
+        <?php endif; ?>
         <div class="checkout-shell">
             <div class="checkout-summary-bar">
                 <div class="checkout-summary-copy">
                     <span class="checkout-summary-eyebrow">Resumo</span>
                     <span class="checkout-summary-label">Total do pedido</span>
                 </div>
-                <span class="checkout-summary-amount">R$ <?= number_format($total, 2, ',', '.') ?></span>
+                <span class="checkout-summary-amount" id="checkout-total" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>">R$ <?= number_format($total, 2, ',', '.') ?></span>
             </div>
             <form id="checkout-form" class="checkout-form">
                 <input type="hidden" name="store_slug" value="<?= htmlspecialchars($store['slug']) ?>">
@@ -143,6 +153,14 @@ $content = ob_start();
                         <button type="button" id="checkout-save-address" class="btn btn-primary btn-sm checkout-address-save-btn">Salvar e usar este endereço</button>
                     </div>
                 </div>
+                <section class="checkout-form-section">
+                    <h2 class="checkout-form-section-title">Cupom de desconto</h2>
+                    <div class="ui-coupon" id="checkout-coupon">
+                        <span class="ui-input-icon"><?= ui_icon('tag', 16) ?><input type="text" id="coupon-code" maxlength="30" placeholder="Digite o código" autocomplete="off" aria-label="Código do cupom"></span>
+                        <button type="button" class="btn btn-secondary" id="coupon-apply">Aplicar</button>
+                    </div>
+                    <p class="ui-coupon-result" id="coupon-result" role="status" aria-live="polite"></p>
+                </section>
                 <section class="checkout-form-section checkout-form-section--payment">
                     <h2 class="checkout-form-section-title">Pagamento</h2>
                     <div class="checkout-field checkout-field--payment">
@@ -255,6 +273,13 @@ $content = ob_start();
                                 </div>
                             </div>
                         </div>
+                        <div class="checkout-field ui-installments">
+                            <label for="card-installments">Parcelas</label>
+                            <select id="card-installments" name="card_installments" aria-label="Número de parcelas">
+                                <option value="1">À vista</option>
+                            </select>
+                            <p class="ui-hint" id="card-installments-hint"></p>
+                        </div>
                         <p class="checkout-card-secure">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z" stroke="currentColor" stroke-width="1.75"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
                             Pagamento seguro — apenas os 4 últimos dígitos são armazenados.
@@ -290,7 +315,8 @@ $content = ob_start();
                         <span class="checkout-payment-spinner" aria-hidden="true"></span>
                         <p id="payment-status" class="checkout-payment-status">Aguardando pagamento...</p>
                     </div>
-                    <p class="checkout-payment-hint">A confirmação é automática assim que o pagamento for identificado.</p>
+                    <p class="checkout-payment-hint" id="checkout-payment-hint">Assim que a loja confirmar o recebimento, esta página e <strong>Meus pedidos</strong> são atualizados. Você pode sair e voltar para pagar depois.</p>
+                    <a class="btn btn-secondary btn-sm hidden" id="checkout-order-link" href="#">Ver pedido e pagar depois</a>
                 </div>
             </div>
         </div>

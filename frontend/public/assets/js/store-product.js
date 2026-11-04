@@ -256,11 +256,19 @@
         var stock = stockFor(color, size);
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'product-variant-option' + (stock <= 0 ? ' is-disabled' : '');
+        btn.className = 'product-variant-option' + (stock <= 0 ? ' is-disabled is-soldout' : '');
         btn.textContent = size;
         btn.setAttribute('data-variant-value', size);
         if (stock <= 0) {
+          // Esgotado por tamanho: continua visível (o cliente sabe que existe)
+          // mas riscado e com a palavra, não só a cor apagada.
           btn.disabled = true;
+          btn.title = size + ' esgotado';
+          btn.setAttribute('aria-label', size + ', esgotado');
+          var tag = document.createElement('span');
+          tag.className = 'product-variant-soldout';
+          tag.textContent = 'esgotado';
+          btn.appendChild(tag);
         } else {
           btn.addEventListener('click', function () {
             if (btn.disabled) return;
@@ -293,9 +301,22 @@
             sizeFieldset.setAttribute('aria-hidden', 'false');
           }
           renderSizesForColor(color);
+          // Um único tamanho disponível: já vem escolhido.
+          var livres = (matrix.sizes || []).filter(function (s) { return stockFor(color, s) > 0; });
+          if ((matrix.sizes || []).length === 1 && livres.length === 1) {
+            var unico = sizeOptions.querySelector('.product-variant-option:not(.is-disabled)');
+            if (unico) unico.click();
+          }
           updateStockLabel();
         });
       });
+      // Uma única cor com estoque: já vem selecionada. Antes o botão
+      // "Adicionar ao carrinho" começava desativado mesmo sem escolha a fazer.
+      var cores = selectors.querySelectorAll('.product-variant-color');
+      var coresLivres = Array.prototype.filter.call(cores, function (b) { return !b.disabled; });
+      if (cores.length === 1 && coresLivres.length === 1) {
+        coresLivres[0].click();
+      }
     }
 
     if (qtyMinus && qtyInput) {
@@ -312,7 +333,7 @@
       });
     }
 
-    updateStockLabel();
+    if (!selectedColor) updateStockLabel();
     return;
   }
 

@@ -4,7 +4,7 @@ ob_start();
 <main class="page create-account">
     <div class="container">
         <h1>Criar minha conta</h1>
-        <p><a href="<?= base_url() ?>" class="btn btn-secondary">← Voltar ao login</a></p>
+        <p><a href="<?= base_url() ?>" class="btn btn-secondary ui-btn-icon"><?= ui_icon('arrow-left', 16) ?> Voltar ao login</a></p>
         <?php if (!empty($_SESSION['_error'])): ?>
             <div class="alert alert-error">
                 <?= htmlspecialchars($_SESSION['_error']) ?>

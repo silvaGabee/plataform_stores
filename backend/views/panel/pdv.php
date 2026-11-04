@@ -153,6 +153,8 @@ $__pdvConfig = [
     'slug' => $store['slug'],
     'storeName' => $store['name'] ?? '',
     'userName' => $pdv_user_name ?? '',
+    // Funcionário precisa de aprovação do gerente para dar desconto.
+    'isGerente' => !empty($panel_is_gerente),
 ];
 $extra_js = '<script>window.PDV_CONFIG = ' . json_encode($__pdvConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';</script>'
     . '<script src="' . asset('js/panel-pdv.js') . '"></script>';

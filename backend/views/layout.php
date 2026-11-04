@@ -18,7 +18,9 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?php endif; ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
+    <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
 <body class="<?= !logged_in() ? 'has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
     <?php if (!$hide_app_header): ?>

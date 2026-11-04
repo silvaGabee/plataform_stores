@@ -43,6 +43,11 @@ final class Permissions
         // Pedidos e entregas: o funcionário movimenta o kanban.
         'store.orders.read'     => [self::GERENTE, self::FUNCIONARIO],
         'store.orders.write'    => [self::GERENTE, self::FUNCIONARIO],
+        'store.orders.cancel'   => [self::GERENTE],
+
+        'store.stock.history'   => [self::GERENTE],
+        'store.discounts.approve' => [self::GERENTE],
+        'store.promotions.manage' => [self::GERENTE],
 
         // Frente de caixa.
         'store.pdv.operate'     => [self::GERENTE, self::FUNCIONARIO],

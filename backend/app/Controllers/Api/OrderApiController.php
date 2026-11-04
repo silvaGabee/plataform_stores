@@ -13,6 +13,7 @@ use App\Repositories\CashRegisterRepository;
 use App\Repositories\CashMovementRepository;
 use App\Repositories\StoreMemberRepository;
 use App\Repositories\UserAddressRepository;
+use App\Repositories\DiscountRequestRepository;
 
 class OrderApiController extends Controller
 {
@@ -96,9 +97,23 @@ class OrderApiController extends Controller
             $this->json(['error' => 'Pedido não encontrado'], 404);
             return;
         }
+        // Só pedido PAGO anda no quadro. Antes um pedido pendente podia ser
+        // marcado como Entregue — na retirada, o cliente levava sem pagar.
+        if (($order['status'] ?? '') !== 'pago') {
+            $this->json(['error' => 'Este pedido ainda não foi pago. Confirme o pagamento antes de movê-lo.'], 400);
+            return;
+        }
         $deliveryType = strtolower((string) ($order['delivery_type'] ?? 'retirada'));
         if ($deliveryType === 'retirada' && !in_array($stage, ['solicitado', 'entregue'], true)) {
             $this->json(['error' => 'Pedido de retirada só pode ser marcado como Entregue.'], 400);
+            return;
+        }
+        // Só para a frente: Entregue não volta para Solicitado, nem Em rota
+        // volta para Empacotando. Mesma etapa é aceita (reenvio sem efeito).
+        $ordem = array_flip($allowed);
+        $atual = (string) ($order['delivery_stage'] ?? 'solicitado');
+        if (isset($ordem[$atual]) && $ordem[$stage] < $ordem[$atual]) {
+            $this->json(['error' => 'A entrega não pode voltar para uma etapa anterior.'], 400);
             return;
         }
         if ($stage === 'em_rota' && (empty($trackingCode) || trim($trackingCode) === '')) {
@@ -109,31 +124,77 @@ class OrderApiController extends Controller
         $this->json(['success' => true, 'order' => $repo->findByIdAndStoreWithCustomer($id, $storeId)]);
     }
 
-    /** Exclui pedido do histórico de entregas (ex.: após produto removido). Apenas estágio "entregue". */
-    public function deleteFromEntregas(string $slug, int $id): void
+    /**
+     * GET: pedidos online aguardando pagamento (PIX gerado ou cartão na
+     * retirada). É onde o gerente confirma o PIX que caiu na conta — antes não
+     * havia tela para isso, e pedido PIX da vitrine nunca virava "pago".
+     */
+    public function awaitingPayment(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $this->requireStorePanelAccess($storeId);
-        $repo = new OrderRepository();
-        $order = $repo->findByIdAndStore($id, $storeId);
-        if (!$order) {
+        $this->orderService()->expirarPendentes($storeId);
+        $this->json(['orders' => (new OrderRepository())->listAwaitingPayment($storeId), 'now' => date('Y-m-d H:i:s')]);
+    }
+
+    /** POST: o gerente cancela um pedido ainda não pago. */
+    public function cancel(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        try {
+            $order = $this->orderService()->cancelOrder($id, $storeId, (int) ($_SESSION['logged_user_id'] ?? 0) ?: null);
+            $this->json(['success' => true, 'order' => $order]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    /** POST: o próprio cliente desiste de um pedido que ainda não pagou. */
+    public function cancelMine(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $order = (new OrderRepository())->findByIdAndStore($id, $storeId);
+        if (!$order || !$this->userOwnsOrder($order)) {
             $this->json(['error' => 'Pedido não encontrado'], 404);
             return;
         }
-        $stage = strtolower((string) ($order['delivery_stage'] ?? ''));
-        if ($stage !== 'entregue') {
-            $this->json(['error' => 'Só é possível remover pedidos já marcados como Entregue.'], 400);
+        try {
+            $order = $this->orderService()->cancelOrder($id, $storeId, (int) ($_SESSION['logged_user_id'] ?? 0) ?: null);
+            $this->json(['success' => true, 'order' => $order]);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * GET: situação do pagamento de um pedido do cliente, com o PIX
+     * (copia-e-cola e QR) para retomar o pagamento depois de sair da página.
+     */
+    public function paymentOfMine(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        if (!$repo->deleteByIdAndStore($id, $storeId)) {
-            $this->json(['error' => 'Não foi possível remover o pedido.'], 400);
+        $this->orderService()->expirarPendentes($storeId);
+        $order = (new OrderRepository())->findByIdAndStore($id, $storeId);
+        if (!$order || !$this->userOwnsOrder($order)) {
+            $this->json(['error' => 'Pedido não encontrado'], 404);
             return;
         }
-        $this->json(['success' => true]);
+        $this->json(order_payment_view($order, $storeId));
     }
 
     public function create(string $slug): void
@@ -146,6 +207,7 @@ class OrderApiController extends Controller
         $input = $this->getJsonInput();
         $orderType = $input['order_type'] ?? 'online';
         $pdv = [];
+        $online = [];
         if ($orderType === 'pdv') {
             $this->requireStorePanelAccess($storeId);
             // Cliente de balcão não tem conta: a venda fica no nome do próprio
@@ -159,6 +221,16 @@ class OrderApiController extends Controller
                 'discount' => (float) ($input['discount'] ?? 0),
                 'customer_name' => isset($input['customer_name']) ? (string) $input['customer_name'] : null,
             ];
+            // Desconto dado por funcionário precisa de aprovação do gerente.
+            if ($pdv['discount'] > 0 && !is_gerente_store($storeId)) {
+                $pdv['require_approval'] = true;
+                $reqId = (int) ($input['discount_request_id'] ?? 0);
+                $req = $reqId > 0 ? (new DiscountRequestRepository())->find($reqId, $storeId) : null;
+                if ($req && (int) $req['requested_by'] !== $customerId) {
+                    $req = null;
+                }
+                $pdv['discount_request'] = $req;
+            }
         } else {
             // Compra pela vitrine: o cliente é sempre quem está logado.
             //
@@ -168,6 +240,8 @@ class OrderApiController extends Controller
             // agora são ignorados.
             $me = $this->requireLogin();
             $customerId = (int) $me['id'];
+            $cupom = trim((string) ($input['coupon_code'] ?? ''));
+            $online = ['coupon_code' => $cupom !== '' ? $cupom : null];
         }
         $items = $input['items'] ?? [];
         $createdBy = $this->resolveOrderCreatedBy($storeId, $orderType);
@@ -198,7 +272,7 @@ class OrderApiController extends Controller
             return;
         }
         try {
-            $order = $this->orderService()->createOrder($storeId, $customerId, $items, $orderType, $createdBy ? (int) $createdBy : null, $deliveryType, $addressId, $pdv);
+            $order = $this->orderService()->createOrder($storeId, $customerId, $items, $orderType, $createdBy ? (int) $createdBy : null, $deliveryType, $addressId, $pdv, $online);
             $this->json(['success' => true, 'order' => $order]);
         } catch (\Throwable $e) {
             $this->json(['error' => $e->getMessage()], 400);

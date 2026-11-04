@@ -23,6 +23,12 @@ class ProductApiController extends Controller
         $onlyStock = !empty($_GET['in_stock']);
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         $list = $service->listForStore($storeId, $onlyStock);
+        if (!empty($_GET['disponivel'])) {
+            // PDV: mostra o que pode ser vendido agora, já sem o que está
+            // reservado por pedidos online aguardando pagamento.
+            (new \App\Services\OrderService(new OrderRepository(), new \App\Repositories\OrderItemRepository(), new ProductRepository(), new \App\Repositories\PaymentRepository(), new StockMovementRepository(), new \App\Repositories\CashRegisterRepository(), new \App\Repositories\CashMovementRepository()))->expirarPendentes($storeId);
+            $list = array_map([\App\Services\StockReservation::class, 'applyTo'], $list);
+        }
         $this->json(['products' => $list]);
     }
 

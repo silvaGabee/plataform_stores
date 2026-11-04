@@ -136,6 +136,16 @@ class CashApiController extends Controller
         }
     }
 
+    /** GET: últimos fechamentos (contado × esperado × diferença, quem abriu e fechou). */
+    public function closings(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->json(['closings' => (new CashRegisterRepository())->listClosedWithPeople($storeId, 15)]);
+    }
+
     public function movements(string $slug, int $cashRegisterId): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);

@@ -278,7 +278,7 @@
           '<span class="pdv-product-name">' + esc(name) + '</span>' +
           '<span class="pdv-product-meta">#' + p.id + (variants ? ' · Variações' : '') + '</span>' +
           '<span class="pdv-product-foot">' +
-            '<span class="pdv-product-price">' + money(p.sale_price) + '</span>' +
+            '<span class="pdv-product-price">' + (priceOf(p) < parseFloat(p.sale_price) ? '<s class="pdv-price-old">' + money(p.sale_price) + '</s> ' : '') + money(priceOf(p)) + '</span>' +
             '<span class="pdv-product-stock' + (avail < 1 ? ' is-zero' : '') + '">' + Math.max(0, avail) + ' un.</span>' +
           '</span>' +
         '</span>' +
@@ -286,15 +286,23 @@
     }).join('');
   }
 
+  /** Preço de venda efetivo: o promocional, quando o gerente definiu um. */
+  function priceOf(p) {
+    var e = parseFloat(p.effective_price);
+    return isNaN(e) ? (parseFloat(p.sale_price) || 0) : e;
+  }
+
   function loadProducts() {
-    return api('/products').then(function (res) {
+    // ?disponivel=1: estoque já sem as peças reservadas por pedidos online
+    // aguardando pagamento.
+    return api('/products?disponivel=1').then(function (res) {
       state.products = res.products || [];
       state.loaded = true;
       // Reconcilia o carrinho salvo com o estoque/preço atuais.
       state.cart = state.cart.filter(function (l) {
         var p = findProduct(l.product_id);
         if (!p) return false;
-        l.price = parseFloat(p.sale_price) || 0;
+        l.price = priceOf(p);
         l.name = p.display_name || p.name;
         l.image = coverUrl(p);
         l.stock_max = l.variant_key ? variantStock(p, l.variant_key) : productStock(p);
@@ -352,7 +360,7 @@
     if (m && m.colors && m.colors.length) {
       var meta = m.color_meta || {};
       body = '<div class="pdv-variant-head">' + productThumb(p, 56) +
-        '<div><p class="pdv-variant-name">' + esc(name) + '</p><p class="pdv-muted">' + money(p.sale_price) + '</p></div></div>' +
+        '<div><p class="pdv-variant-name">' + esc(name) + '</p><p class="pdv-muted">' + money(priceOf(p)) + '</p></div></div>' +
         '<p class="pdv-field-label">Cor</p><div class="pdv-variant-colors" id="pdv-v-colors">' +
         m.colors.map(function (c, i) {
           var total = (m.sizes || []).reduce(function (s, sz) { return s + Math.max(0, parseInt(((m.stock || {})[sz] || {})[c], 10) || 0); }, 0);
@@ -363,7 +371,7 @@
         '<p class="pdv-field-label">' + esc(m.axis_label || 'Tamanho') + '</p><div class="pdv-variant-sizes" id="pdv-v-sizes"><p class="pdv-muted">Escolha a cor primeiro.</p></div>';
     } else {
       body = '<div class="pdv-variant-head">' + productThumb(p, 56) +
-        '<div><p class="pdv-variant-name">' + esc(name) + '</p><p class="pdv-muted">' + money(p.sale_price) + '</p></div></div>' +
+        '<div><p class="pdv-variant-name">' + esc(name) + '</p><p class="pdv-muted">' + money(priceOf(p)) + '</p></div></div>' +
         '<div class="pdv-variant-sizes">' + simpleVariants(p).map(function (v) {
           var key = v.variant_type + ':' + v.variant_value;
           var avail = Math.max(0, (parseInt(v.stock_quantity, 10) || 0) - inCart(p.id, key));
@@ -449,7 +457,7 @@
         variant_key: variantKey,
         variant_label: variantKey ? variantLabel(p, variantKey) : '',
         name: p.display_name || p.name,
-        price: parseFloat(p.sale_price) || 0,
+        price: priceOf(p),
         qty: 1,
         stock_max: max,
         image: coverUrl(p)
@@ -543,6 +551,7 @@
   });
 
   function resetSale() {
+    approval = null;
     state.cart = [];
     state.discount = { mode: 'value', value: 0 };
     state.customer = '';
@@ -561,6 +570,7 @@
       title: 'Desconto na venda',
       size: 'sm',
       body:
+        (CFG.isGerente ? '' : '<p class="pdv-approval-hint">' + icon(ICON.lock, 16) + ' Descontos de funcionário são enviados para aprovação do gerente ao finalizar a venda.</p>') +
         '<div class="pdv-segment" role="radiogroup" aria-label="Tipo de desconto">' +
           '<button type="button" role="radio" data-mode="value">Valor (R$)</button>' +
           '<button type="button" role="radio" data-mode="percent">Percentual (%)</button>' +
@@ -641,6 +651,84 @@
     try { localStorage.setItem(RATE_KEY, String(v)); } catch (e) { /* sem persistência */ }
   }
 
+  /* ─────────────── aprovação de desconto (funcionário) ─────────────── */
+
+  /**
+   * Aprovação vale para exatamente este subtotal e este desconto. Mudou o
+   * carrinho ou o desconto, precisa pedir de novo (o servidor também confere).
+   */
+  var approval = null;
+  function approvalValid() {
+    return !!approval && approval.status === 'aprovado' &&
+      Math.abs(approval.subtotal - subtotal()) < 0.01 && Math.abs(approval.discount - discountValue()) < 0.01;
+  }
+
+  function needsApproval() {
+    return !CFG.isGerente && discountValue() > 0 && !approvalValid();
+  }
+
+  function requestApproval() {
+    var sub = subtotal(), disc = discountValue();
+    var resumo = state.cart.slice(0, 6).map(function (l) { return l.qty + 'x ' + l.name + (l.variant_label ? ' (' + l.variant_label + ')' : ''); }).join(', ');
+    var reqId = null;
+    var timer = null;
+    modal.open({
+      title: 'Aprovação do gerente',
+      size: 'sm',
+      body:
+        '<dl class="pdv-breakdown">' +
+          '<div><dt>Subtotal</dt><dd>' + money(sub) + '</dd></div>' +
+          '<div><dt>Desconto</dt><dd>− ' + money(disc) + ' (' + Math.round(disc / sub * 100) + '%)</dd></div>' +
+          '<div class="is-total"><dt>Total</dt><dd>' + money(sub - disc) + '</dd></div>' +
+        '</dl>' +
+        '<div id="pdv-appr-step1"><label class="pdv-field"><span class="pdv-field-label">Motivo (opcional)</span>' +
+          '<input type="text" class="pdv-input" id="pdv-appr-reason" maxlength="200" placeholder="Ex.: cliente fiel, peça com defeito leve"></label></div>' +
+        '<div class="pdv-approval-wait" id="pdv-appr-wait" hidden><span class="pdv-spinner" aria-hidden="true"></span>' +
+          '<div><strong>Aguardando o gerente</strong><p class="pdv-muted">O pedido aparece na tela do gerente. Assim que ele aprovar, a venda segue para o pagamento.</p></div></div>',
+      foot: '<button type="button" class="pdv-btn pdv-btn--ghost" id="pdv-appr-cancel">Cancelar</button>' +
+        '<button type="button" class="pdv-btn pdv-btn--primary" id="pdv-appr-send">Enviar para aprovação</button>',
+      onOpen: function () {
+        function stop() { if (timer) { clearInterval(timer); timer = null; } }
+        function check() {
+          if (!reqId) return;
+          api('/pdv/descontos/' + reqId).then(function (res) {
+            var r = res.request;
+            if (!r || r.status === 'pendente') return;
+            stop();
+            if (r.status === 'aprovado') {
+              approval = { id: Number(r.id), status: 'aprovado', subtotal: parseFloat(r.subtotal), discount: parseFloat(r.discount) };
+              modal.close(true);
+              toast('Desconto aprovado por ' + (r.decided_by_name || 'gerente') + '.', 'success');
+              openCheckout();
+            } else {
+              modal.close(true);
+              state.discount = { mode: 'value', value: 0 };
+              approval = null;
+              renderCart();
+              toast(r.status === 'recusado' ? 'O gerente recusou o desconto. A venda segue sem desconto.' : 'A solicitação expirou. Peça de novo se precisar.', 'error');
+            }
+          }).catch(function () { /* tenta de novo no próximo ciclo */ });
+        }
+        $('pdv-appr-send').addEventListener('click', function () {
+          var b = this;
+          b.disabled = true;
+          api('/pdv/descontos', { method: 'POST', body: { subtotal: sub, discount: disc, reason: $('pdv-appr-reason').value, items_summary: resumo } }).then(function (res) {
+            reqId = res.request.id;
+            $('pdv-appr-step1').hidden = true;
+            $('pdv-appr-wait').hidden = false;
+            b.hidden = true;
+            timer = setInterval(check, 2500);
+          }).catch(function (e) { b.disabled = false; toast(e.message, 'error'); });
+        });
+        $('pdv-appr-cancel').addEventListener('click', function () {
+          stop();
+          if (reqId) api('/pdv/descontos/' + reqId + '/cancelar', { method: 'POST', body: {} }).catch(function () {});
+          modal.close(true);
+        });
+      }
+    });
+  }
+
   function ensureOrder() {
     if (checkout.order) return Promise.resolve(checkout.order);
     return api('/orders', {
@@ -649,6 +737,7 @@
         order_type: 'pdv',
         customer_name: state.customer,
         discount: discountValue(),
+        discount_request_id: approvalValid() ? approval.id : null,
         items: state.cart.map(function (l) {
           var it = { product_id: l.product_id, quantity: l.qty };
           if (l.variant_key) it.variant_key = l.variant_key;
@@ -676,6 +765,7 @@
   function openCheckout() {
     if (!state.cart.length) return;
     if (!state.register) { toast('Abra o caixa antes de finalizar.', 'error'); return; }
+    if (needsApproval()) { requestApproval(); return; }
     checkout.order = null;
     var amount = total();
     var method = 'dinheiro';

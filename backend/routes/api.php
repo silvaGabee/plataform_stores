@@ -15,6 +15,7 @@ use App\Controllers\Api\GoalsApiController;
 use App\Controllers\Api\AnalyzingBIApiController;
 use App\Controllers\Api\VitrineCategoryApiController;
 use App\Controllers\Api\FinanceApiController;
+use App\Controllers\Api\PromotionApiController;
 use App\Http\Guard;
 
 /**
@@ -88,14 +89,35 @@ return [
     'POST /api/loja/{slug}/products/{id}/stock' => [ProductApiController::class, 'adjustStock', 'store.catalog.write'],
 
     'GET /api/loja/{slug}/orders/entregas' => [OrderApiController::class, 'listForEntregas', 'store.orders.read'],
+    'GET /api/loja/{slug}/orders/aguardando-pagamento' => [OrderApiController::class, 'awaitingPayment', 'store.payments.read'],
     'GET /api/loja/{slug}/orders' => [OrderApiController::class, 'list', 'store.orders.read'],
     'GET /api/loja/{slug}/orders/{id}' => [OrderApiController::class, 'get', 'store.orders.read'],
     // Pedido da vitrine é criado pelo cliente logado; o controller distingue
     // online de PDV e aplica a regra de cada um.
     'POST /api/loja/{slug}/orders' => [OrderApiController::class, 'create', Guard::AUTENTICADO],
     'POST /api/loja/{slug}/orders/{id}/delivery-stage' => [OrderApiController::class, 'updateDeliveryStage', 'store.orders.write'],
-    'DELETE /api/loja/{slug}/orders/{id}/entregas' => [OrderApiController::class, 'deleteFromEntregas', 'store.orders.write'],
-    'POST /api/loja/{slug}/orders/{id}/entregas/delete' => [OrderApiController::class, 'deleteFromEntregas', 'store.orders.write'],
+    // "Remover do histórico" apagava a venda (DELETE FROM orders) e com ela o
+    // faturamento do BI. Removido: o quadro já mostra só os últimos entregues.
+    'POST /api/loja/{slug}/orders/{id}/cancel' => [OrderApiController::class, 'cancel', 'store.orders.cancel'],
+
+    // Área do cliente: cancelar pedido não pago e retomar o pagamento PIX.
+    'POST /api/loja/{slug}/meus-pedidos/{id}/cancelar' => [OrderApiController::class, 'cancelMine', Guard::AUTENTICADO],
+    'GET /api/loja/{slug}/meus-pedidos/{id}/pagamento' => [OrderApiController::class, 'paymentOfMine', Guard::AUTENTICADO],
+
+    // Descontos, cupons e parcelamento.
+    'POST /api/loja/{slug}/pdv/descontos' => [PromotionApiController::class, 'requestDiscount', 'store.pdv.operate'],
+    'GET /api/loja/{slug}/pdv/descontos/{id}' => [PromotionApiController::class, 'discountStatus', 'store.pdv.operate'],
+    'POST /api/loja/{slug}/pdv/descontos/{id}/cancelar' => [PromotionApiController::class, 'cancelDiscount', 'store.pdv.operate'],
+    'GET /api/loja/{slug}/descontos/pendentes' => [PromotionApiController::class, 'pendingDiscounts', 'store.discounts.approve'],
+    'POST /api/loja/{slug}/descontos/{id}/decidir' => [PromotionApiController::class, 'decideDiscount', 'store.discounts.approve'],
+    'GET /api/loja/{slug}/cupons' => [PromotionApiController::class, 'listCoupons', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/cupons' => [PromotionApiController::class, 'createCoupon', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/cupons/{id}/ativo' => [PromotionApiController::class, 'toggleCoupon', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/cupons/{id}/excluir' => [PromotionApiController::class, 'deleteCoupon', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/cupom/validar' => [PromotionApiController::class, 'validateCoupon', Guard::PUBLICO],
+    'POST /api/loja/{slug}/products/{id}/promo' => [PromotionApiController::class, 'setPromo', 'store.promotions.manage'],
+    'GET /api/loja/{slug}/parcelamento' => [PromotionApiController::class, 'installments', Guard::PUBLICO],
+    'POST /api/loja/{slug}/store/installments' => [PromotionApiController::class, 'saveInstallmentRules', 'store.settings.write'],
 
     // Pagamento do cliente: o controller exige posse do pedido (ver Fase 0).
     'POST /api/loja/{slug}/payments' => [PaymentApiController::class, 'create', Guard::AUTENTICADO],
@@ -109,6 +131,7 @@ return [
     'GET /api/loja/{slug}/cash/summary' => [CashApiController::class, 'summary', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/open' => [CashApiController::class, 'open', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/close' => [CashApiController::class, 'close', 'store.cash.operate'],
+    'GET /api/loja/{slug}/cash/closings' => [CashApiController::class, 'closings', 'store.payments.read'],
     'GET /api/loja/{slug}/cash/{id}/movements' => [CashApiController::class, 'movements', 'store.cash.operate'],
     'POST /api/loja/{slug}/cash/movements' => [CashApiController::class, 'addMovement', 'store.cash.operate'],
 
@@ -140,8 +163,10 @@ return [
     'PUT /api/loja/{slug}/roles/{id}' => [RoleApiController::class, 'update', 'store.roles.manage'],
     'DELETE /api/loja/{slug}/roles/{id}' => [RoleApiController::class, 'delete', 'store.roles.manage'],
 
-    'GET /api/loja/{slug}/stock-movements/product/{id}' => [StockMovementApiController::class, 'listByProduct', 'store.catalog.read'],
-    'GET /api/loja/{slug}/stock-movements' => [StockMovementApiController::class, 'listByStore', 'store.catalog.read'],
+    // Histórico de estoque: só o gerente acompanha quem moveu o quê.
+    'GET /api/loja/{slug}/stock-movements/search' => [StockMovementApiController::class, 'search', 'store.stock.history'],
+    'GET /api/loja/{slug}/stock-movements/product/{id}' => [StockMovementApiController::class, 'listByProduct', 'store.stock.history'],
+    'GET /api/loja/{slug}/stock-movements' => [StockMovementApiController::class, 'listByStore', 'store.stock.history'],
 
     // O assistente consome uma API paga: nunca pode ficar aberto.
     'POST /api/loja/{slug}/ai/chat' => [AiController::class, 'chat', 'store.ai.use'],

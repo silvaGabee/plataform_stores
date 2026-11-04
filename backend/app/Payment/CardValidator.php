@@ -84,6 +84,15 @@ final class CardValidator
 
     public static function detectBrand(string $digits): string
     {
+        // Elo e Hipercard vêm ANTES de Visa e Mastercard: vários BINs Elo
+        // começam com 4 (4011, 438935, 451416, 4576) ou 5 (5067), e a regra
+        // genérica "começa com 4 = Visa" os engolia.
+        if (preg_match('/^(636368|636369|636297|438935|504175|451416|5067|4576|4011|506699|5090|6277|6516|6550)/', $digits)) {
+            return 'elo';
+        }
+        if (preg_match('/^(606282|3841)/', $digits)) {
+            return 'hipercard';
+        }
         if (preg_match('/^4/', $digits)) {
             return 'visa';
         }
@@ -92,12 +101,6 @@ final class CardValidator
         }
         if (preg_match('/^3[47]/', $digits)) {
             return 'amex';
-        }
-        if (preg_match('/^(636368|438935|504175|451416|636297|5067|4576|4011)/', $digits)) {
-            return 'elo';
-        }
-        if (preg_match('/^(606282|3841)/', $digits)) {
-            return 'hipercard';
         }
 
         return 'card';

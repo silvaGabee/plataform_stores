@@ -249,17 +249,14 @@ if (!function_exists('vitrine_category_icon_normalize_key')) {
             return 'acessorios';
         }
         $legacy = [
-            'camisa' => 'feminino',
-            'calca' => 'masculino',
             'legging' => 'feminino',
-            'shorts' => 'feminino',
             'garrafa' => 'suplementos',
             'suplemento' => 'suplementos',
             'mochila' => 'acessorios',
+            'bermuda' => 'shorts',
+            'blusa' => 'camiseta',
             'sacola' => 'acessorios',
             'presente' => 'ofertas',
-            'relogio' => 'premium',
-            'bone' => 'acessorios',
             'luvas' => 'treino',
             'corda' => 'treino',
             'bike' => 'corrida',
@@ -270,117 +267,53 @@ if (!function_exists('vitrine_category_icon_normalize_key')) {
     }
 }
 
-/** Catálogo de ícones para categorias da vitrine (Iconify API, ícones brancos para círculo azul). */
+/** Catálogo de ícones para categorias da vitrine (SVG brancos locais; o CSS escurece no tema claro). */
 if (!function_exists('vitrine_category_icon_catalog')) {
     function vitrine_category_icon_catalog(): array
     {
-        return [
-            [
-                'key' => 'feminino',
-                'label' => 'Feminino / Moda fitness',
-                'url' => 'https://api.iconify.design/lucide/shirt.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'masculino',
-                'label' => 'Masculino',
-                'url' => 'https://api.iconify.design/lucide/user-round.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'masculino_simbolo',
-                'label' => 'Masculino símbolo',
-                'url' => asset('images/category-icons/masculino_simbolo.svg'),
-            ],
-            [
-                'key' => 'treino',
-                'label' => 'Treino / Academia',
-                'url' => 'https://api.iconify.design/lucide/dumbbell.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'corrida',
-                'label' => 'Corrida',
-                'url' => 'https://api.iconify.design/lucide/footprints.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'caminhada',
-                'label' => 'Caminhada',
-                'url' => asset('images/category-icons/caminhada.svg'),
-            ],
-            [
-                'key' => 'vestido',
-                'label' => 'Vestido',
-                'url' => asset('images/category-icons/vestido.svg'),
-            ],
-            [
-                'key' => 'casaco',
-                'label' => 'Casaco',
-                'url' => asset('images/category-icons/casaco.svg'),
-            ],
-            [
-                'key' => 'tenis',
-                'label' => 'Ténis',
-                'url' => 'https://api.iconify.design/game-icons/running-shoe.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'acessorios',
-                'label' => 'Acessórios',
-                'url' => 'https://api.iconify.design/lucide/backpack.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'yoga',
-                'label' => 'Yoga / Pilates',
-                'url' => 'https://api.iconify.design/lucide/flower.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'suplementos',
-                'label' => 'Suplementos / Shaker',
-                'url' => 'https://api.iconify.design/mdi/bottle-soda-classic-outline.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'ofertas',
-                'label' => 'Ofertas',
-                'url' => 'https://api.iconify.design/lucide/badge-percent.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'lancamentos',
-                'label' => 'Lançamentos',
-                'url' => 'https://api.iconify.design/lucide/sparkles.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'premium',
-                'label' => 'Premium',
-                'url' => 'https://api.iconify.design/lucide/gem.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'plus_size',
-                'label' => 'Plus Size',
-                'url' => 'https://api.iconify.design/lucide/heart.svg?color=white&width=34',
-            ],
-            [
-                'key' => 'nike',
-                'label' => 'Nike',
-                'url' => asset('images/category-icons/nike.svg'),
-            ],
-            [
-                'key' => 'adidas',
-                'label' => 'Adidas',
-                'url' => asset('images/category-icons/adidas.svg'),
-            ],
-            [
-                'key' => 'puma',
-                'label' => 'Puma',
-                'url' => asset('images/category-icons/puma.svg'),
-            ],
-            [
-                'key' => 'new_balance',
-                'label' => 'New Balance',
-                'url' => asset('images/category-icons/new_balance.svg'),
-            ],
-            [
-                'key' => 'fila',
-                'label' => 'Fila',
-                'url' => asset('images/category-icons/fila.svg'),
-            ],
+        // Todos os ícones são servidos pelo próprio projeto. Antes a maioria
+        // vinha de api.iconify.design: sem internet, a vitrine ficava sem ícone.
+        $icones = [
+            ['lancamentos', 'Lançamentos'],
+            ['ofertas', 'Ofertas'],
+            ['feminino', 'Feminino'],
+            ['masculino', 'Masculino'],
+            ['masculino_simbolo', 'Masculino (símbolo)'],
+            ['infantil', 'Infantil'],
+            ['camiseta', 'Camisetas'],
+            ['camisa', 'Camisas'],
+            ['calca', 'Calças'],
+            ['shorts', 'Shorts e bermudas'],
+            ['saia', 'Saias'],
+            ['vestido', 'Vestido'],
+            ['casaco', 'Casaco'],
+            ['moletom', 'Moletons'],
+            ['tenis', 'Tênis'],
+            ['caminhada', 'Caminhada'],
+            ['acessorios', 'Acessórios'],
+            ['bolsa', 'Bolsas'],
+            ['bone', 'Bonés'],
+            ['oculos', 'Óculos'],
+            ['relogio', 'Relógios'],
+            ['meias', 'Meias'],
+            ['premium', 'Premium'],
+            ['plus_size', 'Plus Size'],
+            ['treino', 'Treino / Academia'],
+            ['corrida', 'Corrida'],
+            ['yoga', 'Yoga / Pilates'],
+            ['suplementos', 'Suplementos / Shaker'],
+            ['nike', 'Nike'],
+            ['adidas', 'Adidas'],
+            ['puma', 'Puma'],
+            ['new_balance', 'New Balance'],
+            ['fila', 'Fila'],
         ];
+
+        return array_map(static fn (array $i): array => [
+            'key' => $i[0],
+            'label' => $i[1],
+            'url' => asset('images/category-icons/' . $i[0] . '.svg'),
+        ], $icones);
     }
 }
 
@@ -408,7 +341,7 @@ if (!function_exists('vitrine_category_icon_url')) {
             }
         }
 
-        return vitrine_category_icon_catalog()[5]['url'];
+        return asset('images/category-icons/acessorios.svg');
     }
 }
 
@@ -1487,5 +1420,201 @@ if (!function_exists('card_validate_checkout_input')) {
      */
     function card_validate_checkout_input(?array $card): ?array {
         return \App\Payment\CardValidator::validate($card);
+    }
+}
+
+/*
+ * Preço efetivo de venda: o promocional, quando o gerente definiu um válido
+ * (maior que zero e menor que o preço normal); senão, o preço normal. Toda
+ * conta de venda (carrinho, pedido, PDV, vitrine) passa por aqui.
+ */
+if (!function_exists('product_effective_price')) {
+    function product_effective_price(array $product): float
+    {
+        $venda = (float) ($product['sale_price'] ?? 0);
+        $promo = isset($product['promo_price']) && $product['promo_price'] !== null ? (float) $product['promo_price'] : 0.0;
+
+        return ($promo > 0 && $promo < $venda) ? $promo : $venda;
+    }
+}
+
+if (!function_exists('product_on_sale')) {
+    function product_on_sale(array $product): bool
+    {
+        return product_effective_price($product) < (float) ($product['sale_price'] ?? 0);
+    }
+}
+
+if (!function_exists('product_discount_percent')) {
+    /** Percentual de desconto da promoção, arredondado (ex.: 25 para "-25%"). */
+    function product_discount_percent(array $product): int
+    {
+        $venda = (float) ($product['sale_price'] ?? 0);
+        if ($venda <= 0 || !product_on_sale($product)) {
+            return 0;
+        }
+
+        return (int) round((1 - product_effective_price($product) / $venda) * 100);
+    }
+}
+
+if (!function_exists('ui_icon')) {
+    /**
+     * Ícone SVG em linha (traço, 24×24, cor do texto). Um conjunto só para o
+     * site inteiro, no lugar de emojis e símbolos de texto.
+     */
+    function ui_icon(string $name, int $size = 18, string $class = ''): string
+    {
+        static $paths = [
+            'sun' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+            'moon' => '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+            'cart' => '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+            'user' => '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+            'external' => '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/>',
+            'arrow-left' => '<path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>',
+            'check' => '<path d="M20 6L9 17l-5-5"/>',
+            'x' => '<path d="M18 6L6 18M6 6l12 12"/>',
+            'clock' => '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+            'tag' => '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>',
+            'history' => '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>',
+            'percent' => '<path d="M19 5L5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+            'qr' => '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
+            'card' => '<rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/>',
+            'truck' => '<rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+            'store' => '<path d="M3 9l1-5h16l1 5"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0V9z"/><path d="M5 13v8h14v-8"/>',
+            'copy' => '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+            'alert' => '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+            'search' => '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
+            'filter' => '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+            'download' => '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+            'plus' => '<path d="M12 5v14M5 12h14"/>',
+            'trash' => '<path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+            'package' => '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
+            'shield' => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+        ];
+        $inner = $paths[$name] ?? $paths['alert'];
+        $cls = trim('ui-icon ' . $class);
+
+        return '<svg class="' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8') . '" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' . $inner . '</svg>';
+    }
+}
+
+if (!function_exists('order_payment_view')) {
+    /**
+     * Situação de pagamento de um pedido para o cliente: status, prazo e, se
+     * houver PIX em aberto, o copia-e-cola e a imagem do QR para retomar.
+     */
+    function order_payment_view(array $order, int $storeId): array
+    {
+        $payments = (new \App\Repositories\PaymentRepository())->findByOrder((int) $order['id']);
+        $aberto = null;
+        $confirmado = null;
+        foreach ($payments as $p) {
+            if ($p['status'] === 'pendente') {
+                $aberto = $p;
+            }
+            if ($p['status'] === 'confirmado') {
+                $confirmado = $p;
+            }
+        }
+        $pix = null;
+        if ($aberto && $aberto['method'] === 'pix' && $order['status'] === 'pendente') {
+            $svc = new \App\Services\PixService(new \App\Repositories\StorePixConfigRepository());
+            $copia = $svc->buildCopyPaste($storeId, (float) $aberto['amount'], 'Pedido ' . $order['id']);
+            $img = (string) ($aberto['pix_qr_code'] ?? '');
+            if ($img === '' && $copia) {
+                $img = \App\Support\QrCode::toDataUri($copia);
+            }
+            $pix = ['copia_cola' => $copia, 'qr_code' => $img !== '' ? $img : null];
+        }
+        $p = $confirmado ?? $aberto;
+
+        return [
+            'order' => [
+                'id' => (int) $order['id'],
+                'status' => $order['status'],
+                'total' => (float) $order['total'],
+                'expires_at' => $order['expires_at'] ?? null,
+                'delivery_type' => $order['delivery_type'] ?? 'retirada',
+            ],
+            'payment' => $p ? [
+                'id' => (int) $p['id'],
+                'method' => $p['method'],
+                'status' => $p['status'],
+                'amount' => (float) $p['amount'],
+                'installments' => (int) ($p['installments'] ?? 1),
+            ] : null,
+            'pix' => $pix,
+            'server_now' => date('Y-m-d H:i:s'),
+        ];
+    }
+}
+
+if (!function_exists('storefront_sort_options')) {
+    /** Ordenações da vitrine (chave da URL => rótulo). */
+    function storefront_sort_options(): array
+    {
+        return [
+            'mais-vendidos' => 'Mais vendidos',
+            'novidades' => 'Novidades',
+            'promocoes' => 'Promoções',
+            'menor-preco' => 'Menor preço',
+            'maior-preco' => 'Maior preço',
+            'a-z' => 'Nome (A–Z)',
+        ];
+    }
+}
+
+if (!function_exists('storefront_current_sort')) {
+    function storefront_current_sort(): string
+    {
+        $o = (string) ($_GET['ordem'] ?? '');
+
+        return array_key_exists($o, storefront_sort_options()) ? $o : 'mais-vendidos';
+    }
+}
+
+if (!function_exists('storefront_products')) {
+    /**
+     * Prepara a lista da vitrine: desconta as reservas (o que está sendo pago
+     * por PIX não aparece como disponível) e ordena. Antes a vitrine era
+     * sempre alfabética.
+     */
+    function storefront_products(array $products, int $storeId, ?string $ordem = null): array
+    {
+        $ordem = $ordem ?? storefront_current_sort();
+        $products = array_map([\App\Services\StockReservation::class, 'applyTo'], $products);
+        $vendas = $ordem === 'mais-vendidos' ? (new \App\Repositories\ProductRepository())->salesCountByProduct($storeId) : [];
+        usort($products, static function (array $a, array $b) use ($ordem, $vendas): int {
+            // Esgotado sempre por último, em qualquer ordenação.
+            $ea = (int) ($a['stock_quantity'] ?? 0) > 0 ? 0 : 1;
+            $eb = (int) ($b['stock_quantity'] ?? 0) > 0 ? 0 : 1;
+            if ($ea !== $eb) {
+                return $ea <=> $eb;
+            }
+            switch ($ordem) {
+                case 'novidades':
+                    $c = strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? '')) ?: ((int) $b['id'] <=> (int) $a['id']);
+                    break;
+                case 'promocoes':
+                    $c = product_discount_percent($b) <=> product_discount_percent($a);
+                    break;
+                case 'menor-preco':
+                    $c = product_effective_price($a) <=> product_effective_price($b);
+                    break;
+                case 'maior-preco':
+                    $c = product_effective_price($b) <=> product_effective_price($a);
+                    break;
+                case 'a-z':
+                    $c = 0;
+                    break;
+                default:
+                    $c = ($vendas[(int) $b['id']] ?? 0) <=> ($vendas[(int) $a['id']] ?? 0);
+            }
+
+            return $c !== 0 ? $c : strcasecmp((string) $a['name'], (string) $b['name']);
+        });
+
+        return $products;
     }
 }

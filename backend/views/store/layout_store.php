@@ -1,5 +1,14 @@
+<?php
+// A vitrine segue a paleta da LOJA, não a preferência claro/escuro de quem
+// visita: fundo escuro usa o tema escuro, fundo claro (ou sem cor) o claro.
+// Antes as duas coisas se misturavam — cards escuros sobre fundo creme, ícone
+// branco sobre cartão branco no modo claro — e não havia combinação que
+// funcionasse para todas as lojas.
+$__storeBg = (isset($store['background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $store['background_color'])) ? (string) $store['background_color'] : null;
+$__storeTheme = ($__storeBg !== null && hex_color_is_dark($__storeBg)) ? 'dark' : 'light';
+?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="<?= $__storeTheme ?>" data-theme-locked="1">
 <head>
     <meta charset="UTF-8">
     <?= csrf_meta() ?>
@@ -9,7 +18,9 @@
     <?= favicon_link_tag($store ?? []) ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
+    <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
 <?php
 $storeBackgroundColor = (isset($store['background_color']) && preg_match('/^#[0-9A-Fa-f]{6}$/', $store['background_color'])) ? $store['background_color'] : null;
@@ -68,7 +79,7 @@ if ($storeBackgroundColor) {
                 <?php if (!empty($can_see_panel)): ?>
                     <a href="<?= base_url("painel/{$store['slug']}") ?>" class="store-nav-link panel-link">Painel da Loja</a>
                 <?php endif; ?>
-                <a href="<?= base_url("loja/{$store['slug']}/carrinho") ?>" class="store-nav-link cart-link">Carrinho</a>
+                <a href="<?= base_url("loja/{$store['slug']}/carrinho") ?>" class="store-nav-link cart-link"><?= ui_icon('cart', 18) ?><span>Carrinho</span></a>
                 <span class="store-header-divider" aria-hidden="true"></span>
                 <div class="store-user-menu-wrap">
                     <button type="button" class="store-user-btn" aria-label="Minha conta" aria-expanded="false" aria-haspopup="true" title="Minha conta">
@@ -90,7 +101,9 @@ if ($storeBackgroundColor) {
                         </a>
                     </div>
                 </div>
-                <a href="<?= base_url('lojas') ?>" class="store-nav-link store-back-link">Voltar para Lojas</a>
+                <?php if (logged_in()): ?>
+                <a href="<?= base_url('lojas') ?>" class="store-nav-link store-back-link"><?= ui_icon('store', 18) ?><span>Outras lojas</span></a>
+                <?php endif; ?>
             </nav>
         </div>
     </header>

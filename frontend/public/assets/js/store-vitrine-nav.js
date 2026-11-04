@@ -219,14 +219,17 @@
   function loadCategory(categoryId, pushHistory) {
     if (loading) return;
     var scrollY = window.scrollY || window.pageYOffset || 0;
+    // A ordenação escolhida (?ordem=) acompanha a troca de categoria.
+    var ordem = new URLSearchParams(window.location.search).get('ordem');
+    var qs = ordem ? '?ordem=' + encodeURIComponent(ordem) : '';
     var url =
-      categoryId && categoryId > 0
+      (categoryId && categoryId > 0
         ? base + '/api/loja/' + encodeURIComponent(slug) + '/vitrine-categories/' + categoryId + '/conteudo'
-        : base + '/api/loja/' + encodeURIComponent(slug) + '/vitrine-home/conteudo';
+        : base + '/api/loja/' + encodeURIComponent(slug) + '/vitrine-home/conteudo') + qs;
     var historyUrl =
-      categoryId && categoryId > 0
+      (categoryId && categoryId > 0
         ? base + '/loja/' + encodeURIComponent(slug) + '/categoria/' + categoryId
-        : base + '/loja/' + encodeURIComponent(slug);
+        : base + '/loja/' + encodeURIComponent(slug)) + qs;
 
     loading = true;
     dynamic.classList.add('store-vitrine-dynamic--loading');
@@ -248,7 +251,7 @@
         window.scrollTo(0, scrollY);
       })
       .catch(function (err) {
-        alert(err.message || 'Não foi possível carregar a categoria.');
+        if (window.UI) UI.toast(err.message || 'Não foi possível carregar a categoria.', 'error');
       })
       .finally(function () {
         loading = false;

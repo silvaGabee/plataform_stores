@@ -11,6 +11,8 @@ use App\Repositories\PaymentRepository;
 use App\Repositories\StockMovementRepository;
 use App\Repositories\CashRegisterRepository;
 use App\Repositories\CashMovementRepository;
+use App\Repositories\CouponRepository;
+use App\Repositories\DiscountRequestRepository;
 
 class OrderService
 {
@@ -50,18 +52,30 @@ class OrderService
      * depois, num laço separado. Qualquer falha no meio deixava um pedido sem
      * itens (ou com parte deles) e um total que não batia com nada.
      *
-     * A checagem de estoque aqui é só para dar erro cedo e legível ao cliente —
-     * ela NÃO reserva nada. A garantia real está em confirmPayment(), onde a
-     * baixa é atômica.
+     * O estoque disponível já desconta as reservas (pedidos online pendentes
+     * dentro do prazo). O pedido online criado aqui passa a reservar as peças
+     * por PRAZO_PEDIDO; a baixa física continua em confirmPayment().
      */
+    /** Prazo para escolher a forma de pagamento depois de criar o pedido. */
+    public const PRAZO_PEDIDO = '30 MINUTE';
+    /** Prazo para pagar o PIX gerado. */
+    public const PRAZO_PIX = '30 MINUTE';
+    /** Cartão na retirada: a peça fica separada esse tempo na loja. */
+    public const PRAZO_RETIRADA = '3 DAY';
+    /** Venda de balcão que não foi paga (operador desistiu). Não reserva. */
+    public const PRAZO_PDV = '12 HOUR';
+
     /**
-     * @param array{discount?: float, customer_name?: ?string} $pdv
-     *        Só para venda de balcão: desconto em reais e nome do cliente.
-     *        Ignorado em pedidos online.
+     * @param array{discount?: float, customer_name?: ?string, discount_request?: ?array} $pdv
+     *        Só para venda de balcão: desconto em reais, nome do cliente e, se
+     *        o operador não for gerente, a solicitação de desconto aprovada.
+     * @param array{coupon_code?: ?string} $online
+     *        Só para a vitrine: cupom de desconto.
      */
-    public function createOrder(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy = null, ?string $deliveryType = null, ?int $addressId = null, array $pdv = []): array
+    public function createOrder(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy = null, ?string $deliveryType = null, ?int $addressId = null, array $pdv = [], array $online = []): array
     {
-        return \App\Database\Database::transaction(
+        $this->expirarPendentes($storeId);
+        $order = \App\Database\Database::transaction(
             fn (): array => $this->createOrderInTransaction(
                 $storeId,
                 $customerId,
@@ -70,14 +84,62 @@ class OrderService
                 $createdBy,
                 $deliveryType,
                 $addressId,
-                $orderType === 'pdv' ? $pdv : []
+                $orderType === 'pdv' ? $pdv : [],
+                $orderType === 'pdv' ? [] : $online
             )
         );
+        StockReservation::forget($storeId);
+
+        return $order;
     }
 
-    private function createOrderInTransaction(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy, ?string $deliveryType, ?int $addressId, array $pdv): array
+    /**
+     * Cancela pedidos cujo prazo de pagamento acabou e devolve o uso dos
+     * cupons. Roda antes de qualquer operação que dependa do estoque livre.
+     */
+    public function expirarPendentes(int $storeId): int
+    {
+        $cupons = $this->orderRepo->expirePending($storeId);
+        if ($cupons !== []) {
+            $repo = new CouponRepository();
+            foreach ($cupons as $c) {
+                $repo->release($storeId, $c);
+            }
+        }
+        StockReservation::forget($storeId);
+
+        return count($cupons);
+    }
+
+    /** Cancela um pedido ainda não pago (cliente ou gerente). */
+    public function cancelOrder(int $orderId, int $storeId, ?int $byUserId): array
+    {
+        $order = $this->orderRepo->findByIdAndStore($orderId, $storeId);
+        if (!$order) {
+            throw new \InvalidArgumentException('Pedido não encontrado.');
+        }
+        if ($order['status'] !== 'pendente') {
+            throw new \InvalidArgumentException($order['status'] === 'cancelado'
+                ? 'Este pedido já está cancelado.'
+                : 'Pedido já pago não pode ser cancelado por aqui.');
+        }
+        if (!$this->orderRepo->cancelPending($orderId, $storeId, $byUserId)) {
+            throw new \InvalidArgumentException('Não foi possível cancelar: o pedido mudou de situação.');
+        }
+        if (!empty($order['coupon_code'])) {
+            (new CouponRepository())->release($storeId, (string) $order['coupon_code']);
+        }
+        StockReservation::forget($storeId);
+
+        return $this->orderRepo->findByIdAndStore($orderId, $storeId) ?? $order;
+    }
+
+    private function createOrderInTransaction(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy, ?string $deliveryType, ?int $addressId, array $pdv, array $online = []): array
     {
         $total = 0;
+        if (count($items) > 50) {
+            throw new \InvalidArgumentException('Pedido com itens demais.');
+        }
         foreach ($items as $item) {
             $productId = (int) ($item['product_id'] ?? 0);
             $product = $this->productService()->getByIdAndStore($productId, $storeId);
@@ -95,11 +157,16 @@ class OrderService
             if (product_has_variants($product) && $variantKey === null) {
                 throw new \InvalidArgumentException('Selecione cor e tamanho para: ' . ($product['name'] ?? ''));
             }
-            $stock = product_sale_available_stock($product, $variantKey);
+            $stock = StockReservation::available($product, $variantKey);
             if ($stock < $qty) {
-                throw new \InvalidArgumentException("Estoque insuficiente para: {$product['name']}");
+                $label = $variantKey !== null ? ' (' . product_variant_key_label($product, $variantKey) . ')' : '';
+                throw new \InvalidArgumentException(
+                    $stock > 0
+                        ? "Só restam {$stock} unidade(s) de {$product['name']}{$label}."
+                        : "{$product['name']}{$label} esgotou."
+                );
             }
-            $total += $product['sale_price'] * $qty;
+            $total += product_effective_price($product) * $qty;
         }
         $total = round($total, 2);
 
@@ -111,6 +178,27 @@ class OrderService
         }
         if ($discount > $total) {
             throw new \InvalidArgumentException('O desconto não pode ser maior que o valor da venda.');
+        }
+        $pedidoDesconto = $pdv['discount_request'] ?? null;
+        if ($discount > 0 && !empty($pdv['require_approval'])) {
+            // Funcionário só dá desconto com aprovação do gerente, e a aprovação
+            // vale para exatamente este valor sobre exatamente este subtotal.
+            if (!$pedidoDesconto || ($pedidoDesconto['status'] ?? '') !== 'aprovado') {
+                throw new \InvalidArgumentException('Desconto precisa da aprovação de um gerente.');
+            }
+            if (abs((float) $pedidoDesconto['discount'] - $discount) > 0.009 || abs((float) $pedidoDesconto['subtotal'] - $total) > 0.009) {
+                throw new \InvalidArgumentException('O carrinho mudou depois da aprovação. Solicite o desconto de novo.');
+            }
+        }
+        $couponCode = null;
+        if ($orderType !== 'pdv' && !empty($online['coupon_code'])) {
+            $couponRepo = new CouponRepository();
+            $avaliado = $couponRepo->evaluate($storeId, (string) $online['coupon_code'], $total);
+            if (!$couponRepo->consume((int) $avaliado['coupon']['id'])) {
+                throw new \InvalidArgumentException('Este cupom atingiu o limite de usos.');
+            }
+            $discount = $avaliado['discount'];
+            $couponCode = (string) $avaliado['coupon']['code'];
         }
         $customerName = trim((string) ($pdv['customer_name'] ?? ''));
         $customerName = $customerName !== '' ? mb_substr($customerName, 0, 120) : null;
@@ -143,10 +231,20 @@ class OrderService
                 'product_id'   => $product['id'],
                 'variant_key'  => $variantKey,
                 'quantity'     => $qty,
-                'price'        => $product['sale_price'],
+                'price'        => product_effective_price($product),
                 'cost_price'   => $product['cost_price'] ?? null,
             ]);
         }
+        if ($couponCode !== null) {
+            $this->orderRepo->setCoupon($orderId, $couponCode);
+        }
+        if ($pedidoDesconto && $discount > 0 && !empty($pdv['require_approval'])) {
+            if (!(new DiscountRequestRepository())->markUsed((int) $pedidoDesconto['id'], $storeId, $orderId)) {
+                throw new \InvalidArgumentException('Esta aprovação de desconto já foi usada.');
+            }
+        }
+        $this->orderRepo->setExpiresAt($orderId, $orderType === 'pdv' ? self::PRAZO_PDV : self::PRAZO_PEDIDO);
+
         return $this->orderRepo->find($orderId);
     }
 
@@ -157,17 +255,23 @@ class OrderService
      * criavam dois pagamentos para o mesmo pedido, porque ambos liam
      * status = 'pendente' antes de qualquer um gravar.
      */
-    public function addPayment(int $orderId, int $storeId, string $method, float $amount, ?string $pixQr = null, ?array $cardMeta = null): array
+    /**
+     * @param array{installments?:int,installment_amount?:?float,interest_amount?:float} $parcelamento
+     */
+    public function addPayment(int $orderId, int $storeId, string $method, float $amount, ?string $pixQr = null, ?array $cardMeta = null, array $parcelamento = []): array
     {
+        $this->expirarPendentes($storeId);
+
         return \App\Database\Database::transaction(
-            fn (): array => $this->addPaymentInTransaction($orderId, $storeId, $method, $amount, $pixQr, $cardMeta)
+            fn (): array => $this->addPaymentInTransaction($orderId, $storeId, $method, $amount, $pixQr, $cardMeta, $parcelamento)
         );
     }
 
-    private function addPaymentInTransaction(int $orderId, int $storeId, string $method, float $amount, ?string $pixQr, ?array $cardMeta): array
+    private function addPaymentInTransaction(int $orderId, int $storeId, string $method, float $amount, ?string $pixQr, ?array $cardMeta, array $parcelamento = []): array
     {
         $order = $this->orderRepo->findByIdAndStoreForUpdate($orderId, $storeId);
         if (!$order) throw new \InvalidArgumentException('Pedido não encontrado');
+        if ($order['status'] === 'cancelado') throw new \InvalidArgumentException('Este pedido foi cancelado ou expirou. Faça um novo pedido.');
         if ($order['status'] !== 'pendente') throw new \InvalidArgumentException('Pedido já pago ou cancelado');
         // Já existe pagamento em aberto para este pedido?
         //   mesmo método e valor -> é o mesmo pedido de novo (duplo clique,
@@ -188,6 +292,9 @@ class OrderService
             'method'      => $method,
             'status'      => 'pendente',
             'amount'      => $amount,
+            'installments' => (int) ($parcelamento['installments'] ?? 1),
+            'installment_amount' => $parcelamento['installment_amount'] ?? null,
+            'interest_amount' => (float) ($parcelamento['interest_amount'] ?? 0),
             'pix_qr_code' => $pixQr,
         ];
         if ($cardMeta) {
@@ -196,6 +303,13 @@ class OrderService
             $row['card_brand'] = $cardMeta['brand'] ?? null;
         }
         $paymentId = $this->paymentRepo->create($row);
+        // Novo prazo conforme a forma de pagamento (pedido online).
+        if (strtolower((string) ($order['order_type'] ?? 'online')) === 'online') {
+            $retirada = strtolower((string) ($order['delivery_type'] ?? 'retirada')) === 'retirada';
+            $this->orderRepo->setExpiresAt($orderId, $method === 'cartao' && $retirada ? self::PRAZO_RETIRADA : self::PRAZO_PIX);
+        }
+        StockReservation::forget($storeId);
+
         return $this->paymentRepo->find($paymentId);
     }
 
@@ -210,9 +324,13 @@ class OrderService
      */
     public function confirmPayment(int $paymentId, int $storeId): array
     {
-        return \App\Database\Database::transaction(
+        $this->expirarPendentes($storeId);
+        $r = \App\Database\Database::transaction(
             fn (): array => $this->confirmPaymentInTransaction($paymentId, $storeId)
         );
+        StockReservation::forget($storeId);
+
+        return $r;
     }
 
     private function confirmPaymentInTransaction(int $paymentId, int $storeId): array
@@ -228,7 +346,7 @@ class OrderService
             throw new \InvalidArgumentException('Pagamento já foi confirmado');
         }
         if ($payment['status'] === 'cancelado') {
-            throw new \InvalidArgumentException('Pagamento cancelado não pode ser confirmado');
+            throw new \InvalidArgumentException('Pagamento cancelado (o pedido foi cancelado ou o prazo expirou) e não pode ser confirmado.');
         }
         $order = $this->orderRepo->find((int) $payment['order_id']);
         if (!$order) {
@@ -236,6 +354,12 @@ class OrderService
         }
         $this->paymentRepo->updateStatus($paymentId, 'confirmado');
         $this->orderRepo->updateStatus((int) $order['id'], 'pago');
+        $this->orderRepo->setExpiresAt((int) $order['id'], null);
+        if (strtolower((string) ($order['order_type'] ?? '')) === 'pdv') {
+            // Balcão: o cliente sai com a mercadoria na hora. Sem isto as vendas
+            // do PDV caíam no quadro de Entregas como "Solicitado".
+            $this->orderRepo->updateDeliveryStage((int) $order['id'], $storeId, 'entregue');
+        }
         $items = $this->orderItemRepo->getByOrder((int) $order['id']);
         foreach ($items as $item) {
             $productId = (int) ($item['product_id'] ?? 0);
@@ -276,7 +400,6 @@ class OrderService
             $this->stockMovementRepo->create([
                 'store_id'   => $storeId,
                 'product_id' => $product['id'],
-                'user_id'    => null,
                 'type'       => 'saida',
                 'quantity'   => $qty,
                 'reason'     => $reason,

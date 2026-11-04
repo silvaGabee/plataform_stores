@@ -114,5 +114,11 @@ class StoreRepository
         $stmt = $this->pdo->prepare('UPDATE stores SET background_color = ? WHERE id = ?');
         return $stmt->execute([$color, $id]);
     }
+    public function updateInstallmentRules(int $id, int $max, int $free, float $rate, float $minValue): bool
+    {
+        $stmt = $this->pdo->prepare('UPDATE stores SET installments_max = ?, installments_free = ?, installments_rate = ?, installments_min_value = ? WHERE id = ?');
+
+        return $stmt->execute([$max, $free, $rate, $minValue, $id]);
+    }
 }
 

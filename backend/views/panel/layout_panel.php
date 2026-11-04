@@ -9,7 +9,9 @@
     <?= favicon_link_tag($store ?? []) ?>
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
+    <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
 <body class="panel<?= !empty($panel_readonly) ? ' panel-readonly' : '' ?>">
     <div class="panel-sidebar-backdrop" id="panel-sidebar-backdrop" aria-hidden="true"></div>
@@ -36,8 +38,14 @@ $__ic = static function (string $d): string {
             <a class="<?= $__navActive('dashboard') ?>" href="<?= base_url("painel/{$store['slug']}") ?>"><?= $__ic('M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10') ?><span class="panel-nav-text">Dashboard</span></a>
             <a class="<?= $__navActive('produtos') ?>" href="<?= base_url("painel/{$store['slug']}/produtos") ?>"><?= $__ic('M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12') ?><span class="panel-nav-text">Produtos</span></a>
             <a class="<?= $__navActive('estoque') ?>" href="<?= base_url("painel/{$store['slug']}/estoque") ?>"><?= $__ic('M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5') ?><span class="panel-nav-text">Estoque</span></a>
+            <?php if (!empty($panel_is_gerente)): ?>
+            <a class="<?= $__navActive('historico-estoque') ?>" href="<?= base_url("painel/{$store['slug']}/historico-estoque") ?>"><?= $__ic('M3 3v5h5 M3.05 13A9 9 0 1 0 6 5.3L3 8 M12 7v5l4 2') ?><span class="panel-nav-text">Histórico de estoque</span></a>
+            <?php endif; ?>
             <a class="<?= $__navActive('entregas') ?>" href="<?= base_url("painel/{$store['slug']}/entregas") ?>"><?= $__ic('M1 3h15v13H1z M16 8h4l3 3v5h-7V8z M5 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0z M15 18a2 2 0 1 0 4 0 2 2 0 0 0-4 0z') ?><span class="panel-nav-text">Entregas</span></a>
             <a class="<?= $__navActive('pdv') ?>" href="<?= base_url("painel/{$store['slug']}/pdv") ?>"><?= $__ic('M4 4h16v4H4z M4 10h16v10H4z M8 14h4') ?><span class="panel-nav-text">PDV</span></a>
+            <?php if (!empty($panel_is_gerente)): ?>
+            <a class="<?= $__navActive('promocoes') ?>" href="<?= base_url("painel/{$store['slug']}/promocoes") ?>"><?= $__ic('M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01') ?><span class="panel-nav-text">Promoções</span></a>
+            <?php endif; ?>
             <?php if (empty($panel_readonly)): ?>
             <a class="<?= $__navActive('funcionarios') ?>" href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>"><?= $__ic('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75') ?><span class="panel-nav-text">Funcionários</span></a>
             <?php endif; ?>
@@ -47,7 +55,7 @@ $__ic = static function (string $d): string {
             <a class="<?= $__navActive('configuracoes') ?>" href="<?= base_url("painel/{$store['slug']}/configuracoes") ?>"><svg class="panel-nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="panel-nav-text">Configurações</span></a>
             <?php endif; ?>
         </nav>
-        <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener"><span class="panel-store-link-icon" aria-hidden="true">↗</span> Ver vitrine</a></p>
+        <p class="panel-sidebar-footer"><a class="panel-store-link" href="<?= base_url("loja/{$store['slug']}") ?>" target="_blank" rel="noopener"><?= ui_icon('external', 16, 'panel-store-link-icon') ?> Ver vitrine</a></p>
     </aside>
     <main class="panel-main<?= !empty($panel_main_extra_class) ? ' ' . htmlspecialchars((string) $panel_main_extra_class, ENT_QUOTES, 'UTF-8') : '' ?>" data-store-slug="<?= htmlspecialchars($store['slug'] ?? '') ?>">
         <header class="panel-mobile-topbar">
@@ -149,6 +157,7 @@ $__ic = static function (string $d): string {
     <script src="<?= asset('js/app.js') ?>"></script>
     <script src="<?= asset('js/panel-nav.js') ?>"></script>
     <script src="<?= asset('js/panel-ai-assistant.js') ?>"></script>
+    <?php if (!empty($panel_is_gerente)): ?><script src="<?= asset('js/panel-approvals.js') ?>"></script><?php endif; ?>
     <?php if (!empty($extra_js)): ?><?= $extra_js ?><?php endif; ?>
 </body>
 </html>

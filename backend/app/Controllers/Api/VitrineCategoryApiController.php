@@ -67,7 +67,7 @@ class VitrineCategoryApiController extends Controller
             return;
         }
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
-        $products = $service->listForStore((int) $store['id'], true);
+        $products = storefront_products($service->listForStore((int) $store['id'], true), (int) $store['id']);
         $this->json([
             'html' => $this->renderView('store/_dynamic_home', [
                 'store' => $store,
@@ -103,7 +103,7 @@ class VitrineCategoryApiController extends Controller
             'icon_url' => vitrine_category_icon_url($key),
         ];
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
-        $products = $service->listForStoreByCategory($storeId, $id, true);
+        $products = storefront_products($service->listForStoreByCategory($storeId, $id, true), $storeId);
         $this->json([
             'html' => $this->renderView('store/_dynamic_category', [
                 'store' => $store,

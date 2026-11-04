@@ -30,8 +30,8 @@ A documentação acadêmica do projeto está em [DOCUMENTACAO.md](DOCUMENTACAO.m
 | Área | Endereço | Conteúdo |
 |------|----------|----------|
 | **Plataforma** | `/`, `/lojas`, `/criar-conta`, `/criar-loja`, `/minha-conta` | Login, lista de lojas, cadastro, criação de loja, conta (com exclusão bloqueada se houver pedidos ou caixa ligados a ela) |
-| **Vitrine** | `/loja/{slug}/…` | Catálogo com banner e categorias, produto com cor e tamanho, carrinho, checkout (dinheiro, cartão, PIX), retirada ou entrega, pedido, meus pedidos, meus endereços |
-| **Painel** | `/painel/{slug}/…` | Dashboard, produtos, estoque por variação, entregas (Kanban), PDV com caixa por turno e simulador de parcelamento, funcionários, hierarquia de cargos, Analyzing BI, configurações (aparência e PIX) |
+| **Vitrine** | `/loja/{slug}/…` | Catálogo com banner, categorias e ordenação (mais vendidos, novidades, promoções, preço), produto com cor e tamanho (esgotado por tamanho), preço promocional, carrinho, checkout com cupom e parcelamento no cartão, PIX que pode ser retomado depois, retirada ou entrega, meus pedidos (com cancelamento do que não foi pago), meus endereços |
+| **Painel** | `/painel/{slug}/…` | Dashboard, produtos, estoque por variação, histórico de estoque (gerente), entregas com confirmação de pagamento, PDV com caixa por turno, conferência de fechamento e desconto com aprovação do gerente, promoções e pagamentos (gerente), funcionários, hierarquia de cargos, Analyzing BI, configurações |
 | **API** | `/api/…` | JSON consumido pelo JavaScript da vitrine e do painel |
 
 Recursos opcionais: **RapidAPI** para a imagem do QR Code PIX (sem chave, o QR é gerado localmente) e **OpenRouter** para o assistente de IA do painel.
@@ -109,7 +109,7 @@ Requisitos: PHP 8.0+ (`pdo_mysql`, `json`, `session`, `fileinfo`), MySQL 5.7+ ou
    mysql -u root < backend/database/schema.sql
    ```
 
-   O `schema.sql` é o retrato completo do schema e já registra as migrações como aplicadas. **Não execute em um banco que já tem dados** (ele contém `DROP TABLE IF EXISTS`); nesse caso use o `migrate.php`.
+   O `schema.sql` é o retrato do schema até a migração 0020 e as registra como aplicadas. Em seguida rode `php backend/scripts/migrate.php` para aplicar as posteriores (0021: reserva de estoque, cupons, preço promocional, parcelamento, conferência de caixa e aprovação de desconto; 0022: vendas do PDV como entregues). **Não execute o `schema.sql` em um banco que já tem dados** (ele contém `DROP TABLE IF EXISTS`); nesse caso use só o `migrate.php`.
 3. Copie `.env.example` para `.env` e preencha.
 4. Ajuste o `RewriteBase` em `public/.htaccess` para o caminho depois do `htdocs` (ex.: `/plataform_stores/public/`).
 5. Garanta permissão de escrita em `frontend/public/uploads/` e `storage/`.
@@ -160,6 +160,15 @@ Páginas em [backend/routes/web.php](backend/routes/web.php); API em [backend/ro
 Erros da API voltam em JSON com o campo `error`.
 
 ---
+
+## Regras de venda
+
+- **Reserva de estoque.** Pedido online pendente segura as peças: 30 min para escolher o pagamento e pagar o PIX, 3 dias quando o cartão é pago na retirada. Vencido o prazo, o pedido é cancelado sozinho e o estoque volta para a venda (`OrderService::expirarPendentes`). O PDV e a vitrine já mostram o disponível sem as reservas (`StockReservation`).
+- **Pagamento.** O gerente confirma PIX e cartão na retirada em *Entregas › Aguardando pagamento*. Cartão com entrega é confirmado na hora, com parcelamento pela regra da loja (sem juros até N parcelas; acima, tabela Price — `InstallmentPlan`).
+- **Entregas.** Só pedido pago entra no quadro e as etapas só avançam. Venda de balcão já sai como entregue.
+- **Descontos.** Preço promocional e cupons são do gerente (*Promoções*). No PDV, desconto dado por funcionário vira um pedido que o gerente aprova ou recusa em qualquer tela do painel; a aprovação vale uma vez, para aquele subtotal e aquele desconto.
+- **Histórico de estoque.** Toda entrada, venda e ajuste (inclusive a reposição pela matriz cor × tamanho) gera movimentação com o responsável. Só o gerente consulta e exporta (CSV).
+- **Tema.** A vitrine segue a cor de fundo da loja (fundo escuro = tema escuro), sem botão de tema; painel e plataforma têm claro/escuro. Os ícones de categoria são servidos pelo próprio projeto (funcionam sem internet).
 
 ## Usuários, permissões e segurança
 

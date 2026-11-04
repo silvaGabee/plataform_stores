@@ -77,8 +77,8 @@ class ProductRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO products (store_id, vitrine_category_id, name, description, cost_price, sale_price, stock_quantity, min_stock)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO products (store_id, vitrine_category_id, name, description, cost_price, sale_price, promo_price, stock_quantity, min_stock)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $categoryId = isset($data['vitrine_category_id']) && $data['vitrine_category_id'] !== ''
             ? (int) $data['vitrine_category_id']
@@ -90,6 +90,7 @@ class ProductRepository
             $data['description'] ?? null,
             $data['cost_price'] ?? 0,
             $data['sale_price'] ?? 0,
+            $data['promo_price'] ?? null,
             $data['stock_quantity'] ?? 0,
             $data['min_stock'] ?? 0,
         ]);
@@ -106,7 +107,7 @@ class ProductRepository
             : null;
         if (array_key_exists('vitrine_category_id', $data)) {
             $stmt = $this->pdo->prepare(
-                'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, stock_quantity = ?, min_stock = ?, vitrine_category_id = ? WHERE id = ?'
+                'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, promo_price = ?, stock_quantity = ?, min_stock = ?, vitrine_category_id = ? WHERE id = ?'
             );
 
             return $stmt->execute([
@@ -114,6 +115,7 @@ class ProductRepository
                 $data['description'] ?? null,
                 $data['cost_price'] ?? 0,
                 $data['sale_price'] ?? 0,
+                $data['promo_price'] ?? null,
                 $data['stock_quantity'] ?? 0,
                 $data['min_stock'] ?? 0,
                 $categoryId > 0 ? $categoryId : null,
@@ -122,7 +124,7 @@ class ProductRepository
         }
 
         $stmt = $this->pdo->prepare(
-            'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, stock_quantity = ?, min_stock = ? WHERE id = ?'
+            'UPDATE products SET name = ?, description = ?, cost_price = ?, sale_price = ?, promo_price = ?, stock_quantity = ?, min_stock = ? WHERE id = ?'
         );
 
         return $stmt->execute([
@@ -130,6 +132,7 @@ class ProductRepository
             $data['description'] ?? null,
             $data['cost_price'] ?? 0,
             $data['sale_price'] ?? 0,
+            $data['promo_price'] ?? null,
             $data['stock_quantity'] ?? 0,
             $data['min_stock'] ?? 0,
             $id,
@@ -186,5 +189,27 @@ class ProductRepository
     {
         $stmt = $this->pdo->prepare("DELETE FROM products WHERE id = ?");
         return $stmt->execute([$id]);
+    }
+    /**
+     * Unidades vendidas (pedidos pagos) por produto nos últimos 90 dias — a
+     * base da ordenação "Mais vendidos" da vitrine.
+     *
+     * @return array<int, int>
+     */
+    public function salesCountByProduct(int $storeId): array
+    {
+        $st = $this->pdo->prepare(
+            "SELECT oi.product_id, SUM(oi.quantity) AS q FROM order_items oi
+             JOIN orders o ON o.id = oi.order_id
+             WHERE o.store_id = ? AND o.status = 'pago' AND o.created_at >= NOW() - INTERVAL 90 DAY
+             GROUP BY oi.product_id"
+        );
+        $st->execute([$storeId]);
+        $out = [];
+        foreach ($st->fetchAll() as $r) {
+            $out[(int) $r['product_id']] = (int) $r['q'];
+        }
+
+        return $out;
     }
 }

@@ -122,4 +122,18 @@ final class CardValidatorTest extends TestCase
     {
         $this->assertNull(card_validate_checkout_input(null));
     }
+
+    /** BINs Elo que começam com 4 ou 5 eram classificados como Visa/Mastercard. */
+    public function testEloComBinDeVisaEDeMastercard(): void
+    {
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('4011780000000000'));
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('4389350000000000'));
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('4514160000000000'));
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('4576000000000000'));
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('5067000000000000'));
+        $this->assertSame('elo', \App\Payment\CardValidator::detectBrand('6362970000457013'));
+        $this->assertSame('visa', \App\Payment\CardValidator::detectBrand('4111111111111111'));
+        $this->assertSame('mastercard', \App\Payment\CardValidator::detectBrand('5555555555554444'));
+        $this->assertSame('hipercard', \App\Payment\CardValidator::detectBrand('6062825624254001'));
+    }
 }

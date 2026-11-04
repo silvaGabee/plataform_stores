@@ -43,6 +43,45 @@
   // Token do pedido recém-criado, usado para montar o link do comprovante.
   var lastOrderToken = null;
 
+  /* ───────── cupom e parcelamento ───────── */
+  var appliedCoupon = null; // {code, discount, total}
+  var totalEl = document.getElementById('checkout-total');
+  var subtotalBase = totalEl ? parseFloat(totalEl.getAttribute('data-subtotal')) || 0 : 0;
+  function brl(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function currentTotal() { return appliedCoupon ? appliedCoupon.total : subtotalBase; }
+  function checkoutAlert(msg) { if (window.UI) UI.toast(msg, 'error'); else alert(msg); }
+  function renderTotal() {
+    if (!totalEl) return;
+    totalEl.innerHTML = appliedCoupon
+      ? '<s class="checkout-total-old">' + brl(subtotalBase) + '</s> ' + brl(appliedCoupon.total)
+      : brl(subtotalBase);
+  }
+  function loadInstallments() {
+    var sel = document.getElementById('card-installments');
+    if (!sel || !window.UI) return;
+    UI.api('api/loja/' + storeSlug + '/parcelamento?valor=' + currentTotal().toFixed(2)).then(function (r) {
+      var opts = (r && r.options) || [];
+      var atual = sel.value;
+      sel.innerHTML = opts.map(function (o) {
+        var txt = o.parcelas === 1 ? 'À vista: ' + brl(o.total)
+          : o.parcelas + 'x de ' + brl(o.parcela) + (o.sem_juros ? ' sem juros' : ' (total ' + brl(o.total) + ')');
+        return '<option value="' + o.parcelas + '">' + txt + '</option>';
+      }).join('') || '<option value="1">À vista</option>';
+      if (atual && sel.querySelector('option[value="' + atual + '"]')) sel.value = atual;
+      updateInstallmentHint(opts);
+    });
+    sel.onchange = function () { updateInstallmentHint(null); };
+  }
+  var lastInstOpts = [];
+  function updateInstallmentHint(opts) {
+    if (opts) lastInstOpts = opts;
+    var sel = document.getElementById('card-installments');
+    var hint = document.getElementById('card-installments-hint');
+    if (!sel || !hint) return;
+    var o = lastInstOpts.filter(function (x) { return String(x.parcelas) === sel.value; })[0];
+    hint.textContent = o && o.juros > 0 ? 'Juros de ' + brl(o.juros) + ' calculados pela tabela Price.' : '';
+  }
+
   /** Escapa texto antes de interpolar em innerHTML. */
   function escapeHtml(valor) {
     return String(valor === null || valor === undefined ? '' : valor)
@@ -198,17 +237,17 @@
     if (!shouldShowCardForm()) return true;
     var card = getCardPayload();
     if (card.holder.length < 3) {
-      alert('Informe o nome impresso no cartão.');
+      checkoutAlert('Informe o nome impresso no cartão.');
       if (cardHolder) cardHolder.focus();
       return false;
     }
     if (!luhnValid(card.number)) {
-      alert('Número do cartão inválido.');
+      checkoutAlert('Número do cartão inválido.');
       if (cardNumber) cardNumber.focus();
       return false;
     }
     if (!/^(0[1-9]|1[0-2])\/([0-9]{2})$/.test(card.expiry)) {
-      alert('Validade inválida. Informe mês (MM) e ano (AA).');
+      checkoutAlert('Validade inválida. Informe mês (MM) e ano (AA).');
       if (cardExpMonth) cardExpMonth.focus();
       return false;
     }
@@ -219,13 +258,13 @@
     var expDate = new Date(expYear, expMonth - 1, 1);
     var thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     if (expDate < thisMonth) {
-      alert('Cartão expirado.');
+      checkoutAlert('Cartão expirado.');
       if (cardExpMonth) cardExpMonth.focus();
       return false;
     }
     var cvvLen = card.number.charAt(0) === '3' ? 4 : 3;
     if (card.cvv.length !== cvvLen) {
-      alert('CVV inválido.');
+      checkoutAlert('CVV inválido.');
       if (cardCvv) cardCvv.focus();
       return false;
     }
@@ -565,7 +604,7 @@
       var state = document.getElementById('addr-state') && document.getElementById('addr-state').value.trim();
       var zipcode = document.getElementById('addr-zipcode') && document.getElementById('addr-zipcode').value.trim();
       if (!street || !number || !city || !state || !zipcode) {
-        alert('Preencha todos os campos obrigatórios do endereço (Rua, Número, Cidade, UF, CEP).');
+        checkoutAlert('Preencha todos os campos obrigatórios do endereço (Rua, Número, Cidade, UF, CEP).');
         return;
       }
       saveAddressBtn.disabled = true;
@@ -595,7 +634,7 @@
       }).catch(function (err) {
         saveAddressBtn.disabled = false;
         saveAddressBtn.textContent = saveLabel || 'Salvar e usar este endereço';
-        alert('Erro: ' + (err.message || err));
+        checkoutAlert(err.message || String(err));
       });
     });
   }
@@ -603,7 +642,7 @@
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     if (!cartData.length) {
-      alert('Carrinho vazio. Adicione produtos antes de finalizar.');
+      checkoutAlert('Carrinho vazio. Adicione produtos antes de finalizar.');
       return;
     }
     var name = form.customer_name.value.trim();
@@ -612,13 +651,13 @@
     var method = methodRadio ? methodRadio.value : 'pix';
     var deliveryType = getDeliveryType();
     if (!name || !email) {
-      alert('Preencha nome e e-mail.');
+      checkoutAlert('Preencha nome e e-mail.');
       return;
     }
     if (deliveryType === 'entrega') {
       var addressId = (addressSelect && addressSelect.value) ? parseInt(addressSelect.value, 10) : lastCreatedAddressId;
       if (!addressId) {
-        alert('Para entrega, selecione um endereço ou cadastre um novo.');
+        checkoutAlert('Para entrega, selecione um endereço ou cadastre um novo.');
         return;
       }
     }
@@ -638,7 +677,8 @@
     var payload = {
       order_type: 'online',
       delivery_type: deliveryType,
-      items: cartData
+      items: cartData,
+      coupon_code: appliedCoupon ? appliedCoupon.code : null
     };
     if (deliveryType === 'entrega') {
       var aid = (addressSelect && addressSelect.value) ? parseInt(addressSelect.value, 10) : lastCreatedAddressId;
@@ -658,7 +698,7 @@
       return r.json();
     }).then(function (res) {
       if (res.error) {
-        alert(res.error);
+        checkoutAlert(res.error);
         if (btn) {
           btn.disabled = false;
           if (btnLabel) btnLabel.textContent = btnText;
@@ -671,13 +711,15 @@
       var payBody = { order_id: order.id, method: method };
       if (method === 'cartao' && deliveryType === 'entrega') {
         payBody.card = getCardPayload();
+        var instSel = document.getElementById('card-installments');
+        payBody.installments = instSel ? parseInt(instSel.value, 10) || 1 : 1;
       }
       return api('api/loja/' + storeSlug + '/payments', {
         method: 'POST',
         body: JSON.stringify(payBody)
       }).then(function (payRes) {
         if (payRes.error) {
-          alert(payRes.error);
+          checkoutAlert(payRes.error);
           if (btn) {
           btn.disabled = false;
           if (btnLabel) btnLabel.textContent = btnText;
@@ -702,7 +744,7 @@
           if (pixQrContainer) {
             pixQrContainer.innerHTML =
               '<div class="checkout-card-success">' +
-              '<div class="checkout-card-success-icon" aria-hidden="true">✓</div>' +
+              '<div class="checkout-card-success-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>' +
               '<p><strong>' +
               brand +
               '</strong> final <strong>' +
@@ -728,6 +770,17 @@
           renderPixBlock(payment.pix_qr_code, payment.pix_manual);
           setPaymentStatusText('Aguardando pagamento…', 'waiting');
           pollPaymentStatus(payment.id);
+          // O pedido já guarda os itens e o PIX fica disponível em "Meus
+          // pedidos": o carrinho é esvaziado para não gerar pedido repetido.
+          clearLocalCart();
+          api('api/loja/' + storeSlug + '/cart/clear', { method: 'POST' }).catch(function () {});
+          var link = document.getElementById('checkout-order-link');
+          if (link) {
+            link.href = getBaseUrl() + '/loja/' + storeSlug + '/pedido/' + order.id + (lastOrderToken ? '?t=' + encodeURIComponent(lastOrderToken) : '') + '#pagamento';
+            link.classList.remove('hidden');
+          }
+          var back = document.getElementById('checkout-back-link');
+          if (back) back.classList.add('hidden');
         } else {
           setPaymentBadgeType('ok');
           togglePaymentSteps(false);
@@ -742,10 +795,53 @@
         }
       });
     }).catch(function (err) {
-      alert('Erro: ' + (err.message || err));
-      if (btn) { btn.disabled = false; btn.textContent = btnText; }
+      checkoutAlert(err.message || String(err));
+      if (btn) {
+        btn.disabled = false;
+        if (btnLabel) btnLabel.textContent = btnText;
+        else btn.textContent = btnText;
+      }
     });
   });
+
+  var couponBtn = document.getElementById('coupon-apply');
+  var couponInput = document.getElementById('coupon-code');
+  var couponResult = document.getElementById('coupon-result');
+  function applyCoupon() {
+    if (!window.UI || !couponInput) return;
+    var code = couponInput.value.trim();
+    if (appliedCoupon && !code) {
+      appliedCoupon = null;
+      couponResult.textContent = '';
+      renderTotal();
+      loadInstallments();
+      return;
+    }
+    if (!code) { couponResult.textContent = 'Digite o código do cupom.'; couponResult.className = 'ui-coupon-result is-error'; return; }
+    couponBtn.disabled = true;
+    UI.api('api/loja/' + storeSlug + '/cupom/validar', { method: 'POST', body: { code: code, items: cartData } }).then(function (r) {
+      couponBtn.disabled = false;
+      if (r.error) {
+        appliedCoupon = null;
+        couponResult.textContent = r.error;
+        couponResult.className = 'ui-coupon-result is-error';
+      } else {
+        appliedCoupon = { code: r.code, discount: r.discount, total: r.total };
+        couponResult.innerHTML = 'Cupom <strong>' + r.code + '</strong> aplicado: ' + r.label + ' (− ' + brl(r.discount) + '). <button type="button" class="ui-link" id="coupon-remove">Remover</button>';
+        couponResult.className = 'ui-coupon-result is-ok';
+      }
+      renderTotal();
+      loadInstallments();
+    });
+  }
+  if (couponBtn) {
+    couponBtn.addEventListener('click', applyCoupon);
+    couponInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyCoupon(); } });
+    couponResult.addEventListener('click', function (e) {
+      if (e.target.id === 'coupon-remove') { couponInput.value = ''; appliedCoupon = null; couponResult.textContent = ''; renderTotal(); loadInstallments(); }
+    });
+  }
+  loadInstallments();
 
   function clearLocalCart() {
     try {

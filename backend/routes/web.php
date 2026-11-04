@@ -40,6 +40,8 @@ return [
     'GET /painel/{slug}' => [PanelController::class, 'dashboard', 'store.panel.view'],
     'GET /painel/{slug}/produtos' => [PanelController::class, 'products', 'store.catalog.read'],
     'GET /painel/{slug}/estoque' => [PanelController::class, 'stock', 'store.catalog.read'],
+    'GET /painel/{slug}/historico-estoque' => [PanelController::class, 'stockHistory', 'store.stock.history'],
+    'GET /painel/{slug}/promocoes' => [PanelController::class, 'promotions', 'store.promotions.manage'],
     'GET /painel/{slug}/entregas' => [PanelController::class, 'entregas', 'store.orders.read'],
     'GET /painel/{slug}/pdv' => [PanelController::class, 'pdv', 'store.pdv.operate'],
     'GET /painel/{slug}/funcionarios' => [PanelController::class, 'employees', 'store.users.manage'],

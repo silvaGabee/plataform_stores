@@ -15,8 +15,14 @@ class HomeController extends Controller
     private const LOGIN_TENTATIVAS = 8;
     private const LOGIN_JANELA = 900;
 
-    /** Contas criadas a partir do mesmo IP por hora. */
-    private const CADASTRO_TENTATIVAS = 5;
+    /**
+     * Contas criadas a partir do mesmo IP por hora.
+     *
+     * Era 5: numa rede compartilhada (escola, loja com Wi-Fi, operadora com
+     * CGNAT) todos saem pelo mesmo IP, e o sexto cliente real era barrado.
+     * 30/h ainda impede criação em massa por script.
+     */
+    private const CADASTRO_TENTATIVAS = 30;
     private const CADASTRO_JANELA = 3600;
 
     public function index(): void

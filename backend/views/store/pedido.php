@@ -9,6 +9,16 @@ $statusLabels = [
 ];
 $statusLabel = $statusLabels[$statusKey] ?? ucfirst($statusKey);
 $deliveryType = isset($order['delivery_type']) ? strtolower($order['delivery_type']) : 'retirada';
+$payView = order_payment_view($order, (int) $store['id']);
+$isPending = $statusKey === 'pendente';
+$isCancelled = $statusKey === 'cancelado';
+$expiredByTime = $isCancelled && empty($order['cancelled_by']) && !empty($order['expires_at']);
+if ($isCancelled) {
+    $statusLabel = $expiredByTime ? 'Cancelado (prazo de pagamento expirou)' : 'Cancelado';
+}
+if ($isPending) {
+    $statusLabel = 'Aguardando pagamento';
+}
 $paymentMethodLabels = [
     'pix' => 'PIX',
     'cartao' => 'Cartão',
@@ -58,6 +68,71 @@ $content = ob_start();
         <?php endif; ?>
 
         <div class="order-body">
+            <?php if ($isPending): ?>
+            <section class="ui-paybox" id="pagamento" data-slug="<?= htmlspecialchars($store['slug']) ?>" data-order="<?= (int) $order['id'] ?>" data-expires="<?= htmlspecialchars((string) ($order['expires_at'] ?? '')) ?>" data-now="<?= date('Y-m-d H:i:s') ?>" data-logged="<?= logged_in() ? '1' : '0' ?>" aria-labelledby="paybox-title">
+                <header class="ui-paybox-head">
+                    <span class="ui-paybox-icon" aria-hidden="true"><?= ui_icon(($payView['payment']['method'] ?? '') === 'cartao' ? 'card' : 'qr', 22) ?></span>
+                    <div>
+                        <h2 id="paybox-title" class="ui-paybox-title">
+                            <?php if (($payView['payment']['method'] ?? '') === 'cartao'): ?>
+                                Pagamento na retirada
+                            <?php elseif ($payView['pix']): ?>
+                                Pague com PIX para concluir
+                            <?php else: ?>
+                                Pagamento pendente
+                            <?php endif; ?>
+                        </h2>
+                        <p class="ui-paybox-sub">
+                            <span class="ui-paybox-countdown" id="paybox-countdown">Calculando prazo…</span>
+                        </p>
+                    </div>
+                    <strong class="ui-paybox-amount">R$ <?= number_format((float) ($payView['payment']['amount'] ?? $order['total']), 2, ',', '.') ?></strong>
+                </header>
+                <?php if ($payView['pix']): ?>
+                    <div class="ui-paybox-body">
+                        <?php if (!empty($payView['pix']['qr_code'])): ?>
+                            <img class="ui-paybox-qr" src="<?= htmlspecialchars($payView['pix']['qr_code']) ?>" alt="QR Code PIX do pedido #<?= (int) $order['id'] ?>" width="220" height="220">
+                        <?php endif; ?>
+                        <div class="ui-paybox-steps">
+                            <ol>
+                                <li>Abra o app do seu banco e escolha <strong>PIX</strong>.</li>
+                                <li>Escaneie o QR Code ou use o <strong>copia e cola</strong>.</li>
+                                <li>A loja confirma o recebimento e o pedido segue para separação.</li>
+                            </ol>
+                            <?php if (!empty($payView['pix']['copia_cola'])): ?>
+                                <label class="ui-field"><span>PIX copia e cola</span>
+                                    <span class="ui-copy">
+                                        <input type="text" readonly id="paybox-copy" value="<?= htmlspecialchars($payView['pix']['copia_cola']) ?>">
+                                        <button type="button" class="btn btn-primary btn-sm js-copy" data-target="paybox-copy"><?= ui_icon('copy', 16) ?> Copiar</button>
+                                    </span>
+                                </label>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php elseif (($payView['payment']['method'] ?? '') === 'cartao'): ?>
+                    <p class="ui-paybox-text">Suas peças estão separadas. Pague com cartão no balcão ao retirar e apresente o número do pedido.</p>
+                <?php else: ?>
+                    <p class="ui-paybox-text">A forma de pagamento ainda não foi escolhida. Volte ao carrinho para finalizar ou cancele este pedido.</p>
+                <?php endif; ?>
+                <footer class="ui-paybox-foot">
+                    <span class="ui-paybox-status" id="paybox-status"><span class="ui-dot ui-dot--pulse" aria-hidden="true"></span> Aguardando confirmação da loja</span>
+                    <?php if (logged_in()): ?>
+                        <button type="button" class="btn btn-ghost btn-sm" id="paybox-cancel">Cancelar pedido</button>
+                    <?php endif; ?>
+                </footer>
+            </section>
+            <?php endif; ?>
+
+            <?php if ($isCancelled): ?>
+            <section class="ui-notice ui-notice--muted" role="status">
+                <?= ui_icon('x', 20) ?>
+                <div>
+                    <strong><?= $expiredByTime ? 'O prazo de pagamento expirou' : 'Pedido cancelado' ?></strong>
+                    <p><?= $expiredByTime ? 'Como o pagamento não foi confirmado a tempo, as peças voltaram para a venda. Você pode fazer um novo pedido quando quiser.' : 'Este pedido foi cancelado e nenhum valor será cobrado.' ?></p>
+                </div>
+            </section>
+            <?php endif; ?>
+
             <?php if (!$isPaid): ?>
             <section class="order-panel order-panel--summary" aria-label="Resumo do pedido">
                 <div class="order-stat-grid">
@@ -188,4 +263,5 @@ if ($isPaid) {
         . 'if(base&&slug){fetch(base+"/api/loja/"+encodeURIComponent(slug)+"/cart/clear",{method:"POST",headers:{"Content-Type":"application/json"}}).catch(function(){});}'
         . '})();</script>';
 }
+$extra_js = ($extra_js ?? '') . '<script src="' . asset('js/store-orders.js') . '"></script>';
 require __DIR__ . '/layout_store.php';

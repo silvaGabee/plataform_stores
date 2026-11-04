@@ -9,6 +9,9 @@ $variantGroups = product_has_variants($p) ? product_variants_grouped($p) : [];
 $stockTotal = (int) ($p['stock_quantity'] ?? 0);
 $productUrl = base_url("loja/{$store['slug']}/produto/{$p['id']}");
 $productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['description'] ?? '')), 'UTF-8');
+$precoEfetivo = product_effective_price($p);
+$descontoPct = product_discount_percent($p);
+$parcelasTexto = \App\Services\InstallmentPlan::headline($store, $precoEfetivo);
 ?>
 <article class="product-card product-card--v2" data-product-search="<?= htmlspecialchars($productSearchBlob, ENT_QUOTES, 'UTF-8') ?>">
     <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-media">
@@ -25,8 +28,8 @@ $productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['descript
                 </span>
             <?php endif; ?>
         </div>
-        <?php if ($hasVariants): ?>
-            <span class="product-card-badge">+ opções</span>
+        <?php if ($descontoPct > 0): ?>
+            <span class="product-card-badge product-card-badge--sale">-<?= $descontoPct ?>%</span>
         <?php endif; ?>
     </a>
     <div class="product-card-content">
@@ -75,11 +78,19 @@ $productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['descript
                 </div>
             <?php endif; ?>
             <div class="product-card-price-row">
-                <p class="product-card-price">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></p>
-                <?php if ($stockTotal > 0): ?>
-                    <span class="product-card-stock-badge"><?= $hasVariants ? $stockTotal . ' un. no total' : 'Em estoque' ?></span>
-                <?php else: ?>
+                <div class="product-card-prices">
+                    <?php if ($descontoPct > 0): ?>
+                        <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
+                    <?php endif; ?>
+                    <p class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></p>
+                    <?php if ($parcelasTexto): ?>
+                        <p class="product-card-installments"><?= htmlspecialchars($parcelasTexto) ?></p>
+                    <?php endif; ?>
+                </div>
+                <?php if ($stockTotal <= 0): ?>
                     <span class="product-card-stock-badge product-card-stock-badge--out">Esgotado</span>
+                <?php elseif ($stockTotal <= 5): ?>
+                    <span class="product-card-stock-badge product-card-stock-badge--low">Últimas unidades</span>
                 <?php endif; ?>
             </div>
         </a>
@@ -97,7 +108,7 @@ $productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['descript
                     data-store-id="<?= (int) $store['id'] ?>"
                     data-product-id="<?= (int) $p['id'] ?>"
                     data-name="<?= htmlspecialchars($p['name']) ?>"
-                    data-price="<?= htmlspecialchars((string) $p['sale_price']) ?>"
+                    data-price="<?= htmlspecialchars((string) $precoEfetivo) ?>"
                     data-max="<?= $stockTotal ?>">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6h15l-1.5 9h-12L6 6z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M6 6L5 3H2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="9" cy="20" r="1.25" fill="currentColor"/><circle cx="18" cy="20" r="1.25" fill="currentColor"/></svg>
                     <span>Adicionar</span>

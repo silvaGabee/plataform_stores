@@ -78,6 +78,26 @@ class PaymentApiController extends Controller
             $autoConfirmCard = true;
         }
         $amount = (float) $order['total'];
+        $parcelamento = [];
+        if ($method === 'cartao' && $orderType !== 'pdv' && $deliveryType === 'entrega') {
+            // Parcelamento real no cartão, pela regra da loja (tabela Price
+            // acima das parcelas sem juros). O valor cobrado inclui os juros.
+            $store = (new \App\Repositories\StoreRepository())->find($storeId) ?? [];
+            $n = max(1, (int) ($input['installments'] ?? 1));
+            try {
+                $q = \App\Services\InstallmentPlan::quote($store, $amount, $n);
+            } catch (\InvalidArgumentException $e) {
+                $this->json(['error' => $e->getMessage()], 400);
+                return;
+            }
+            $rules = \App\Services\InstallmentPlan::rules($store);
+            if ($n > 1 && $q['parcela'] < $rules['min_value']) {
+                $this->json(['error' => 'A parcela mínima desta loja é R$ ' . number_format($rules['min_value'], 2, ',', '.') . '.'], 400);
+                return;
+            }
+            $parcelamento = ['installments' => $n, 'installment_amount' => $q['parcela'], 'interest_amount' => $q['juros']];
+            $amount = $q['total'];
+        }
         $pixQr = null;
         $pixManual = null;
         if ($method === 'pix') {
@@ -99,13 +119,16 @@ class PaymentApiController extends Controller
             }
         }
         try {
-            $payment = $this->orderService()->addPayment($orderId, $storeId, $method, $amount, $pixQr, $cardMeta);
+            $payment = $this->orderService()->addPayment($orderId, $storeId, $method, $amount, $pixQr, $cardMeta, $parcelamento);
             if ($autoConfirmCard) {
                 $payment = $this->orderService()->confirmPayment((int) $payment['id'], $storeId);
             }
             if ($pixManual !== null) {
                 $payment['pix_manual'] = $pixManual;
             }
+            $orderNow = (new OrderRepository())->findByIdAndStore($orderId, $storeId);
+            $payment['expires_at'] = $orderNow['expires_at'] ?? null;
+            $payment['server_now'] = date('Y-m-d H:i:s');
             $this->json(['success' => true, 'payment' => $payment]);
         } catch (\Throwable $e) {
             $this->json(['error' => $e->getMessage()], 400);

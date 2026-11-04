@@ -30,6 +30,21 @@ class PanelController extends Controller
         $this->render('panel/estoque', ['store' => $store, 'title' => 'Estoque']);
     }
 
+    /** Histórico de estoque: só gerente (a rota já exige store.stock.history). */
+    public function stockHistory(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/historico_estoque', ['store' => $store, 'title' => 'Histórico de estoque']);
+    }
+
+    public function promotions(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/promocoes', ['store' => $store, 'title' => 'Promoções e pagamentos']);
+    }
+
     public function entregas(string $slug): void
     {
         $store = $this->getStore($slug);

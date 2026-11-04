@@ -182,8 +182,30 @@ class PixService
      *
      * @return array<string, mixed>|null
      */
+    /**
+     * Depois de uma falha, a API fica em pausa por alguns minutos. Sem isto,
+     * com a cota esgotada (HTTP 429), cada PIX esperava a resposta de erro da
+     * API antes de cair no gerador local — o log de 04/11 tinha centenas.
+     */
+    private const PAUSA_APOS_FALHA_SEC = 600;
+
+    private static function arquivoPausa(): string
+    {
+        return PLATAFORM_ROOT . '/storage/logs/.rapidapi-pausa';
+    }
+
+    private static function apiEmPausa(): bool
+    {
+        $f = self::arquivoPausa();
+
+        return is_file($f) && (time() - (int) @filemtime($f)) < self::PAUSA_APOS_FALHA_SEC;
+    }
+
     private function chamarPixRapidApi(string $apiKey, array $body): ?array
     {
+        if (self::apiEmPausa()) {
+            return null;
+        }
         $ch = curl_init('https://pix-qr-code1.p.rapidapi.com/generate');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -207,10 +229,11 @@ class PixService
         curl_close($ch);
 
         if ($errno || $codigo !== 200 || !is_string($resposta) || $resposta === '') {
-            log_message('warning', 'PIX: RapidAPI indisponível, usando gerador local', [
+            log_message('warning', 'PIX: RapidAPI indisponível, usando gerador local por 10 min', [
                 'http' => $codigo,
                 'curl' => $errno ? $erro : null,
             ]);
+            @touch(self::arquivoPausa());
 
             return null;
         }

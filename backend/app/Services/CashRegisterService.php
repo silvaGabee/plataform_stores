@@ -39,7 +39,14 @@ class CashRegisterService
         if ($cash['closed_at'] !== null) {
             throw new \RuntimeException('Este caixa já foi fechado.');
         }
-        $this->cashRepo->close($cashRegisterId, $finalAmount);
+        if ($finalAmount < 0) {
+            throw new \InvalidArgumentException('O valor contado não pode ser negativo.');
+        }
+        $esperado = round($this->getCurrentBalance($cashRegisterId), 2);
+        $quem = (int) ($_SESSION['logged_user_id'] ?? 0);
+        if (!$this->cashRepo->close($cashRegisterId, round($finalAmount, 2), $esperado, $quem > 0 ? $quem : null)) {
+            throw new \RuntimeException('Este caixa já foi fechado.');
+        }
         return $this->cashRepo->find($cashRegisterId);
     }
 

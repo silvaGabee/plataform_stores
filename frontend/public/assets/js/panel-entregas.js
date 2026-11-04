@@ -1,417 +1,207 @@
+/**
+ * Entregas: pagamentos pendentes (gerente) + quadro por etapa.
+ *
+ * Etapas só avançam e só pedidos pagos entram no quadro — as duas regras são
+ * do servidor; aqui o botão "Avançar" já oferece apenas a próxima etapa.
+ * Arrastar continua funcionando no computador; no celular usa-se o botão.
+ */
 (function () {
-  if (typeof storeSlug === 'undefined') return;
+  'use strict';
+  var root = document.getElementById('entregas');
+  if (!root || !window.UI) return;
+  var slug = root.getAttribute('data-slug');
+  var isGerente = root.getAttribute('data-gerente') === '1';
+  var A = function (p) { return 'api/loja/' + slug + '/' + p; };
 
-  var ENTREGUE_COLS = ['retira-entregue', 'entrega-entregue'];
-  var selectedByCol = {};
-  var removeModeByCol = {};
-  ENTREGUE_COLS.forEach(function (id) {
-    selectedByCol[id] = new Set();
-    removeModeByCol[id] = false;
+  var FLUXO = {
+    retirada: ['solicitado', 'entregue'],
+    entrega: ['solicitado', 'empacotando', 'entregue_transportadora', 'em_rota', 'entregue']
+  };
+  var NOME = {
+    solicitado: 'Solicitado', empacotando: 'Empacotando', entregue_transportadora: 'Na transportadora',
+    em_rota: 'Em rota', entregue: 'Entregue'
+  };
+  var orders = [];
+
+  function next(o) {
+    var f = FLUXO[o.delivery_type] || FLUXO.retirada;
+    var i = f.indexOf(o.delivery_stage || 'solicitado');
+    return i >= 0 && i < f.length - 1 ? f[i + 1] : null;
+  }
+
+  function card(o) {
+    var prox = next(o);
+    var label = o.delivery_type === 'retirada' && prox === 'entregue' ? 'Marcar como retirado' : prox ? 'Avançar: ' + NOME[prox] : '';
+    return '<article class="ui-kcard" draggable="' + (prox ? 'true' : 'false') + '" data-id="' + o.id + '">' +
+      '<header><strong>Pedido #' + o.id + '</strong><span class="ui-kcard-total">' + UI.money(o.total) + '</span></header>' +
+      '<p class="ui-kcard-customer">' + UI.esc(o.customer_name || 'Cliente') + '</p>' +
+      '<p class="ui-kcard-meta">' + UI.esc(UI.dateTime(o.created_at)) + '</p>' +
+      (o.tracking_code ? '<p class="ui-kcard-track">' + UI.esc(o.tracking_code) + '</p>' : '') +
+      (prox ? '<button type="button" class="btn btn-secondary btn-sm ui-kcard-next" data-next="' + prox + '">' + UI.esc(label) + '</button>' : '') +
+    '</article>';
+  }
+
+  function render() {
+    root.querySelectorAll('.ui-col').forEach(function (col) {
+      var type = col.getAttribute('data-type');
+      var stage = col.getAttribute('data-stage');
+      var list = orders.filter(function (o) { return o.delivery_type === type && (o.delivery_stage || 'solicitado') === stage; });
+      col.querySelector('[data-cards]').innerHTML = list.length ? list.map(card).join('') : '<p class="ui-col-empty">Nenhum pedido</p>';
+      var c = col.querySelector('[data-count]');
+      if (c) c.textContent = list.length ? String(list.length) : '';
+    });
+  }
+
+  function load() {
+    UI.api(A('orders/entregas')).then(function (r) {
+      if (r.error) { UI.toast(r.error, 'error'); return; }
+      orders = (r.orders || []).map(function (o) {
+        o.delivery_type = (o.delivery_type || 'retirada').toLowerCase();
+        return o;
+      });
+      render();
+    });
+    if (isGerente) loadAwaiting();
+  }
+
+  function askTracking() {
+    return UI.confirm({
+      title: 'Código de rastreio',
+      html: '<label class="ui-field"><span>Informe o código para o cliente acompanhar a entrega</span><input id="ui-track" maxlength="60" placeholder="Ex.: BR123456789MG" autocomplete="off"></label>',
+      confirm: 'Salvar e avançar',
+      returnValues: true
+    }).then(function (v) { return v ? String(v['ui-track'] || '').trim() : null; });
+  }
+
+  function move(id, stage) {
+    var o = orders.find(function (x) { return String(x.id) === String(id); });
+    if (!o) return;
+    var p = Promise.resolve(null);
+    if (stage === 'em_rota') {
+      p = askTracking().then(function (code) {
+        if (code === null) return false;
+        if (!code) { UI.toast('Informe o código de rastreio.', 'error'); return false; }
+        return code;
+      });
+    }
+    p.then(function (code) {
+      if (code === false) return;
+      var body = { stage: stage };
+      if (code) body.tracking_code = code;
+      UI.api(A('orders/' + id + '/delivery-stage'), { method: 'POST', body: body }).then(function (r) {
+        if (r.error) { UI.toast(r.error, 'error'); return; }
+        o.delivery_stage = stage;
+        if (code) o.tracking_code = code;
+        render();
+        UI.toast('Pedido #' + id + ': ' + NOME[stage] + '.', 'ok');
+      });
+    });
+  }
+
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('.ui-kcard-next');
+    if (b) move(b.closest('[data-id]').getAttribute('data-id'), b.getAttribute('data-next'));
   });
 
-  function getBase() {
-    if (typeof window.PANEL_BASE_URL === 'string' && window.PANEL_BASE_URL) return window.PANEL_BASE_URL.replace(/\/$/, '');
-    var meta = document.querySelector('meta[name="base-url"]');
-    var base = (meta && meta.getAttribute('content')) ? meta.getAttribute('content').trim() : '';
-    if (base) return base.replace(/\/$/, '');
-    var pathname = window.location.pathname || '';
-    var idx = pathname.indexOf('/painel/');
-    if (idx !== -1) return window.location.origin + pathname.substring(0, idx);
-    return window.location.origin;
-  }
-
-  var base = getBase();
-  var modal = document.getElementById('entregas-modal-tracking');
-  var trackingInput = document.getElementById('entregas-tracking-input');
-  var trackingConfirm = document.getElementById('entregas-tracking-confirm');
-  var pendingDrop = null;
-
-  function api(path, options) {
-    var p = path.replace(/^\//, '');
-    var url = base ? (base.replace(/\/$/, '') + '/' + p) : (window.location.origin + '/' + p);
-    return fetch(url, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...options })
-      .then(function (r) {
-        if (!r.ok) return r.text().then(function (t) { throw new Error(t); });
-        return r.json();
-      });
-  }
-
-  function escapeHtml(s) {
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
-  function getColId(type, stage) {
-    var prefix = type === 'retirada' ? 'retira' : 'entrega';
-    var s = stage === 'entregue_transportadora' ? 'transportadora' : (stage === 'em_rota' ? 'em-rota' : stage);
-    return prefix + '-' + s;
-  }
-
-  function renderCard(order) {
-    var type = (order.delivery_type || 'retirada').toLowerCase();
-    var stage = order.delivery_stage || 'solicitado';
-    var card = document.createElement('div');
-    card.className = 'entregas-card';
-    card.dataset.orderId = order.id;
-    card.dataset.type = type;
-    card.dataset.stage = stage;
-    var total = typeof order.total === 'number' ? order.total : parseFloat(order.total) || 0;
-    var totalStr = 'R$ ' + total.toFixed(2).replace('.', ',');
-    var isEntregue = String(stage).toLowerCase() === 'entregue';
-
-    if (isEntregue) {
-      card.classList.add('entregas-card--selectable');
-      card.draggable = false;
-      card.innerHTML =
-        '<label class="entregas-card-select" title="Selecionar pedido">' +
-          '<input type="checkbox" class="entregas-card-checkbox" value="' + order.id + '" aria-label="Selecionar pedido #' + order.id + '">' +
-          '<span class="entregas-card-checkmark" aria-hidden="true"></span>' +
-        '</label>' +
-        '<div class="entregas-card-body">' +
-          '<div class="entregas-card-line"><strong>#' + order.id + '</strong> ' + escapeHtml(order.customer_name || 'Cliente') + '</div>' +
-          '<div class="entregas-card-line entregas-card-total">' + totalStr + '</div>' +
-          (order.tracking_code ? '<small class="entregas-card-tracking">Código: ' + escapeHtml(order.tracking_code) + '</small>' : '') +
-        '</div>';
-    } else {
-      card.draggable = true;
-      card.innerHTML =
-        '<div class="entregas-card-body">' +
-          '<div class="entregas-card-line"><strong>#' + order.id + '</strong> ' + escapeHtml(order.customer_name || 'Cliente') + '</div>' +
-          '<div class="entregas-card-line entregas-card-total">' + totalStr + '</div>' +
-          (order.tracking_code ? '<small class="entregas-card-tracking">Código: ' + escapeHtml(order.tracking_code) + '</small>' : '') +
-        '</div>';
-    }
-    return card;
-  }
-
-  function getCardsColId(card) {
-    var list = card && card.closest('.entregas-cards');
-    return list ? list.id : '';
-  }
-
-  function enterRemoveMode(colId) {
-    removeModeByCol[colId] = true;
-    selectedByCol[colId] = new Set();
-    var col = document.querySelector('.entregas-col[data-entregue-col="' + colId + '"]');
-    if (col) col.classList.add('entregas-col--remove-mode');
-    var idle = document.querySelector('[data-toolbar-idle="' + colId + '"]');
-    var panel = document.querySelector('[data-toolbar-remove="' + colId + '"]');
-    if (idle) idle.classList.add('hidden');
-    if (panel) panel.classList.remove('hidden');
-    updateToolbar(colId);
-  }
-
-  function exitRemoveMode(colId) {
-    removeModeByCol[colId] = false;
-    selectedByCol[colId] = new Set();
-    var col = document.querySelector('.entregas-col[data-entregue-col="' + colId + '"]');
-    if (col) col.classList.remove('entregas-col--remove-mode');
-    var idle = document.querySelector('[data-toolbar-idle="' + colId + '"]');
-    var panel = document.querySelector('[data-toolbar-remove="' + colId + '"]');
-    if (idle) idle.classList.remove('hidden');
-    if (panel) panel.classList.add('hidden');
-    document.querySelectorAll('#' + colId + ' .entregas-card--selectable').forEach(function (card) {
-      card.classList.remove('entregas-card--selected');
-      var cb = card.querySelector('.entregas-card-checkbox');
-      if (cb) cb.checked = false;
-    });
-    updateToolbar(colId);
-  }
-
-  function updateToolbar(colId) {
-    if (!removeModeByCol[colId]) return;
-    var set = selectedByCol[colId] || new Set();
-    var n = set.size;
-    var countEl = document.querySelector('[data-count-for="' + colId + '"]');
-    var confirmBtn = document.querySelector('[data-confirm-remove-for="' + colId + '"]');
-    var selectAllBtn = document.querySelector('[data-select-all-for="' + colId + '"]');
-    if (countEl) {
-      countEl.textContent = n === 0
-        ? 'Nenhum selecionado'
-        : (n === 1 ? '1 pedido selecionado' : n + ' pedidos selecionados');
-    }
-    if (confirmBtn) confirmBtn.disabled = n === 0;
-    if (selectAllBtn) {
-      var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
-      selectAllBtn.textContent = n > 0 && n === total ? 'Desmarcar todos' : 'Selecionar todos';
-    }
-  }
-
-  function setCardSelected(card, selected) {
-    var colId = getCardsColId(card);
-    if (!colId || !selectedByCol[colId]) return;
-    var orderId = card.dataset.orderId;
-    var cb = card.querySelector('.entregas-card-checkbox');
-    if (selected) {
-      selectedByCol[colId].add(orderId);
-      card.classList.add('entregas-card--selected');
-      if (cb) cb.checked = true;
-    } else {
-      selectedByCol[colId].delete(orderId);
-      card.classList.remove('entregas-card--selected');
-      if (cb) cb.checked = false;
-    }
-    updateToolbar(colId);
-  }
-
-  function toggleCardSelected(card) {
-    var colId = getCardsColId(card);
-    if (!colId || !removeModeByCol[colId]) return;
-    var isOn = selectedByCol[colId].has(card.dataset.orderId);
-    setCardSelected(card, !isOn);
-  }
-
-  function selectAllInCol(colId, select) {
-    if (!removeModeByCol[colId]) return;
-    document.querySelectorAll('#' + colId + ' .entregas-card--selectable').forEach(function (card) {
-      setCardSelected(card, !!select);
-    });
-  }
-
-  function removeSelectedFromCol(colId) {
-    var ids = Array.from(selectedByCol[colId] || []);
-    if (!ids.length) {
-      alert('Selecione ao menos um pedido para remover.');
-      return;
-    }
-    var msg = ids.length === 1
-      ? 'Remover o pedido #' + ids[0] + ' do histórico? Esta ação não pode ser desfeita.'
-      : 'Remover ' + ids.length + ' pedidos do histórico? Esta ação não pode ser desfeita.';
-    if (!confirm(msg)) return;
-
-    var confirmBtn = document.querySelector('[data-confirm-remove-for="' + colId + '"]');
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Removendo...';
-    }
-
-    var chain = Promise.resolve();
-    ids.forEach(function (orderId) {
-      chain = chain.then(function () {
-        return api('api/loja/' + storeSlug + '/orders/' + orderId + '/entregas/delete', {
-          method: 'POST',
-          body: JSON.stringify({})
-        });
-      });
-    });
-
-    chain.then(function () {
-      var removed = new Set(ids.map(String));
-      window._entregasOrders = (window._entregasOrders || []).filter(function (o) {
-        return !removed.has(String(o.id));
-      });
-      exitRemoveMode(colId);
-      placeCards(window._entregasOrders);
-      setupInteractions();
-    }).catch(function (err) {
-      alert('Erro: ' + (err.message || err));
-    }).finally(function () {
-      if (confirmBtn) confirmBtn.textContent = 'Confirmar remoção';
-      updateToolbar(colId);
-    });
-  }
-
-  function placeCards(orders) {
-    var ids = {
-      retira: { solicitado: 'retira-solicitado', entregue: 'retira-entregue' },
-      retirada: { solicitado: 'retira-solicitado', entregue: 'retira-entregue' },
-      entrega: {
-        solicitado: 'entrega-solicitado',
-        empacotando: 'entrega-empacotando',
-        entregue_transportadora: 'entrega-transportadora',
-        em_rota: 'entrega-em-rota',
-        entregue: 'entrega-entregue'
-      }
-    };
-    ['retira-solicitado', 'retira-entregue', 'entrega-solicitado', 'entrega-empacotando', 'entrega-transportadora', 'entrega-em-rota', 'entrega-entregue'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.innerHTML = '';
-    });
-    (orders || []).forEach(function (order) {
-      var type = (order.delivery_type || 'retirada').toLowerCase();
-      var stage = (order.delivery_stage || 'solicitado').toLowerCase();
-      var typeKey = type === 'retirada' ? 'retira' : type;
-      var colId = (ids[typeKey] && ids[typeKey][stage]) ? ids[typeKey][stage] : (type === 'entrega' ? ids.entrega.solicitado : ids.retira.solicitado);
-      var col = document.getElementById(colId);
-      if (col) {
-        var card = renderCard(order);
-        if (colId && selectedByCol[colId] && selectedByCol[colId].has(String(order.id))) {
-          card.classList.add('entregas-card--selected');
-          var cb = card.querySelector('.entregas-card-checkbox');
-          if (cb) cb.checked = true;
-        }
-        col.appendChild(card);
-      }
-    });
-  }
-
-  function setupEntregueSelection() {
-    document.querySelectorAll('.entregas-card--selectable').forEach(function (card) {
-      card.addEventListener('click', function (e) {
-        var colId = getCardsColId(card);
-        if (!removeModeByCol[colId]) return;
-        e.preventDefault();
-        toggleCardSelected(card);
-      });
-    });
-
-    document.querySelectorAll('.entregas-start-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var colId = btn.getAttribute('data-start-remove-for');
-        if (!colId) return;
-        var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
-        if (total === 0) {
-          alert('Não há pedidos no histórico desta coluna.');
-          return;
-        }
-        enterRemoveMode(colId);
-      });
-    });
-
-    document.querySelectorAll('.entregas-cancel-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var colId = btn.getAttribute('data-cancel-remove-for');
-        if (colId) exitRemoveMode(colId);
-      });
-    });
-
-    document.querySelectorAll('.entregas-select-all').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var colId = btn.getAttribute('data-select-all-for');
-        if (!colId) return;
-        var total = document.querySelectorAll('#' + colId + ' .entregas-card--selectable').length;
-        var n = (selectedByCol[colId] || new Set()).size;
-        selectAllInCol(colId, n < total);
-      });
-    });
-
-    document.querySelectorAll('.entregas-confirm-remove').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var colId = btn.getAttribute('data-confirm-remove-for');
-        if (colId) removeSelectedFromCol(colId);
-      });
-    });
-  }
-
-  function setupDragAndDrop() {
-    document.querySelectorAll('.entregas-card[draggable="true"]').forEach(function (card) {
-      card.addEventListener('dragstart', function (e) {
-        e.dataTransfer.setData('text/plain', card.dataset.orderId);
-        e.dataTransfer.effectAllowed = 'move';
-        card.classList.add('entregas-dragging');
-      });
-      card.addEventListener('dragend', function () {
-        card.classList.remove('entregas-dragging');
-      });
-    });
-
-    document.querySelectorAll('.entregas-col[data-droppable="true"]').forEach(function (col) {
-      col.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        col.classList.add('entregas-drop-over');
-      });
-      col.addEventListener('dragleave', function () {
-        col.classList.remove('entregas-drop-over');
-      });
-      col.addEventListener('drop', function (e) {
-        e.preventDefault();
-        col.classList.remove('entregas-drop-over');
-        var orderId = e.dataTransfer.getData('text/plain');
-        if (!orderId) return;
-        var targetType = col.dataset.type;
-        var targetStage = col.dataset.stage;
-        var card = document.querySelector('.entregas-card[data-order-id="' + orderId + '"]');
-        if (!card) return;
-        var orderType = card.dataset.type;
-        if (orderType === 'retirada' && targetType !== 'retirada') return;
-        if (orderType === 'retirada' && targetStage !== 'solicitado' && targetStage !== 'entregue') return;
-
-        if (targetStage === 'em_rota' && orderType === 'entrega') {
-          pendingDrop = { orderId: orderId, stage: targetStage };
-          if (modal) {
-            modal.classList.remove('hidden');
-            if (trackingInput) { trackingInput.value = ''; trackingInput.focus(); }
-          } else {
-            var code = prompt('Código de rastreio da transportadora:');
-            if (code != null && code.trim() !== '') doUpdate(orderId, targetStage, code.trim());
-          }
-        } else {
-          doUpdate(orderId, targetStage, null);
-        }
-      });
-    });
-  }
-
-  function setupInteractions() {
-    setupDragAndDrop();
-    setupEntregueSelection();
-  }
-
-  function doUpdate(orderId, stage, trackingCode) {
-    var payload = { stage: stage };
-    if (trackingCode) payload.tracking_code = trackingCode;
-    api('api/loja/' + storeSlug + '/orders/' + orderId + '/delivery-stage', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }).then(function (res) {
-      var orders = window._entregasOrders || [];
-      var updated = res.order;
-      if (!updated) return;
-      updated.delivery_stage = updated.delivery_stage || updated.deliveryStage || stage;
-      updated.delivery_type = updated.delivery_type || updated.deliveryType || 'retirada';
-      var idx = orders.findIndex(function (o) { return String(o.id) === String(orderId); });
-      if (idx >= 0) {
-        if (!updated.customer_name && orders[idx].customer_name) updated.customer_name = orders[idx].customer_name;
-        orders[idx] = updated;
-      } else {
-        orders.push(updated);
-      }
-      if (String(stage).toLowerCase() === 'entregue') {
-        ENTREGUE_COLS.forEach(function (colId) {
-          selectedByCol[colId].delete(String(orderId));
-          if (removeModeByCol[colId]) exitRemoveMode(colId);
-        });
-      }
-      window._entregasOrders = orders;
-      placeCards(orders);
-      setupInteractions();
-    }).catch(function (err) {
-      alert('Erro: ' + (err.message || err));
-    });
-  }
-
-  if (trackingConfirm && modal) {
-    trackingConfirm.addEventListener('click', function () {
-      var code = trackingInput && trackingInput.value ? trackingInput.value.trim() : '';
-      if (!code) {
-        alert('Informe o código de rastreio.');
+  // Arrastar (desktop): solta só na próxima etapa válida.
+  var dragId = null;
+  root.addEventListener('dragstart', function (e) {
+    var c = e.target.closest('.ui-kcard');
+    if (!c) return;
+    dragId = c.getAttribute('data-id');
+    c.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  root.addEventListener('dragend', function (e) {
+    var c = e.target.closest('.ui-kcard');
+    if (c) c.classList.remove('is-dragging');
+    root.querySelectorAll('.ui-col.is-over').forEach(function (x) { x.classList.remove('is-over'); });
+  });
+  root.querySelectorAll('.ui-col').forEach(function (col) {
+    col.addEventListener('dragover', function (e) { e.preventDefault(); col.classList.add('is-over'); });
+    col.addEventListener('dragleave', function () { col.classList.remove('is-over'); });
+    col.addEventListener('drop', function (e) {
+      e.preventDefault();
+      col.classList.remove('is-over');
+      var o = orders.find(function (x) { return String(x.id) === String(dragId); });
+      if (!o) return;
+      if (o.delivery_type !== col.getAttribute('data-type')) { UI.toast('Este pedido é de ' + (o.delivery_type === 'retirada' ? 'retirada' : 'entrega') + '.', 'error'); return; }
+      var alvo = col.getAttribute('data-stage');
+      var f = FLUXO[o.delivery_type];
+      if (f.indexOf(alvo) <= f.indexOf(o.delivery_stage || 'solicitado')) {
+        if (alvo !== o.delivery_stage) UI.toast('A entrega não pode voltar para uma etapa anterior.', 'error');
         return;
       }
-      if (pendingDrop) {
-        doUpdate(pendingDrop.orderId, pendingDrop.stage, code);
-        pendingDrop = null;
-      }
-      modal.classList.add('hidden');
-    });
-  }
-  document.querySelectorAll('.close-entregas-modal').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (modal) modal.classList.add('hidden');
-      pendingDrop = null;
+      move(o.id, alvo);
     });
   });
 
-  api('api/loja/' + storeSlug + '/orders/entregas').then(function (res) {
-    var orders = res.orders || [];
-    window._entregasOrders = orders;
-    placeCards(orders);
-    setupInteractions();
-  }).catch(function (err) {
-    console.error(err);
-    var msg = err && err.message ? err.message : 'Erro ao carregar.';
-    var el = document.querySelector('.entregas-kanban');
-    if (el) el.innerHTML = '<p class="text-muted">Erro ao carregar pedidos: ' + escapeHtml(msg) + '. Verifique a URL da página (deve ser pelo mesmo domínio do servidor, ex.: http://localhost/.../painel/...).</p>';
+  // ---------------------------------------------------------------- pagamentos pendentes
+  function restante(exp, now) {
+    var e = UI.parseDate(exp), n = UI.parseDate(now);
+    if (!e || !n) return '';
+    var ms = e - n;
+    if (ms <= 0) return 'expirando';
+    var min = Math.round(ms / 60000);
+    if (min < 60) return 'expira em ' + min + ' min';
+    var h = Math.floor(min / 60);
+    if (h < 48) return 'expira em ' + h + ' h';
+    return 'expira em ' + Math.floor(h / 24) + ' dias';
+  }
+
+  function loadAwaiting() {
+    UI.api(A('orders/aguardando-pagamento')).then(function (r) {
+      var box = document.getElementById('ent-await');
+      if (!box) return;
+      if (r.error) { box.innerHTML = '<p class="ui-empty">' + UI.esc(r.error) + '</p>'; return; }
+      var list = r.orders || [];
+      document.getElementById('ent-await-count').textContent = String(list.length);
+      if (!list.length) { box.innerHTML = '<p class="ui-empty">Nenhum pedido aguardando pagamento.</p>'; return; }
+      box.innerHTML = list.map(function (o) {
+        var metodo = o.payment_method === 'pix' ? 'PIX' : o.payment_method === 'cartao' ? 'Cartão na retirada' : 'Forma de pagamento não escolhida';
+        var confirmLabel = o.payment_method === 'cartao' ? 'Recebi no cartão' : 'Confirmar PIX recebido';
+        return '<article class="ui-await" data-id="' + o.id + '" data-payment="' + (o.payment_id || '') + '">' +
+          '<div class="ui-await-main">' +
+            '<strong>Pedido #' + o.id + ' · ' + UI.esc(o.customer_name || 'Cliente') + '</strong>' +
+            '<span class="text-muted">' + UI.esc(metodo) + ' · ' + (o.delivery_type === 'entrega' ? 'entrega' : 'retirada') + ' · ' + UI.esc(UI.dateTime(o.created_at)) + '</span>' +
+          '</div>' +
+          '<div class="ui-await-value"><strong>' + UI.money(o.payment_amount || o.total) + '</strong><span class="ui-badge ui-badge--warn">' + UI.esc(restante(o.expires_at, r.now)) + '</span></div>' +
+          '<div class="ui-await-actions">' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Cancelar pedido</button>' +
+            (o.payment_id ? '<button type="button" class="btn btn-primary btn-sm" data-act="confirm">' + confirmLabel + '</button>' : '') +
+          '</div>' +
+        '</article>';
+      }).join('');
+    });
+  }
+
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('.ui-await [data-act]');
+    if (!b) return;
+    var row = b.closest('.ui-await');
+    var id = row.getAttribute('data-id');
+    if (b.getAttribute('data-act') === 'confirm') {
+      UI.confirm({ title: 'Confirmar pagamento do pedido #' + id, message: 'Confirme apenas se o valor já entrou na conta da loja. O estoque é baixado e o pedido entra no quadro de entregas.', confirm: 'Confirmar pagamento' }).then(function (ok) {
+        if (!ok) return;
+        UI.api(A('payments/confirm'), { method: 'POST', body: { payment_id: +row.getAttribute('data-payment') } }).then(function (r) {
+          if (r.error) { UI.toast(r.error, 'error'); load(); return; }
+          UI.toast('Pagamento do pedido #' + id + ' confirmado.', 'ok');
+          load();
+        });
+      });
+    } else {
+      UI.confirm({ title: 'Cancelar pedido #' + id, message: 'O pedido é cancelado e as peças reservadas voltam para a venda. Use quando o cliente desistiu ou não pagou.', confirm: 'Cancelar pedido', cancel: 'Voltar', danger: true }).then(function (ok) {
+        if (!ok) return;
+        UI.api(A('orders/' + id + '/cancel'), { method: 'POST', body: {} }).then(function (r) {
+          if (r.error) { UI.toast(r.error, 'error'); return; }
+          UI.toast('Pedido #' + id + ' cancelado.', 'ok');
+          load();
+        });
+      });
+    }
   });
+
+  document.getElementById('ent-refresh').addEventListener('click', load);
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, 30000);
 })();

@@ -7,6 +7,10 @@ $hasVariants = $variantsMatrix !== null || $variantGroups !== [];
 $hasMatrixVariants = $variantsMatrix !== null && !empty($variantsMatrix['colors']);
 $stockTotal = (int) ($product['stock_quantity'] ?? 0);
 $salePrice = (float) ($product['sale_price'] ?? 0);
+$effectivePrice = product_effective_price($product);
+$discountPct = product_discount_percent($product);
+$installmentsText = \App\Services\InstallmentPlan::headline($store, $effectivePrice);
+$installmentsRules = \App\Services\InstallmentPlan::rules($store);
 $content = ob_start();
 ?>
 <div class="container container--product-page product-page product-page--v2">
@@ -45,8 +49,8 @@ $content = ob_start();
                         <?php endforeach; ?>
                     </div>
                     <?php if (count($images) > 1): ?>
-                        <button type="button" class="carousel-btn carousel-prev" id="product-gallery-prev" aria-label="Foto anterior">‹</button>
-                        <button type="button" class="carousel-btn carousel-next" id="product-gallery-next" aria-label="Próxima foto">›</button>
+                        <button type="button" class="carousel-btn carousel-prev" id="product-gallery-prev" aria-label="Foto anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
+                        <button type="button" class="carousel-btn carousel-next" id="product-gallery-next" aria-label="Próxima foto"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button>
                         <div class="product-gallery-mobile-ui" id="product-gallery-mobile-ui" aria-label="Controle de fotos">
                             <div class="product-gallery-dots" id="product-gallery-dots" role="tablist" aria-label="Ir para foto"></div>
                             <p class="product-gallery-counter" id="product-gallery-counter" aria-live="polite"></p>
@@ -61,15 +65,25 @@ $content = ob_start();
                 <h1 class="product-detail-title"><?= htmlspecialchars($product['name']) ?></h1>
 
                 <div class="product-detail-price-block">
-                    <p class="product-detail-price">R$ <?= number_format($salePrice, 2, ',', '.') ?></p>
-                    <p class="product-detail-price-note">ou em até 3x sem juros no cartão</p>
+                    <?php if ($discountPct > 0): ?>
+                        <p class="product-detail-price-old"><s>R$ <?= number_format($salePrice, 2, ',', '.') ?></s> <span class="product-detail-sale-badge">-<?= $discountPct ?>%</span></p>
+                    <?php endif; ?>
+                    <p class="product-detail-price">R$ <?= number_format($effectivePrice, 2, ',', '.') ?></p>
+                    <?php if ($installmentsText): ?>
+                        <p class="product-detail-price-note"><?= htmlspecialchars($installmentsText) ?> no cartão (entrega)</p>
+                    <?php elseif ($installmentsRules['max'] > 1): ?>
+                        <p class="product-detail-price-note">Parcelamento no cartão disponível no checkout</p>
+                    <?php endif; ?>
+                    <p class="product-detail-price-note product-detail-price-note--pix"><?= ui_icon('qr', 14) ?> PIX com confirmação pela loja</p>
                 </div>
 
                 <p class="product-detail-stock" id="product-stock-label">
                     <?php if ($hasVariants): ?>
                         Selecione as opções para ver a disponibilidade
+                    <?php elseif ($stockTotal > 5): ?>
+                        Em estoque
                     <?php elseif ($stockTotal > 0): ?>
-                        <?= $stockTotal ?> unidade<?= $stockTotal === 1 ? '' : 's' ?> em estoque
+                        Últimas <?= $stockTotal ?> unidade<?= $stockTotal === 1 ? '' : 's' ?>
                     <?php else: ?>
                         Produto indisponível
                     <?php endif; ?>
@@ -170,7 +184,7 @@ $content = ob_start();
                                 data-store-id="<?= (int) $store['id'] ?>"
                                 data-product-id="<?= (int) $product['id'] ?>"
                                 data-name="<?= htmlspecialchars($product['name']) ?>"
-                                data-price="<?= htmlspecialchars((string) $product['sale_price']) ?>"
+                                data-price="<?= htmlspecialchars((string) $effectivePrice) ?>"
                                 data-max="<?= $hasVariants ? 0 : $stockTotal ?>"
                                 <?= $hasVariants ? ' disabled' : '' ?>>
                                 Adicionar ao carrinho
@@ -182,7 +196,7 @@ $content = ob_start();
                 <?php endif; ?>
 
                 <?php if (!empty($product['description'])): ?>
-                    <details class="product-detail-details">
+                    <details class="product-detail-details" open>
                         <summary>Descrição do produto</summary>
                         <div class="product-detail-desc"><?= nl2br(htmlspecialchars($product['description'])) ?></div>
                     </details>

@@ -28,7 +28,7 @@ ob_start();
                         <tbody>
                             <?php foreach ($cartItems as $item):
                                 $p = $item['product'];
-                                $sub = $p['sale_price'] * $item['quantity'];
+                                $sub = product_effective_price($p) * $item['quantity'];
                                 ?>
                                 <tr data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">
                                     <td data-label="Produto">
@@ -44,7 +44,7 @@ ob_start();
                                             <button type="button" class="cart-qty-btn cart-qty-plus" aria-label="Aumentar">+</button>
                                         </div>
                                     </td>
-                                    <td data-label="Preço">R$ <?= number_format($p['sale_price'], 2, ',', '.') ?></td>
+                                    <td data-label="Preço"><?php if (product_on_sale($p)): ?><s class="cart-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s> <?php endif; ?>R$ <?= number_format(product_effective_price($p), 2, ',', '.') ?></td>
                                     <td class="subtotal" data-label="Subtotal">R$ <?= number_format($sub, 2, ',', '.') ?></td>
                                     <td class="store-cart-actions" data-label="">
                                         <button type="button" class="btn btn-sm btn-danger remove-from-cart" data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">Remover</button>

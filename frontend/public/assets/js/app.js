@@ -187,3 +187,15 @@
     });
   });
 })();
+
+/* Ordenação da vitrine: troca ?ordem= na URL e recarrega a lista. */
+(function () {
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest && e.target.closest('.js-store-sort');
+    if (!sel) return;
+    var url = new URL(window.location.href);
+    if (sel.value && sel.value !== 'mais-vendidos') url.searchParams.set('ordem', sel.value);
+    else url.searchParams.delete('ordem');
+    window.location.href = url.toString();
+  });
+})();
