@@ -8785,7 +8785,7 @@ body.pdv-modal-open { overflow: hidden; }
 .panel-stock-empty p {
   margin: 0.35rem 0 0;
 }
-@media (min-width: 900px) {
+@container stocktable (min-width: 760px) {
   .panel-stock-table-head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 5.5rem 4.5rem 8rem 7rem 6.25rem;
@@ -8825,7 +8825,7 @@ body.pdv-modal-open { overflow: hidden; }
     white-space: nowrap;
   }
 }
-@media (max-width: 899px) {
+@container stocktable (max-width: 759.98px) {
   .panel-stock-col:not(.panel-stock-col--product):not(.panel-stock-col--action) {
     display: flex;
     align-items: center;

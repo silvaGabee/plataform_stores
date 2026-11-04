@@ -27,42 +27,51 @@
         </div>
     </div>
 
-    <section id="stock-alerts" class="panel-stock-alerts panel-surface-card hidden" aria-labelledby="stock-alerts-title">
-        <header class="panel-stock-alerts-head">
-            <h2 id="stock-alerts-title" class="panel-stock-alerts-title">Atenção no estoque</h2>
-            <p class="panel-stock-alerts-desc text-muted">Cada cor e tamanho usa o mesmo estoque mínimo do produto. Abaixo do mínimo ou zerado aparece aqui.</p>
-        </header>
-        <ul id="stock-alerts-list" class="panel-stock-alerts-list"></ul>
-    </section>
+    <div class="panel-stock-layout">
+        <div class="panel-stock-main">
+            <div class="panel-stock-toolbar panel-surface-card">
+                <label class="panel-stock-search-wrap">
+                    <span class="visually-hidden">Buscar produto</span>
+                    <svg class="panel-stock-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.75"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+                    <input type="search" id="stock-search" class="panel-stock-search" placeholder="Buscar por nome do produto…" autocomplete="off">
+                </label>
+                <label class="panel-stock-filter-wrap">
+                    <span class="panel-stock-filter-label">Filtrar</span>
+                    <select id="stock-filter" class="panel-stock-filter">
+                        <option value="all">Todos</option>
+                        <option value="alerts">Com alertas (cor / tam.)</option>
+                        <option value="low">Estoque baixo</option>
+                        <option value="zero">Esgotados</option>
+                        <option value="ok">Em dia</option>
+                    </select>
+                </label>
+            </div>
 
-    <div class="panel-stock-toolbar panel-surface-card">
-        <label class="panel-stock-search-wrap">
-            <span class="visually-hidden">Buscar produto</span>
-            <svg class="panel-stock-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.75"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
-            <input type="search" id="stock-search" class="panel-stock-search" placeholder="Buscar por nome do produto…" autocomplete="off">
-        </label>
-        <label class="panel-stock-filter-wrap">
-            <span class="panel-stock-filter-label">Filtrar</span>
-            <select id="stock-filter" class="panel-stock-filter">
-                <option value="all">Todos</option>
-                <option value="alerts">Com alertas (cor / tam.)</option>
-                <option value="low">Estoque baixo</option>
-                <option value="zero">Esgotados</option>
-                <option value="ok">Em dia</option>
-            </select>
-        </label>
-    </div>
-
-    <div class="panel-stock-table-wrap panel-surface-card">
-        <div class="panel-stock-table-head" aria-hidden="true">
-            <span class="panel-stock-col panel-stock-col--product">Produto</span>
-            <span class="panel-stock-col panel-stock-col--qty">Quantidade</span>
-            <span class="panel-stock-col panel-stock-col--min">Mínimo</span>
-            <span class="panel-stock-col panel-stock-col--level">Nível</span>
-            <span class="panel-stock-col panel-stock-col--status">Status</span>
-            <span class="panel-stock-col panel-stock-col--action"></span>
+            <div class="panel-stock-table-wrap panel-surface-card">
+                <div class="panel-stock-table-head" aria-hidden="true">
+                    <span class="panel-stock-col panel-stock-col--product">Produto</span>
+                    <span class="panel-stock-col panel-stock-col--qty">Quantidade</span>
+                    <span class="panel-stock-col panel-stock-col--min">Mínimo</span>
+                    <span class="panel-stock-col panel-stock-col--level">Nível</span>
+                    <span class="panel-stock-col panel-stock-col--status">Status</span>
+                    <span class="panel-stock-col panel-stock-col--action"></span>
+                </div>
+                <div id="stock-list" class="panel-stock-list" aria-live="polite"></div>
+            </div>
         </div>
-        <div id="stock-list" class="panel-stock-list" aria-live="polite"></div>
+
+        <aside id="stock-alerts" class="panel-stock-alerts panel-surface-card" aria-labelledby="stock-alerts-title">
+            <header class="panel-stock-alerts-head">
+                <div class="panel-stock-alerts-titlebar">
+                    <h2 id="stock-alerts-title" class="panel-stock-alerts-title">Avisos de estoque</h2>
+                    <span id="stock-alerts-count" class="panel-stock-alerts-count"></span>
+                </div>
+                <p class="panel-stock-alerts-desc text-muted">Cores e tamanhos no mínimo do produto ou zerados. Clique para repor.</p>
+            </header>
+            <ul id="stock-alerts-list" class="panel-stock-alerts-list" aria-live="polite">
+                <li class="panel-stock-alerts-loading text-muted">Carregando…</li>
+            </ul>
+        </aside>
     </div>
 
     <div id="adjust-modal" class="modal modal--stock hidden" role="dialog" aria-modal="true" aria-labelledby="adjust-modal-title">

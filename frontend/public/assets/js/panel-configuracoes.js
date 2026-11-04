@@ -608,7 +608,7 @@
     function setFilenameLabel() {
       if (!nameEl || !fileInput) return;
       var f = fileInput.files && fileInput.files[0];
-      nameEl.textContent = f ? f.name : 'Nenhum ficheiro novo';
+      nameEl.textContent = f ? f.name : 'Nenhum arquivo novo';
       nameEl.classList.toggle('panel-config-file-name--picked', !!(f && f.name));
     }
 

@@ -12,7 +12,24 @@
         </button>
     </header>
 
-    <div id="product-list" class="panel-products-list" aria-live="polite"></div>
+    <div class="pp-toolbar panel-surface-card">
+        <label class="pp-search">
+            <span class="visually-hidden">Buscar produto</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.75"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>
+            <input type="search" id="product-search" placeholder="Buscar por nome do produto…" autocomplete="off">
+        </label>
+        <label class="pp-filter">
+            <span class="visually-hidden">Filtrar produtos</span>
+            <select id="product-filter">
+                <option value="all">Todos os produtos</option>
+                <option value="promo">Em promoção</option>
+                <option value="alert">Estoque baixo ou esgotado</option>
+            </select>
+        </label>
+        <span id="product-count" class="pp-count text-muted" aria-live="polite"></span>
+    </div>
+
+    <div id="product-list" class="pp-grid" aria-live="polite"></div>
 
     <div id="product-modal" class="modal modal--product hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-content modal-content--product">

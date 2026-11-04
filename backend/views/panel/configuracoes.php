@@ -2,10 +2,19 @@
 $__configIc = static function (string $d): string {
     return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="' . htmlspecialchars($d, ENT_QUOTES, 'UTF-8') . '"/></svg>';
 };
+// Aparência salva (categorias/banner): precisa existir antes de montar o HTML.
+$appearanceInitial = [];
+try {
+    $cfgRepo = new \App\Repositories\StoreDashboardConfigRepository();
+    $appearanceInitial = $cfgRepo->getConfig((int) ($store['id'] ?? 0))['appearance'] ?? [];
+} catch (\Throwable $e) {
+    $appearanceInitial = [];
+}
 $content = ob_start();
 ?>
 <div class="panel-content panel-config-page">
     <header class="panel-page-header">
+        <p class="panel-page-eyebrow">Loja</p>
         <h1>Configurações</h1>
         <p class="panel-lead text-muted">Preferências e ações sensíveis da loja <strong id="config-page-store-name"><?= htmlspecialchars($store['name']) ?></strong>.</p>
     </header>
@@ -57,7 +66,7 @@ $content = ob_start();
 
         <section id="config-store-background-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-background-title">
             <div class="panel-section-head">
-                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3v18 M3 12h18') ?></span>
+                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3a9 9 0 100 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 005-5c0-4.4-4-8-9-8z M7.5 11.5h.01 M10 7.5h.01 M14 7.5h.01 M16.5 11h.01') ?></span>
                 <div class="panel-section-head-text">
                     <h2 id="config-store-background-title" class="panel-section-title">Cor de fundo da vitrine</h2>
                     <p class="panel-section-desc">Cor de fundo que será aplicada na vitrine pública da loja.</p>
@@ -99,7 +108,7 @@ $content = ob_start();
 
         <section id="config-store-appearance-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-appearance-title">
             <div class="panel-section-head">
-                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3v18 M3 12h18') ?></span>
+                <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M4 4h16v16H4z M4 9h16 M9 9v11') ?></span>
                 <div class="panel-section-head-text">
                     <h2 id="config-store-appearance-title" class="panel-section-title">Aparência da vitrine</h2>
                     <p class="panel-section-desc">Personalize a cor de fundo das categorias e o fundo do banner (se houver).</p>
@@ -170,7 +179,7 @@ $content = ob_start();
                 <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M4 5h16v14H4z M9 10a1.5 1.5 0 100-3 1.5 1.5 0 000 3z M20 15l-4-4-3 3-2-2-5 5') ?></span>
                 <div class="panel-section-head-text">
                     <h2 id="config-store-photo-title" class="panel-section-title">Foto da loja</h2>
-                    <p class="panel-section-desc">Ícone na aba do navegador, cabeçalho da vitrine e painel. Use imagem <strong>quadrada</strong> (logótipo ou ícone).</p>
+                    <p class="panel-section-desc">Ícone na aba do navegador, cabeçalho da vitrine e painel. Use imagem <strong>quadrada</strong> (logotipo ou ícone).</p>
                 </div>
             </div>
             <div class="panel-section-body panel-config-card-body">
@@ -193,7 +202,7 @@ $content = ob_start();
                 </ul>
                 <form id="config-store-photo-form" class="panel-config-form">
                     <div class="panel-config-field">
-                        <span class="panel-config-field-label">Ficheiro</span>
+                        <span class="panel-config-field-label">Arquivo</span>
                         <div class="panel-config-file-drop">
                             <input type="file" id="config-store-photo-file" name="store_icon" class="panel-config-file-input" accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp,.ico" title="Escolher imagem">
                             <label for="config-store-photo-file" class="btn btn-secondary btn-sm panel-config-file-browse">
@@ -202,7 +211,7 @@ $content = ob_start();
                                 </span>
                                 Escolher imagem
                             </label>
-                            <span id="config-store-photo-filename" class="panel-config-file-name">Nenhum ficheiro novo</span>
+                            <span id="config-store-photo-filename" class="panel-config-file-name">Nenhum arquivo novo</span>
                         </div>
                     </div>
                     <div class="panel-config-actions">
@@ -246,14 +255,5 @@ $content = ob_start();
 </div>
 <?php
 $content = ob_get_clean();
-// load existing appearance settings (categories/banner) from dashboard config
-$appearanceInitial = [];
-try {
-    $cfgRepo = new \App\Repositories\StoreDashboardConfigRepository();
-    $appearanceInitial = $cfgRepo->getConfig((int) ($store['id'] ?? 0))['appearance'] ?? [];
-} catch (\Throwable $e) {
-    $appearanceInitial = [];
-}
-
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . '; const storeNameInitial = ' . json_encode($store['name']) . '; const storeSloganInitial = ' . json_encode(trim((string) ($store['slogan'] ?? ''))) . '; const storeBackgroundColorInitial = ' . json_encode(trim((string) ($store['background_color'] ?? ''))) . '; const storeAppearanceInitial = ' . json_encode($appearanceInitial) . ';</script><script src="' . asset('js/panel-configuracoes.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';

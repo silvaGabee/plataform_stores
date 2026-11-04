@@ -970,24 +970,79 @@
     };
   }
 
+  function moneyBr(v) {
+    return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function escHtml(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function productStockState(p) {
+    var qty = parseInt(p.stock_quantity, 10) || 0;
+    var min = parseInt(p.min_stock, 10) || 0;
+    if (qty <= 0) return { key: 'zero', label: 'Esgotado' };
+    if (min > 0 && qty <= min) return { key: 'low', label: 'Estoque baixo' };
+    return { key: 'ok', label: 'Em estoque' };
+  }
+
+  function renderProducts() {
+    var listEl = document.getElementById('product-list');
+    if (!listEl) return;
+    var searchEl = document.getElementById('product-search');
+    var filterEl = document.getElementById('product-filter');
+    var countEl = document.getElementById('product-count');
+    var q = searchEl ? searchEl.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') : '';
+    var f = filterEl ? filterEl.value : 'all';
+    var shown = 0;
+    var html = currentProducts.map(function (p, i) {
+      var name = String(p.name || '');
+      var st = productStockState(p);
+      if (q && name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').indexOf(q) === -1) return '';
+      var promo = parseFloat(p.promo_price) > 0 && parseFloat(p.promo_price) < parseFloat(p.sale_price);
+      if (f === 'promo' && !promo) return '';
+      if (f === 'alert' && st.key === 'ok') return '';
+      shown++;
+      var coverIm = getCoverImageFromProduct(p);
+      var img = coverIm && coverIm.url
+        ? '<img src="' + escHtml(coverIm.url) + '" alt="" loading="lazy" decoding="async">'
+        : '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" stroke-width="1.25" opacity="0.45"/></svg>';
+      var price = promo
+        ? '<span class="pp-card-price"><s>' + moneyBr(p.sale_price) + '</s> <strong>' + moneyBr(p.promo_price) + '</strong></span>'
+        : '<span class="pp-card-price"><strong>' + moneyBr(p.sale_price) + '</strong></span>';
+      var tag = readonly ? 'div' : 'button type="button"';
+      var tagEnd = readonly ? 'div' : 'button';
+      return '<' + tag + ' class="pp-card' + (readonly ? '' : ' btn-edit-product') + '" data-index="' + i + '"' + (readonly ? '' : ' aria-label="Editar ' + escHtml(name) + '"') + '>' +
+        '<span class="pp-card-media">' + img +
+          (promo ? '<span class="pp-card-flag">Promoção</span>' : '') +
+        '</span>' +
+        '<span class="pp-card-body">' +
+          '<span class="pp-card-name">' + escHtml(name) + '</span>' +
+          price +
+          '<span class="pp-card-foot">' +
+            '<span class="pp-card-stock pp-card-stock--' + st.key + '"><i aria-hidden="true"></i>' + escHtml(st.label) + ' · ' + (parseInt(p.stock_quantity, 10) || 0) + ' un.</span>' +
+            (readonly ? '' : '<span class="pp-card-edit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>Editar</span>') +
+          '</span>' +
+        '</span>' +
+      '</' + tagEnd + '>';
+    }).join('');
+    if (countEl) countEl.textContent = currentProducts.length ? (shown === currentProducts.length ? shown + ' produtos' : shown + ' de ' + currentProducts.length + ' produtos') : '';
+    if (!currentProducts.length) {
+      html = '<div class="panel-products-empty"><p>Nenhum produto cadastrado.</p><p class="text-muted">Clique em <strong>Novo produto</strong> para começar.</p></div>';
+    } else if (!shown) {
+      html = '<div class="panel-products-empty"><p>Nenhum produto encontrado.</p><p class="text-muted">Tente outro termo ou filtro.</p></div>';
+    }
+    listEl.innerHTML = html;
+  }
+
   function load() {
     var listEl = document.getElementById('product-list');
     if (!listEl) return;
     api('/api/loja/' + storeSlug + '/products').then(function (res) {
-      currentProducts = res.products || [];
-      var html = currentProducts.map(function (p, i) {
-        var coverIm = getCoverImageFromProduct(p);
-        var img = coverIm && coverIm.url
-          ? '<span class="panel-product-row-thumb"><img src="' + coverIm.url + '" alt=""></span>'
-          : '<span class="panel-product-row-thumb panel-product-row-thumb--empty" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" stroke-width="1.25" opacity="0.45"/></svg></span>';
-        var editBtn = readonly ? '' : '<button type="button" class="btn btn-secondary btn-sm btn-edit-product" data-index="' + i + '">Editar</button>';
-        return '<article class="panel-product-row card">' +
-          '<div class="panel-product-row-main">' + img +
-          '<div class="panel-product-row-text"><strong class="panel-product-row-name">' + (p.name || '').replace(/</g, '&lt;') + '</strong>' +
-          '<span class="panel-product-row-meta">R$ ' + parseFloat(p.sale_price).toFixed(2).replace('.', ',') +
-          ' · Estoque: ' + p.stock_quantity + '</span></div></div>' + editBtn + '</article>';
-      }).join('') || '<div class="panel-products-empty"><p>Nenhum produto cadastrado.</p><p class="text-muted">Clique em <strong>Novo produto</strong> para começar.</p></div>';
-      listEl.innerHTML = html;
+      currentProducts = (res.products || []).slice().sort(function (a, b) {
+        return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+      });
+      renderProducts();
     }).catch(function (err) {
       listEl.innerHTML = '<div class="panel-products-empty"><p>Não foi possível carregar os produtos.</p><p class="text-muted">' + (err && err.message ? String(err.message).replace(/</g, '&lt;') : 'Erro desconhecido') + '</p></div>';
     });
@@ -1192,6 +1247,10 @@
 
     if (!listEl) return;
     load();
+    ['product-search', 'product-filter'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener(id === 'product-search' ? 'input' : 'change', renderProducts);
+    });
     if (readonly) {
       if (btnNew) btnNew.style.display = 'none';
       return;

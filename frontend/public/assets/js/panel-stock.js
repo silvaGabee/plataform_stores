@@ -227,6 +227,8 @@
             productId: p.id,
             productName: getProductDisplayName(p),
             label: ln.label,
+            color: ln.color || '',
+            size: ln.size || '',
             qty: ln.qty,
             min: min,
             status: ln.status
@@ -259,40 +261,61 @@
   function renderAlerts(products) {
     var box = document.getElementById('stock-alerts');
     var list = document.getElementById('stock-alerts-list');
+    var count = document.getElementById('stock-alerts-count');
     if (!box || !list) return;
     var alerts = collectAlerts(products);
+    box.classList.toggle('is-ok', !alerts.length);
+    if (count) count.textContent = alerts.length ? String(alerts.length) : '';
     if (!alerts.length) {
-      box.classList.add('hidden');
-      list.innerHTML = '';
+      list.innerHTML =
+        '<li class="panel-stock-alerts-ok">' +
+        '<span class="panel-stock-alerts-ok-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.75"/><path d="M8 12.5l2.6 2.5L16 9.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+        '<strong>Tudo em ordem</strong>' +
+        '<span>Nenhuma cor ou tamanho abaixo do estoque mínimo.</span>' +
+        '</li>';
       return;
     }
-    box.classList.remove('hidden');
-    list.innerHTML = alerts
-      .map(function (a) {
-        var detail =
-          a.label !== ''
-            ? '<strong>' + esc(a.label) + '</strong>'
-            : '<span class="panel-stock-alert-product-only">Produto inteiro</span>';
-        var qtyPart =
-          a.status.key === 'zero'
-            ? 'sem unidades'
-            : a.qty + ' un.' + (a.min > 0 ? ' (mín. ' + a.min + ')' : '');
+    // Agrupa por produto: uma linha por produto, com as variações em alerta.
+    var groups = [];
+    var byId = {};
+    alerts.forEach(function (a) {
+      var g = byId[a.productId];
+      if (!g) {
+        g = byId[a.productId] = { id: a.productId, name: a.productName, min: a.min, items: [], zero: 0 };
+        groups.push(g);
+      }
+      g.items.push(a);
+      if (a.status.key === 'zero') g.zero++;
+    });
+    groups.sort(function (a, b) {
+      if ((a.zero > 0) !== (b.zero > 0)) return a.zero > 0 ? -1 : 1;
+      return String(a.name).localeCompare(String(b.name), 'pt-BR');
+    });
+    list.innerHTML = groups
+      .map(function (g) {
+        var p = findProduct(g.id);
+        var chips = g.items
+          .map(function (a) {
+            var txt = a.label !== '' ? a.label : 'Produto';
+            var qty = a.status.key === 'zero' ? 'esgotado' : a.qty + ' un.';
+            var attrs = a.color && a.size ? ' data-color="' + esc(a.color) + '" data-size="' + esc(a.size) + '"' : '';
+            return (
+              '<button type="button" class="panel-stock-alert-chip panel-stock-alert-chip--' + esc(a.status.key) + '"' +
+              ' data-id="' + esc(g.id) + '"' + attrs + (readonly ? ' disabled' : '') +
+              ' title="' + (readonly ? '' : 'Ajustar ') + esc(txt) + '">' +
+              '<span>' + esc(txt) + '</span><strong>' + esc(qty) + '</strong></button>'
+            );
+          })
+          .join('');
         return (
-          '<li class="panel-stock-alert-item panel-stock-alert-item--' +
-          esc(a.status.key) +
-          '">' +
-          '<span class="panel-stock-alert-product">' +
-          esc(a.productName) +
-          '</span> — ' +
-          detail +
-          ': <span class="panel-stock-alert-qty">' +
-          esc(qtyPart) +
-          '</span>' +
-          '<span class="panel-stock-badge panel-stock-badge--' +
-          esc(a.status.key) +
-          '">' +
-          esc(a.status.label) +
-          '</span>' +
+          '<li class="panel-stock-alert-group' + (g.zero ? ' has-zero' : '') + '">' +
+          '<div class="panel-stock-alert-head">' +
+          (p ? renderThumb(p) : '') +
+          '<div class="panel-stock-alert-title"><strong>' + esc(g.name) + '</strong>' +
+          '<span>' + g.items.length + (g.items.length === 1 ? ' variação' : ' variações') +
+          (g.min > 0 ? ' · mínimo ' + g.min + ' un.' : '') + '</span></div>' +
+          '</div>' +
+          '<div class="panel-stock-alert-chips">' + chips + '</div>' +
           '</li>'
         );
       })
@@ -698,6 +721,16 @@
   }
 
   if (searchInput) searchInput.addEventListener('input', renderList);
+  var alertsListEl = document.getElementById('stock-alerts-list');
+  if (alertsListEl) {
+    alertsListEl.addEventListener('click', function (e) {
+      var chip = e.target.closest('.panel-stock-alert-chip');
+      if (!chip || chip.disabled) return;
+      var p = findProduct(chip.dataset.id);
+      if (!p) return;
+      openAdjustModal(chip.dataset.id, getProductDisplayName(p), chip.dataset.color || undefined, chip.dataset.size || undefined);
+    });
+  }
   if (filterSelect) filterSelect.addEventListener('change', renderList);
 
   if (adjustModal) {
