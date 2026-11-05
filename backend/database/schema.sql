@@ -34,22 +34,58 @@ CREATE TABLE `cash_movements` (
   KEY `idx_order` (`order_id`),
   CONSTRAINT `cash_movements_ibfk_1` FOREIGN KEY (`cash_register_id`) REFERENCES `cash_registers` (`id`) ON DELETE CASCADE,
   CONSTRAINT `cash_movements_ibfk_2` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `cash_registers` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
   `opened_by` int(10) unsigned NOT NULL,
   `initial_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `final_amount` decimal(12,2) DEFAULT NULL,
+  `expected_amount` decimal(12,2) DEFAULT NULL,
+  `difference` decimal(12,2) DEFAULT NULL,
   `opened_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `closed_at` timestamp NULL DEFAULT NULL,
+  `closed_by` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `opened_by` (`opened_by`),
   KEY `idx_store` (`store_id`),
   KEY `idx_opened` (`opened_at`),
   CONSTRAINT `cash_registers_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `cash_registers_ibfk_2` FOREIGN KEY (`opened_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `coupons` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `store_id` int(10) unsigned NOT NULL,
+  `code` varchar(40) NOT NULL,
+  `type` enum('percent','valor') NOT NULL DEFAULT 'percent',
+  `value` decimal(12,2) NOT NULL,
+  `min_subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `max_uses` int(10) unsigned DEFAULT NULL,
+  `uses` int(10) unsigned NOT NULL DEFAULT 0,
+  `ends_at` date DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_store_code` (`store_id`,`code`),
+  CONSTRAINT `fk_coupons_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `discount_requests` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `store_id` int(10) unsigned NOT NULL,
+  `requested_by` int(10) unsigned NOT NULL,
+  `subtotal` decimal(12,2) NOT NULL,
+  `discount` decimal(12,2) NOT NULL,
+  `reason` varchar(255) DEFAULT NULL,
+  `items_summary` varchar(500) DEFAULT NULL,
+  `status` enum('pendente','aprovado','recusado','usado','cancelado') NOT NULL DEFAULT 'pendente',
+  `decided_by` int(10) unsigned DEFAULT NULL,
+  `decided_at` datetime DEFAULT NULL,
+  `order_id` int(10) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_store_status` (`store_id`,`status`),
+  CONSTRAINT `fk_discount_requests_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `employee_goals` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -63,7 +99,7 @@ CREATE TABLE `employee_goals` (
   KEY `idx_store_period` (`store_id`,`period`),
   CONSTRAINT `employee_goals_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `employee_goals_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=40 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `employee_roles` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
@@ -75,7 +111,7 @@ CREATE TABLE `employee_roles` (
   KEY `idx_role` (`role_id`),
   CONSTRAINT `employee_roles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `employee_roles_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `order_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `order_id` int(10) unsigned NOT NULL,
@@ -90,7 +126,7 @@ CREATE TABLE `order_items` (
   KEY `idx_order_cover` (`order_id`,`product_id`,`quantity`,`price`,`cost_price`),
   CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=64 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `orders` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -104,8 +140,12 @@ CREATE TABLE `orders` (
   `status` enum('pendente','pago','cancelado','enviado') NOT NULL DEFAULT 'pendente',
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `coupon_code` varchar(40) DEFAULT NULL,
   `pdv_customer_name` varchar(120) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `expires_at` datetime DEFAULT NULL,
+  `cancelled_at` datetime DEFAULT NULL,
+  `cancelled_by` int(10) unsigned DEFAULT NULL,
   `access_token` char(32) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `created_by` (`created_by`),
@@ -116,11 +156,12 @@ CREATE TABLE `orders` (
   KEY `fk_orders_address` (`address_id`),
   KEY `idx_access_token` (`access_token`),
   KEY `idx_store_status_created` (`store_id`,`status`,`created_at`),
+  KEY `idx_store_status_expires` (`store_id`,`status`,`expires_at`),
   CONSTRAINT `fk_orders_address` FOREIGN KEY (`address_id`) REFERENCES `user_addresses` (`id`) ON DELETE SET NULL,
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`),
   CONSTRAINT `orders_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=65 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `payments` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `order_id` int(10) unsigned NOT NULL,
@@ -128,6 +169,9 @@ CREATE TABLE `payments` (
   `method` enum('dinheiro','cartao','pix') NOT NULL,
   `status` enum('pendente','confirmado','cancelado') NOT NULL DEFAULT 'pendente',
   `amount` decimal(12,2) NOT NULL,
+  `installments` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `installment_amount` decimal(12,2) DEFAULT NULL,
+  `interest_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `pix_qr_code` text DEFAULT NULL,
   `card_holder` varchar(120) DEFAULT NULL,
   `card_last4` char(4) DEFAULT NULL,
@@ -139,7 +183,7 @@ CREATE TABLE `payments` (
   KEY `idx_status` (`status`),
   CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=67 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `product_images` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `product_id` int(10) unsigned NOT NULL,
@@ -149,7 +193,7 @@ CREATE TABLE `product_images` (
   PRIMARY KEY (`id`),
   KEY `idx_product` (`product_id`),
   CONSTRAINT `product_images_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=55 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `product_variants` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `product_id` int(10) unsigned NOT NULL,
@@ -162,7 +206,7 @@ CREATE TABLE `product_variants` (
   UNIQUE KEY `uniq_product_variant` (`product_id`,`variant_type`,`variant_value`),
   KEY `idx_product` (`product_id`),
   CONSTRAINT `product_variants_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=450 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `product_vitrine_categories` (
   `product_id` int(10) unsigned NOT NULL,
   `vitrine_category_id` int(10) unsigned NOT NULL,
@@ -179,6 +223,7 @@ CREATE TABLE `products` (
   `description` text DEFAULT NULL,
   `cost_price` decimal(12,2) DEFAULT 0.00,
   `sale_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `promo_price` decimal(12,2) DEFAULT NULL,
   `stock_quantity` int(11) NOT NULL DEFAULT 0,
   `min_stock` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -187,7 +232,7 @@ CREATE TABLE `products` (
   KEY `idx_vitrine_category` (`vitrine_category_id`),
   CONSTRAINT `fk_products_vitrine_category` FOREIGN KEY (`vitrine_category_id`) REFERENCES `store_vitrine_categories` (`id`) ON DELETE SET NULL,
   CONSTRAINT `products_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=87 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `rate_limits` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `bucket` varchar(191) NOT NULL COMMENT 'ex.: login:203.0.113.7:alguem@exemplo.com',
@@ -196,7 +241,7 @@ CREATE TABLE `rate_limits` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_bucket` (`bucket`),
   KEY `idx_expires` (`expires_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `roles` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -208,7 +253,7 @@ CREATE TABLE `roles` (
   KEY `idx_parent` (`parent_role_id`),
   CONSTRAINT `roles_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `roles_ibfk_2` FOREIGN KEY (`parent_role_id`) REFERENCES `roles` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `schema_migrations` (
   `version` varchar(191) NOT NULL,
   `applied_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -231,7 +276,7 @@ CREATE TABLE `stock_movements` (
   CONSTRAINT `stock_movements_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
   CONSTRAINT `stock_movements_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
   CONSTRAINT `stock_movements_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=105 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `store_dashboard_config` (
   `store_id` int(10) unsigned NOT NULL,
   `widgets_config` text DEFAULT NULL COMMENT 'JSON: [{id, type, title}, ...]',
@@ -249,7 +294,7 @@ CREATE TABLE `store_goals` (
   UNIQUE KEY `unique_store_period` (`store_id`,`period`),
   KEY `idx_store_period` (`store_id`,`period`),
   CONSTRAINT `store_goals_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `store_members` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
@@ -261,7 +306,7 @@ CREATE TABLE `store_members` (
   KEY `idx_store_role` (`store_id`,`role`),
   CONSTRAINT `store_members_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `store_members_ibfk_2` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `store_pix_configs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -276,7 +321,7 @@ CREATE TABLE `store_pix_configs` (
   UNIQUE KEY `store_id` (`store_id`),
   KEY `idx_store` (`store_id`),
   CONSTRAINT `store_pix_configs_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `store_vitrine_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -288,7 +333,7 @@ CREATE TABLE `store_vitrine_categories` (
   UNIQUE KEY `uniq_store_name` (`store_id`,`name`),
   KEY `idx_store_sort` (`store_id`,`sort_order`),
   CONSTRAINT `store_vitrine_categories_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `stores` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
@@ -301,10 +346,14 @@ CREATE TABLE `stores` (
   `store_icon_path` varchar(512) DEFAULT NULL,
   `background_color` varchar(7) DEFAULT NULL COMMENT 'Cor de fundo da vitrine em hex (#RRGGBB)',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `installments_max` tinyint(3) unsigned NOT NULL DEFAULT 6,
+  `installments_free` tinyint(3) unsigned NOT NULL DEFAULT 3,
+  `installments_rate` decimal(5,2) NOT NULL DEFAULT 1.99,
+  `installments_min_value` decimal(10,2) NOT NULL DEFAULT 20.00,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `idx_slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `user_addresses` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int(10) unsigned NOT NULL,
@@ -320,7 +369,7 @@ CREATE TABLE `user_addresses` (
   PRIMARY KEY (`id`),
   KEY `idx_user` (`user_id`),
   CONSTRAINT `user_addresses_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
@@ -330,8 +379,7 @@ CREATE TABLE `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_email` (`email`),
   KEY `idx_email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -356,3 +404,5 @@ INSERT INTO schema_migrations (version) VALUES ('0016_consolidate_user_identity.
 INSERT INTO schema_migrations (version) VALUES ('0018_orders_pdv_fields.sql');
 INSERT INTO schema_migrations (version) VALUES ('0019_order_items_cost_price.sql');
 INSERT INTO schema_migrations (version) VALUES ('0020_bi_indexes.sql');
+INSERT INTO schema_migrations (version) VALUES ('0021_vendas_reservas_descontos.php');
+INSERT INTO schema_migrations (version) VALUES ('0022_pdv_vendas_entregues.sql');

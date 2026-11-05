@@ -86,11 +86,14 @@ $lote = 2000;
 $itemId = 0;
 $pedidosSql = [];
 $itensSql = [];
-$flush = static function () use ($pdo, &$pedidosSql, &$itensSql): void {
-    if ($pedidosSql) {
+// Os lotes entram como parâmetros por referência, e não pelo `use (&...)`: o
+// PHPStan não acompanha o que o laço põe num array capturado assim, acha que ele
+// continua vazio e acusava os `if` abaixo como sempre falsos.
+$flush = static function (array &$pedidosSql, array &$itensSql) use ($pdo): void {
+    if ($pedidosSql !== []) {
         $pdo->exec('INSERT INTO orders (id, store_id, customer_id, order_type, status, total, discount, created_at) VALUES ' . implode(',', $pedidosSql));
     }
-    if ($itensSql) {
+    if ($itensSql !== []) {
         $pdo->exec('INSERT INTO order_items (id, order_id, product_id, quantity, price, cost_price) VALUES ' . implode(',', $itensSql));
     }
     $pedidosSql = [];
@@ -131,10 +134,10 @@ for ($o = 1; $o <= $nPedidos; $o++) {
         $esperado['lucro_cent'] += $margemCent - $descontoCent;
     }
     if ($o % $lote === 0) {
-        $flush();
+        $flush($pedidosSql, $itensSql);
     }
 }
-$flush();
+$flush($pedidosSql, $itensSql);
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 // Depois de uma carga em massa as estatísticas do InnoDB estão velhas e o
 // otimizador escolhe planos ruins (medido: 26 s contra 1,5 s na mesma

@@ -165,6 +165,7 @@ class PromotionApiController extends Controller
             $r = (new CouponRepository())->evaluate($storeId, (string) ($in['code'] ?? ''), $subtotal);
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
+            return;
         }
         $c = $r['coupon'];
         $this->json([
@@ -191,9 +192,11 @@ class PromotionApiController extends Controller
             $p = $svc->update($id, $storeId, ['promo_price' => $in['promo_price'] ?? null]);
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
+            return;
         }
         if (!$p) {
             $this->json(['error' => 'Produto não encontrado'], 404);
+            return;
         }
         $this->json(['success' => true, 'product' => ['id' => (int) $p['id'], 'sale_price' => (float) $p['sale_price'], 'promo_price' => $p['promo_price'] !== null ? (float) $p['promo_price'] : null]]);
     }
