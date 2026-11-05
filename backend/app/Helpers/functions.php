@@ -147,7 +147,9 @@ if (!function_exists('base_url')) {
         $path = ltrim($path, '/');
         $base = '';
         if (PHP_SAPI !== 'cli' && !empty($_SERVER['SCRIPT_NAME'])) {
-            $scriptDir = dirname(str_replace('\\', '/', $_SERVER['SCRIPT_NAME']));
+            // No Windows, dirname('/index.php') devolve '\' (e não '/'): sem
+            // normalizar de novo, o `php -S` gerava links como "host\/login".
+            $scriptDir = str_replace('\\', '/', dirname(str_replace('\\', '/', $_SERVER['SCRIPT_NAME'])));
             if ($scriptDir !== '/' && $scriptDir !== '.' && $scriptDir !== '') {
                 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                     || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');

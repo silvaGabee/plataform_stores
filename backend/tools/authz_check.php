@@ -143,7 +143,8 @@ $ok('GET não exige token', $r['status'] === 200);
 $casos = [
     ['ver produtos',        'GET',  "/api/loja/{$slug}/products",            200, 200, 401],
     ['ver estoque baixo',   'GET',  "/api/loja/{$slug}/products/low-stock",  200, 200, 401],
-    ['movimentos estoque',  'GET',  "/api/loja/{$slug}/stock-movements",     200, 200, 401],
+    // Histórico de estoque (quem moveu o quê) é só do gerente: store.stock.history.
+    ['movimentos estoque',  'GET',  "/api/loja/{$slug}/stock-movements",     200, 403, 401],
     ['ver pedidos',         'GET',  "/api/loja/{$slug}/orders",              200, 200, 401],
     ['ver entregas',        'GET',  "/api/loja/{$slug}/orders/entregas",     200, 200, 401],
     ['caixa',               'GET',  "/api/loja/{$slug}/cash/status",         200, 200, 401],
