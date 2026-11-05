@@ -120,7 +120,7 @@ if ($storeBackgroundColor) {
     <?php $__wa = store_whatsapp_url($store ?? [], 'Olá! Vim pela loja ' . ($store['name'] ?? '') . ' e tenho uma dúvida.'); ?>
     <?php if ($__wa !== null): ?>
         <a class="store-whatsapp-fab" href="<?= htmlspecialchars($__wa) ?>" target="_blank" rel="noopener" aria-label="Falar com a loja no WhatsApp" title="Falar com a loja no WhatsApp">
-            <?= ui_icon('whatsapp', 26) ?>
+            <img src="<?= asset('images/whatsapp.png') ?>" alt="" width="56" height="56" decoding="async">
         </a>
     <?php endif; ?>
     <?php // Gradiente da meia estrela (ui_stars), definido uma vez para a página toda. ?>

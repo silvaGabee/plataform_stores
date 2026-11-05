@@ -601,12 +601,14 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 /* Botão flutuante do WhatsApp */
 .store-whatsapp-fab {
   position: fixed; right: max(1.1rem, env(safe-area-inset-right)); bottom: calc(1.1rem + env(safe-area-inset-bottom)); z-index: 900;
-  display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%;
-  background: #25d366; color: #fff; box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+  display: block; width: 3.5rem; height: 3.5rem; border-radius: 50%;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
   transition: transform .15s ease, box-shadow .15s ease;
 }
+/* O ícone já é o círculo verde com o balão branco. */
+.store-whatsapp-fab img { display: block; width: 100%; height: 100%; }
 .store-whatsapp-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 10px 26px rgba(0, 0, 0, .28); }
-.store-whatsapp-fab .ui-icon { stroke-width: 1.8; }
+.product-detail-whatsapp img { flex-shrink: 0; }
 
 /* Seções abaixo do produto */
 .product-section-title { margin: 0 0 1rem; font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; color: var(--text); }

@@ -221,7 +221,7 @@ $content = ob_start();
 
                 <?php if ($whatsappUrl !== null): ?>
                     <a class="product-detail-whatsapp" href="<?= htmlspecialchars($whatsappUrl) ?>" target="_blank" rel="noopener">
-                        <?= ui_icon('whatsapp', 20) ?>
+                        <img src="<?= asset('images/whatsapp.png') ?>" alt="" width="22" height="22" decoding="async">
                         <span>Tirar dúvida no WhatsApp</span>
                     </a>
                 <?php endif; ?>

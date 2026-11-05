@@ -71,7 +71,7 @@ $content = ob_start();
         ?>
         <section id="config-store-whatsapp-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-whatsapp-title">
             <div class="panel-section-head">
-                <span class="panel-section-icon" aria-hidden="true"><?= ui_icon('whatsapp', 20) ?></span>
+                <span class="panel-section-icon" aria-hidden="true"><img src="<?= asset('images/whatsapp.png') ?>" alt="" width="22" height="22"></span>
                 <div class="panel-section-head-text">
                     <h2 id="config-store-whatsapp-title" class="panel-section-title">WhatsApp da loja</h2>
                     <p class="panel-section-desc">Mostra um botão de conversa na vitrine e "Tirar dúvida no WhatsApp" em cada produto. Deixe vazio para esconder.</p>
