@@ -55,7 +55,18 @@ ob_start();
                     </table>
                 </div>
                 <div class="store-cart-summary">
+                    <div class="store-cart-shipping" id="cart-shipping" data-slug="<?= htmlspecialchars($store['slug']) ?>" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>">
+                        <label for="cart-cep" class="store-cart-shipping-label"><?= ui_icon('truck', 16) ?> Calcular frete</label>
+                        <div class="store-cart-shipping-row">
+                            <input type="text" id="cart-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="postal-code" aria-describedby="cart-shipping-result">
+                            <button type="button" class="btn btn-secondary btn-sm" id="cart-cep-btn">Calcular</button>
+                        </div>
+                        <p class="store-cart-shipping-result" id="cart-shipping-result" role="status" aria-live="polite"></p>
+                    </div>
                     <p class="cart-total"><span class="store-cart-total-label">Total</span> <strong class="store-cart-total-value">R$ <?= number_format($total, 2, ',', '.') ?></strong></p>
+                    <?php $__pixTotal = \App\Services\OrderPricing::pixPrice($store, $total); if ($__pixTotal !== null): ?>
+                        <p class="store-cart-pix">ou <strong>R$ <?= number_format($__pixTotal, 2, ',', '.') ?></strong> no PIX</p>
+                    <?php endif; ?>
                     <a href="<?= base_url("loja/{$store['slug']}/checkout") ?>" class="btn btn-primary store-cart-checkout-btn">Finalizar compra</a>
                 </div>
             </div>

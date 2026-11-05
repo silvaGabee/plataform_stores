@@ -24,6 +24,37 @@ $paymentMethodLabels = [
     'cartao' => 'Cartão',
     'dinheiro' => 'Dinheiro',
 ];
+// Linha do tempo: as mesmas etapas do quadro de Entregas do painel, com o
+// pagamento no meio. Pedido cancelado não tem linha do tempo (há o aviso).
+$stage = (string) ($order['delivery_stage'] ?? 'solicitado');
+$pagoOuEnviado = in_array($statusKey, ['pago', 'enviado'], true);
+if ($deliveryType === 'entrega') {
+    $timeline = [
+        ['Pedido feito', 'package'],
+        ['Pagamento confirmado', 'check'],
+        ['Empacotando', 'package'],
+        ['Enviado', 'truck'],
+        ['A caminho', 'truck'],
+        ['Entregue', 'check'],
+    ];
+    $porEstagio = ['solicitado' => 1, 'empacotando' => 2, 'entregue_transportadora' => 3, 'em_rota' => 4, 'entregue' => 5];
+} else {
+    $timeline = [
+        ['Pedido feito', 'package'],
+        ['Pagamento confirmado', 'check'],
+        ['Pronto para retirada', 'store'],
+        ['Retirado', 'check'],
+    ];
+    $porEstagio = ['solicitado' => 2, 'entregue' => 3];
+}
+$etapaAtual = $pagoOuEnviado ? ($porEstagio[$stage] ?? 1) : 0;
+$itensSubtotal = 0.0;
+foreach ($order['items'] as $__it) {
+    $itensSubtotal += (float) $__it['quantity'] * (float) $__it['price'];
+}
+$pixDiscount = (float) ($order['pix_discount'] ?? 0);
+$couponDiscount = max(0.0, (float) ($order['discount'] ?? 0) - $pixDiscount);
+$shippingFee = (float) ($order['shipping_fee'] ?? 0);
 $orderDate = '';
 if (!empty($order['created_at'])) {
     try {
@@ -123,6 +154,33 @@ $content = ob_start();
             </section>
             <?php endif; ?>
 
+            <?php if (!$isCancelled && ($order['order_type'] ?? 'online') === 'online'): ?>
+            <section class="order-panel order-timeline-panel" aria-labelledby="order-timeline-title">
+                <h2 id="order-timeline-title" class="order-panel-title">Acompanhe seu pedido</h2>
+                <ol class="order-timeline order-timeline--<?= count($timeline) ?>">
+                    <?php
+                    // Pendente: "Pedido feito" concluído e o pagamento é a etapa atual.
+                    // Pago: tudo até a etapa alcançada concluído; a última é a atual.
+                    $atual = $etapaAtual === 0 ? 1 : $etapaAtual;
+                    foreach ($timeline as $i => [$rotulo, $icone]):
+                        $estado = ($i < $atual || ($i === $atual && $etapaAtual > 0)) ? 'done' : 'todo';
+                        $ehAtual = $i === $atual;
+                        ?>
+                        <li class="order-timeline-step is-<?= $estado ?><?= $ehAtual ? ' is-current' : '' ?>"<?= $ehAtual ? ' aria-current="step"' : '' ?>>
+                            <span class="order-timeline-dot" aria-hidden="true"><?= ui_icon($estado === 'done' ? 'check' : $icone, 16) ?></span>
+                            <span class="order-timeline-label"><?= htmlspecialchars($i === 1 && $etapaAtual === 0 ? 'Aguardando pagamento' : $rotulo) ?></span>
+                            <?php if ($i === 0 && $orderDate !== ''): ?>
+                                <span class="order-timeline-meta"><?= htmlspecialchars(substr($orderDate, 0, 10)) ?></span>
+                            <?php endif; ?>
+                            <?php if ($rotulo === 'Enviado' && !empty($order['tracking_code']) && $estado !== 'todo'): ?>
+                                <span class="order-timeline-meta">Rastreio: <?= htmlspecialchars($order['tracking_code']) ?></span>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ol>
+            </section>
+            <?php endif; ?>
+
             <?php if ($isCancelled): ?>
             <section class="ui-notice ui-notice--muted" role="status">
                 <?= ui_icon('x', 20) ?>
@@ -192,10 +250,19 @@ $content = ob_start();
                     </li>
                     <?php endforeach; ?>
                 </ul>
-                <div class="order-products-footer">
-                    <span>Total dos itens</span>
-                    <strong>R$ <?= number_format($order['total'], 2, ',', '.') ?></strong>
-                </div>
+                <dl class="order-totals">
+                    <div><dt>Itens</dt><dd>R$ <?= number_format($itensSubtotal, 2, ',', '.') ?></dd></div>
+                    <?php if ($couponDiscount > 0.004): ?>
+                        <div class="order-totals-discount"><dt><?= !empty($order['coupon_code']) ? 'Cupom ' . htmlspecialchars($order['coupon_code']) : 'Desconto' ?></dt><dd>− R$ <?= number_format($couponDiscount, 2, ',', '.') ?></dd></div>
+                    <?php endif; ?>
+                    <?php if ($pixDiscount > 0.004): ?>
+                        <div class="order-totals-discount"><dt>Desconto à vista no PIX</dt><dd>− R$ <?= number_format($pixDiscount, 2, ',', '.') ?></dd></div>
+                    <?php endif; ?>
+                    <?php if ($deliveryType === 'entrega'): ?>
+                        <div><dt>Frete</dt><dd><?= $shippingFee > 0.004 ? 'R$ ' . number_format($shippingFee, 2, ',', '.') : 'Grátis' ?></dd></div>
+                    <?php endif; ?>
+                    <div class="order-totals-total"><dt>Total</dt><dd>R$ <?= number_format((float) $order['total'], 2, ',', '.') ?></dd></div>
+                </dl>
             </section>
 
             <?php if (!empty($order['payments'])): ?>

@@ -12,8 +12,14 @@ $productSearchBlob = mb_strtolower(trim(($p['name'] ?? '') . ' ' . ($p['descript
 $precoEfetivo = product_effective_price($p);
 $descontoPct = product_discount_percent($p);
 $parcelasTexto = \App\Services\InstallmentPlan::headline($store, $precoEfetivo);
+$precoPix = \App\Services\OrderPricing::pixPrice($store, $precoEfetivo);
+$avaliacao = storefront_review_summary((int) $store['id'])[(int) $p['id']] ?? null;
+$favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
 ?>
 <article class="product-card product-card--v2" data-product-search="<?= htmlspecialchars($productSearchBlob, ENT_QUOTES, 'UTF-8') ?>">
+    <button type="button" class="product-fav-btn js-fav<?= $favorito ? ' is-active' : '' ?>" data-product-id="<?= (int) $p['id'] ?>" aria-pressed="<?= $favorito ? 'true' : 'false' ?>" aria-label="<?= $favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos' ?>: <?= htmlspecialchars($p['name']) ?>">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg>
+    </button>
     <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-media">
         <div class="product-card-img<?= $coverUrl ? '' : ' product-card-img--placeholder' ?>">
             <?php if ($coverUrl): ?>
@@ -35,6 +41,12 @@ $parcelasTexto = \App\Services\InstallmentPlan::headline($store, $precoEfetivo);
     <div class="product-card-content">
         <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-info">
             <h3 class="product-card-name"><?= htmlspecialchars($p['name']) ?></h3>
+            <?php if ($avaliacao): ?>
+                <p class="product-card-rating" aria-label="Nota <?= number_format($avaliacao['media'], 1, ',', '') ?> de 5, <?= $avaliacao['total'] ?> avaliaç<?= $avaliacao['total'] === 1 ? 'ão' : 'ões' ?>">
+                    <?= ui_stars($avaliacao['media'], 13) ?>
+                    <span class="product-card-rating-count">(<?= $avaliacao['total'] ?>)</span>
+                </p>
+            <?php endif; ?>
             <?php
             $matrixForCard = $p['variants_matrix'] ?? product_variants_rows_to_matrix($variants);
             $matrixColors = ($matrixForCard && !empty($matrixForCard['colors'])) ? $matrixForCard['colors'] : [];
@@ -83,6 +95,9 @@ $parcelasTexto = \App\Services\InstallmentPlan::headline($store, $precoEfetivo);
                         <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
                     <?php endif; ?>
                     <p class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></p>
+                    <?php if ($precoPix !== null): ?>
+                        <p class="product-card-pix"><strong>R$ <?= number_format($precoPix, 2, ',', '.') ?></strong> no PIX</p>
+                    <?php endif; ?>
                     <?php if ($parcelasTexto): ?>
                         <p class="product-card-installments"><?= htmlspecialchars($parcelasTexto) ?></p>
                     <?php endif; ?>

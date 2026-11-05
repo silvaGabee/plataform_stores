@@ -64,6 +64,34 @@ $content = ob_start();
             </div>
         </section>
 
+        <?php
+        $__phone = preg_replace('/\D/', '', (string) ($store['phone'] ?? '')) ?? '';
+        $__phoneFmt = strlen($__phone) === 11 ? sprintf('(%s) %s-%s', substr($__phone, 0, 2), substr($__phone, 2, 5), substr($__phone, 7))
+            : (strlen($__phone) === 10 ? sprintf('(%s) %s-%s', substr($__phone, 0, 2), substr($__phone, 2, 4), substr($__phone, 6)) : $__phone);
+        ?>
+        <section id="config-store-whatsapp-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-whatsapp-title">
+            <div class="panel-section-head">
+                <span class="panel-section-icon" aria-hidden="true"><?= ui_icon('whatsapp', 20) ?></span>
+                <div class="panel-section-head-text">
+                    <h2 id="config-store-whatsapp-title" class="panel-section-title">WhatsApp da loja</h2>
+                    <p class="panel-section-desc">Mostra um botão de conversa na vitrine e "Tirar dúvida no WhatsApp" em cada produto. Deixe vazio para esconder.</p>
+                </div>
+            </div>
+            <div class="panel-section-body panel-config-card-body">
+                <form id="config-store-whatsapp-form" class="panel-config-form">
+                    <div class="panel-config-field">
+                        <label for="config-store-whatsapp-input">Número com DDD</label>
+                        <input type="text" id="config-store-whatsapp-input" name="phone" value="<?= htmlspecialchars($__phoneFmt) ?>" maxlength="20" autocomplete="tel" inputmode="tel" placeholder="(31) 99999-9999">
+                    </div>
+                    <div class="panel-config-actions">
+                        <button type="submit" class="btn btn-primary btn-sm" id="config-store-whatsapp-save">Salvar número</button>
+                        <a class="btn btn-secondary btn-sm<?= store_whatsapp_url($store) === null ? ' hidden' : '' ?>" id="config-store-whatsapp-test" href="<?= htmlspecialchars((string) store_whatsapp_url($store)) ?>" target="_blank" rel="noopener">Testar link</a>
+                    </div>
+                </form>
+                <p id="config-store-whatsapp-msg" class="panel-form-msg panel-config-feedback" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
         <section id="config-store-background-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-background-title">
             <div class="panel-section-head">
                 <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3a9 9 0 100 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 005-5c0-4.4-4-8-9-8z M7.5 11.5h.01 M10 7.5h.01 M14 7.5h.01 M16.5 11h.01') ?></span>

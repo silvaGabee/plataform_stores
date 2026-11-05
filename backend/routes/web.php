@@ -35,6 +35,7 @@ return [
     'GET /loja/{slug}/checkout' => [StoreFrontController::class, 'checkout', Guard::PUBLICO],
     'GET /loja/{slug}/meus-pedidos' => [StoreFrontController::class, 'meusPedidos', Guard::PUBLICO],
     'GET /loja/{slug}/meus-enderecos' => [StoreFrontController::class, 'meusEnderecos', Guard::PUBLICO],
+    'GET /loja/{slug}/favoritos' => [StoreFrontController::class, 'favoritos', Guard::PUBLICO],
 
     // Painel.
     'GET /painel/{slug}' => [PanelController::class, 'dashboard', 'store.panel.view'],

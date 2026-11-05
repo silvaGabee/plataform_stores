@@ -120,5 +120,21 @@ class StoreRepository
 
         return $stmt->execute([$max, $free, $rate, $minValue, $id]);
     }
+
+    public function updatePixDiscount(int $id, float $pct): bool
+    {
+        return $this->pdo->prepare('UPDATE stores SET pix_discount_pct = ? WHERE id = ?')->execute([$pct, $id]);
+    }
+
+    public function updateFreeShippingMin(int $id, ?float $min): bool
+    {
+        return $this->pdo->prepare('UPDATE stores SET free_shipping_min = ? WHERE id = ?')->execute([$min, $id]);
+    }
+
+    /** Telefone/WhatsApp da loja, só dígitos (ou null para remover). */
+    public function updatePhone(int $id, ?string $phone): bool
+    {
+        return $this->pdo->prepare('UPDATE stores SET phone = ? WHERE id = ?')->execute([$phone, $id]);
+    }
 }
 

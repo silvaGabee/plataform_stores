@@ -1,6 +1,7 @@
 <?php
 $content = ob_start();
 $__rules = \App\Services\InstallmentPlan::rules($store);
+$__pixPct = \App\Services\OrderPricing::pixPct($store);
 ?>
 <div class="panel-content ui-page" id="promo-page" data-slug="<?= htmlspecialchars($store['slug']) ?>">
     <header class="panel-page-header ui-page-header">
@@ -14,7 +15,8 @@ $__rules = \App\Services\InstallmentPlan::rules($store);
     <nav class="ui-tabs" role="tablist" aria-label="Seções">
         <button type="button" class="ui-tab is-active" role="tab" aria-selected="true" data-tab="produtos"><?= ui_icon('tag', 16) ?><span>Produtos em promoção</span></button>
         <button type="button" class="ui-tab" role="tab" aria-selected="false" data-tab="cupons"><?= ui_icon('percent', 16) ?><span>Cupons</span></button>
-        <button type="button" class="ui-tab" role="tab" aria-selected="false" data-tab="parcelamento"><?= ui_icon('card', 16) ?><span>Parcelamento</span></button>
+        <button type="button" class="ui-tab" role="tab" aria-selected="false" data-tab="parcelamento"><?= ui_icon('card', 16) ?><span>Parcelamento e PIX</span></button>
+        <button type="button" class="ui-tab" role="tab" aria-selected="false" data-tab="frete"><?= ui_icon('truck', 16) ?><span>Frete</span></button>
         <button type="button" class="ui-tab" role="tab" aria-selected="false" data-tab="descontos"><?= ui_icon('shield', 16) ?><span>Descontos do PDV</span></button>
     </nav>
 
@@ -75,6 +77,7 @@ $__rules = \App\Services\InstallmentPlan::rules($store);
 
     <section class="ui-tabpanel" data-panel="parcelamento" hidden>
         <div class="ui-grid-2">
+            <div class="ui-stack">
             <form class="ui-card ui-form" id="ip-form">
                 <h2 class="ui-card-title">Regra de parcelamento no cartão</h2>
                 <p class="text-muted">Vale para pedidos da vitrine pagos com cartão na entrega. Acima das parcelas sem juros, o valor da parcela segue a tabela Price com a taxa mensal informada.</p>
@@ -88,6 +91,14 @@ $__rules = \App\Services\InstallmentPlan::rules($store);
                 </div>
                 <button type="submit" class="btn btn-primary ui-btn-icon"><?= ui_icon('check', 16) ?><span>Salvar regra</span></button>
             </form>
+            <form class="ui-card ui-form" id="pix-form">
+                <h2 class="ui-card-title">Desconto à vista no PIX</h2>
+                <p class="text-muted">Quem paga a compra online no PIX ganha este desconto sobre os produtos (o frete não entra). A vitrine mostra o preço no PIX em cada produto. Use 0 para desligar.</p>
+                <label class="ui-field"><span>Desconto no PIX (%)</span><input name="pct" type="number" step="0.5" min="0" max="<?= (int) \App\Services\OrderPricing::PIX_MAX_PCT ?>" value="<?= htmlspecialchars(number_format($__pixPct, 2, '.', '')) ?>" required></label>
+                <button type="submit" class="btn btn-primary ui-btn-icon"><?= ui_icon('check', 16) ?><span>Salvar desconto</span></button>
+                <div class="ui-callout" id="pix-equivalencia" aria-live="polite"></div>
+            </form>
+            </div>
             <div class="ui-card">
                 <div class="ui-card-head">
                     <h2 class="ui-card-title">Simulação</h2>
@@ -98,6 +109,45 @@ $__rules = \App\Services\InstallmentPlan::rules($store);
                         <thead><tr><th>Parcelas</th><th class="ui-num">Parcela</th><th class="ui-num">Total</th><th class="ui-num">Juros</th></tr></thead>
                         <tbody id="ip-sim"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ui-tabpanel" data-panel="frete" hidden>
+        <div class="ui-grid-2">
+            <div class="ui-stack">
+                <form class="ui-card ui-form" id="fr-form">
+                    <h2 class="ui-card-title">Nova faixa de CEP</h2>
+                    <p class="text-muted">O cliente paga o frete da faixa que contém o CEP dele. Se um CEP cair em duas faixas, vale a menor (ex.: um bairro dentro da cidade). Sem nenhuma faixa, a entrega sai sem custo; com faixas, CEP fora delas não recebe entrega.</p>
+                    <label class="ui-field"><span>Nome</span><input name="name" required maxlength="80" placeholder="Ex.: Belo Horizonte"></label>
+                    <div class="ui-row">
+                        <label class="ui-field"><span>CEP inicial</span><input name="cep_start" required inputmode="numeric" maxlength="9" placeholder="30000-000"></label>
+                        <label class="ui-field"><span>CEP final</span><input name="cep_end" required inputmode="numeric" maxlength="9" placeholder="31999-999"></label>
+                    </div>
+                    <div class="ui-row">
+                        <label class="ui-field"><span>Valor (R$)</span><input name="price" type="number" step="0.01" min="0" required placeholder="9,90"></label>
+                        <label class="ui-field"><span>Prazo (dias úteis)</span><input name="days" type="number" min="0" max="120" placeholder="Opcional"></label>
+                    </div>
+                    <button type="submit" class="btn btn-primary ui-btn-icon"><?= ui_icon('plus', 16) ?><span>Adicionar faixa</span></button>
+                </form>
+                <form class="ui-card ui-form" id="fr-free-form">
+                    <h2 class="ui-card-title">Frete grátis</h2>
+                    <label class="ui-field"><span>Grátis em compras a partir de (R$)</span><input name="free_shipping_min" type="number" step="0.01" min="0" placeholder="Deixe vazio para não oferecer"></label>
+                    <button type="submit" class="btn btn-secondary ui-btn-icon"><?= ui_icon('check', 16) ?><span>Salvar</span></button>
+                </form>
+            </div>
+            <div class="ui-card ui-card--flush">
+                <div class="ui-card-head ui-card-head--pad"><h2 class="ui-card-title">Faixas cadastradas</h2></div>
+                <div class="ui-table-wrap">
+                    <table class="ui-table">
+                        <thead><tr><th>Faixa</th><th>CEPs</th><th class="ui-num">Valor</th><th class="ui-num">Prazo</th><th></th></tr></thead>
+                        <tbody id="fr-rows"><tr><td colspan="5" class="ui-empty">Carregando…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="ui-card-foot">
+                    <label class="ui-field ui-field--inline"><span>Testar CEP</span><input id="fr-test-cep" inputmode="numeric" maxlength="9" placeholder="00000-000"></label>
+                    <p class="ui-hint" id="fr-test-result" aria-live="polite"></p>
                 </div>
             </div>
         </div>

@@ -802,3 +802,34 @@
     });
   }
 })();
+
+/* WhatsApp da loja: número usado no botão da vitrine e no "Tirar dúvida" do produto. */
+(function () {
+  var form = document.getElementById('config-store-whatsapp-form');
+  if (!form || !window.UI || typeof storeSlug === 'undefined') return;
+  var input = document.getElementById('config-store-whatsapp-input');
+  var msg = document.getElementById('config-store-whatsapp-msg');
+  var test = document.getElementById('config-store-whatsapp-test');
+  var btn = document.getElementById('config-store-whatsapp-save');
+  input.addEventListener('input', function () {
+    var d = input.value.replace(/\D/g, '').slice(0, 11);
+    if (d.length > 10) input.value = '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+    else if (d.length > 6) input.value = '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    else if (d.length > 2) input.value = '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    else input.value = d;
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    btn.disabled = true;
+    UI.api('api/loja/' + encodeURIComponent(storeSlug) + '/store/phone', { method: 'POST', body: { phone: input.value } }).then(function (r) {
+      btn.disabled = false;
+      msg.className = 'panel-form-msg panel-config-feedback ' + (r.error ? 'is-error' : 'is-success');
+      if (r.error) { msg.textContent = r.error; return; }
+      msg.textContent = r.phone ? 'Número salvo. O botão do WhatsApp já aparece na vitrine.' : 'Número removido. O botão do WhatsApp saiu da vitrine.';
+      if (test) {
+        test.classList.toggle('hidden', !r.whatsapp_url);
+        if (r.whatsapp_url) test.href = r.whatsapp_url;
+      }
+    });
+  });
+})();

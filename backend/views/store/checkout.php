@@ -25,8 +25,9 @@ $content = ob_start();
                     <span class="checkout-summary-eyebrow">Resumo</span>
                     <span class="checkout-summary-label">Total do pedido</span>
                 </div>
-                <span class="checkout-summary-amount" id="checkout-total" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>">R$ <?= number_format($total, 2, ',', '.') ?></span>
+                <span class="checkout-summary-amount" id="checkout-total" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>" data-pix-pct="<?= htmlspecialchars(number_format(\App\Services\OrderPricing::pixPct($store), 2, '.', '')) ?>">R$ <?= number_format($total, 2, ',', '.') ?></span>
             </div>
+            <dl class="checkout-breakdown" id="checkout-breakdown" aria-live="polite"></dl>
             <form id="checkout-form" class="checkout-form">
                 <input type="hidden" name="store_slug" value="<?= htmlspecialchars($store['slug']) ?>">
                 <?php
@@ -172,7 +173,7 @@ $content = ob_start();
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/></svg>
                                 </span>
                                 <span class="checkout-choice-text">
-                                    <span class="checkout-choice-title">PIX</span>
+                                    <span class="checkout-choice-title">PIX<?php $__pct = \App\Services\OrderPricing::pixPct($store); if ($__pct > 0): ?> <span class="checkout-choice-badge"><?= rtrim(rtrim(number_format($__pct, 2, ',', ''), '0'), ',') ?>% de desconto</span><?php endif; ?></span>
                                     <span class="checkout-choice-desc">QR Code · confirmação rápida</span>
                                 </span>
                                 <span class="checkout-choice-mark" aria-hidden="true"></span>

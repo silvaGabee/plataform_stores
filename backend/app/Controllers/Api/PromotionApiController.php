@@ -209,7 +209,20 @@ class PromotionApiController extends Controller
         $storeId = $this->storeOr404($slug);
         $store = (new StoreRepository())->find($storeId) ?? [];
         $valor = round((float) str_replace(',', '.', (string) ($_GET['valor'] ?? '0')), 2);
-        $this->json(['rules' => InstallmentPlan::rules($store), 'options' => InstallmentPlan::options($store, $valor)]);
+        $rules = InstallmentPlan::rules($store);
+        $pct = \App\Services\OrderPricing::pixPct($store);
+        $this->json([
+            'rules' => $rules,
+            'options' => InstallmentPlan::options($store, $valor),
+            // Desconto à vista no PIX e quanto ele "custa" em juros ao mês,
+            // comparado a parcelar sem juros no limite da loja.
+            'pix' => [
+                'pct' => $pct,
+                'preco' => \App\Services\OrderPricing::pixPrice($store, $valor),
+                'taxa_equivalente' => \App\Domain\Finance\CashDiscount::taxaEquivalente($pct, $rules['free']),
+                'parcelas_sem_juros' => $rules['free'],
+            ],
+        ]);
     }
 
     /** POST (gerente): {max, free, rate, min_value} */

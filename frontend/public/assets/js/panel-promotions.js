@@ -1,4 +1,4 @@
-/** Promoções e pagamentos (gerente): promo por produto, cupons, parcelamento, descontos do PDV. */
+/** Promoções e pagamentos (gerente): promo por produto, cupons, parcelamento, PIX, frete, descontos do PDV. */
 (function () {
   'use strict';
   var root = document.getElementById('promo-page');
@@ -21,7 +21,7 @@
     });
     if (!loaded[name]) {
       loaded[name] = true;
-      ({ produtos: loadProducts, cupons: loadCoupons, parcelamento: simulate, descontos: loadDiscounts })[name]();
+      ({ produtos: loadProducts, cupons: loadCoupons, parcelamento: simulate, frete: loadShipping, descontos: loadDiscounts })[name]();
     }
     try { history.replaceState(null, '', '#' + name); } catch (e) {}
   }
@@ -179,13 +179,127 @@
     if (v <= 0) { tb.innerHTML = ''; return; }
     UI.api(A('parcelamento?valor=' + v)).then(function (r) {
       if (r.error) { tb.innerHTML = '<tr><td colspan="4" class="ui-empty">' + UI.esc(r.error) + '</td></tr>'; return; }
-      tb.innerHTML = (r.options || []).map(function (o) {
+      var linhas = (r.options || []).map(function (o) {
         return '<tr><td>' + o.parcelas + 'x ' + (o.sem_juros ? '<span class="ui-badge ui-badge--ok">sem juros</span>' : '') + '</td>' +
           '<td class="ui-num">' + UI.money(o.parcela) + '</td><td class="ui-num">' + UI.money(o.total) + '</td>' +
           '<td class="ui-num">' + (o.juros > 0 ? UI.money(o.juros) : '—') + '</td></tr>';
-      }).join('') || '<tr><td colspan="4" class="ui-empty">Valor abaixo da parcela mínima.</td></tr>';
+      });
+      if (r.pix && r.pix.preco) {
+        linhas.unshift('<tr class="ui-row-highlight"><td>PIX <span class="ui-badge ui-badge--ok">−' + fmtPct(r.pix.pct) + '</span></td>' +
+          '<td class="ui-num">—</td><td class="ui-num">' + UI.money(r.pix.preco) + '</td><td class="ui-num">− ' + UI.money(v - r.pix.preco) + '</td></tr>');
+      }
+      tb.innerHTML = linhas.join('') || '<tr><td colspan="4" class="ui-empty">Valor abaixo da parcela mínima.</td></tr>';
+      renderPixEquivalence(r.pix, r.rules);
     });
   }
+  function fmtPct(n) { return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%'; }
+
+  // ---------------------------------------------------------------- desconto no PIX
+  /**
+   * Matemática financeira na tela: o desconto à vista visto como taxa de juros.
+   * Dar d% no PIX é o mesmo que "cobrar" i% a.m. de quem parcela sem juros
+   * (i resolve 1 − d = a(n,i)/n; cálculo no servidor, CashDiscount).
+   */
+  function renderPixEquivalence(pix, rules) {
+    var box = document.getElementById('pix-equivalencia');
+    if (!box || !pix) return;
+    if (!pix.pct) { box.innerHTML = '<p class="text-muted">Sem desconto no PIX: à vista e parcelado sem juros custam o mesmo para o cliente.</p>'; return; }
+    var i = Number(pix.taxa_equivalente);
+    var n = pix.parcelas_sem_juros;
+    var taxa = rules ? Number(rules.rate) : 0;
+    var comparacao = taxa > 0
+      ? (i > taxa
+        ? 'É mais do que os ' + fmtPct(taxa) + ' a.m. que você cobra acima de ' + n + 'x: o desconto está generoso.'
+        : 'Fica abaixo dos ' + fmtPct(taxa) + ' a.m. que você cobra acima de ' + n + 'x.')
+      : '';
+    box.innerHTML = '<p><strong>' + fmtPct(pix.pct) + ' no PIX equivale a ' + fmtPct(i) + ' ao mês</strong> em relação a ' +
+      (n > 1 ? n + 'x sem juros' : 'pagar no cartão em 30 dias') + '. ' + UI.esc(comparacao) + '</p>' +
+      '<p class="text-muted">Taxa i que iguala o valor presente: 1 − d = a(n, i) / n.</p>';
+  }
+  document.getElementById('pix-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    UI.api(A('store/pix-discount'), { method: 'POST', body: { pct: num(e.target.pct.value) || 0 } }).then(function (r) {
+      if (r.error) { UI.toast(r.error, 'error'); return; }
+      UI.toast(r.pct > 0 ? 'Desconto de ' + fmtPct(r.pct) + ' no PIX salvo.' : 'Desconto no PIX desligado.', 'ok');
+      simulate();
+    });
+  });
+
+  // ---------------------------------------------------------------- frete
+  function maskCep(el) {
+    el.addEventListener('input', function () {
+      var d = el.value.replace(/\D/g, '').slice(0, 8);
+      el.value = d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+    });
+  }
+  function renderShipping(r) {
+    var tb = document.getElementById('fr-rows');
+    var rules = r.rules || [];
+    var free = document.getElementById('fr-free-form').free_shipping_min;
+    if (document.activeElement !== free) free.value = r.free_shipping_min != null ? Number(r.free_shipping_min).toFixed(2) : '';
+    if (!rules.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="ui-empty">Nenhuma faixa: a entrega sai sem custo para qualquer CEP.</td></tr>';
+      return;
+    }
+    tb.innerHTML = rules.map(function (f) {
+      return '<tr data-id="' + f.id + '">' +
+        '<td data-label="Faixa"><strong>' + UI.esc(f.name) + '</strong></td>' +
+        '<td data-label="CEPs" class="ui-nowrap">' + UI.esc(f.cep_start) + ' a ' + UI.esc(f.cep_end) + '</td>' +
+        '<td data-label="Valor" class="ui-num">' + (f.price > 0 ? UI.money(f.price) : '<span class="ui-badge ui-badge--ok">grátis</span>') + '</td>' +
+        '<td data-label="Prazo" class="ui-num">' + (f.days != null ? f.days + ' dia' + (f.days === 1 ? '' : 's') : '—') + '</td>' +
+        '<td class="ui-actions"><button type="button" class="btn btn-ghost btn-sm fr-del" aria-label="Excluir faixa ' + UI.esc(f.name) + '">Excluir</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+  function loadShipping() {
+    UI.api(A('frete/faixas')).then(function (r) {
+      if (r.error) { UI.toast(r.error, 'error'); return; }
+      renderShipping(r);
+    });
+  }
+  var frForm = document.getElementById('fr-form');
+  maskCep(frForm.cep_start);
+  maskCep(frForm.cep_end);
+  frForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.target;
+    UI.api(A('frete/faixas'), { method: 'POST', body: { name: f.name.value, cep_start: f.cep_start.value, cep_end: f.cep_end.value, price: num(f.price.value) || 0, days: f.days.value } }).then(function (r) {
+      if (r.error) { UI.toast(r.error, 'error'); return; }
+      f.reset();
+      renderShipping(r);
+      UI.toast('Faixa de frete adicionada.', 'ok');
+    });
+  });
+  document.getElementById('fr-rows').addEventListener('click', function (e) {
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr || !e.target.closest('.fr-del')) return;
+    UI.confirm({ title: 'Excluir faixa de frete', message: 'Pedidos já feitos não mudam. CEPs desta faixa deixam de receber entrega se não caírem em outra.', confirm: 'Excluir', danger: true }).then(function (ok) {
+      if (ok) UI.api(A('frete/faixas/' + tr.getAttribute('data-id') + '/excluir'), { method: 'POST', body: {} }).then(renderShipping);
+    });
+  });
+  document.getElementById('fr-free-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = e.target.free_shipping_min.value;
+    UI.api(A('frete/gratis'), { method: 'POST', body: { free_shipping_min: v === '' ? null : num(v) } }).then(function (r) {
+      if (r.error) { UI.toast(r.error, 'error'); return; }
+      renderShipping(r);
+      UI.toast(r.free_shipping_min ? 'Frete grátis a partir de ' + UI.money(r.free_shipping_min) + '.' : 'Frete grátis desligado.', 'ok');
+    });
+  });
+  var testCep = document.getElementById('fr-test-cep');
+  maskCep(testCep);
+  testCep.addEventListener('input', function () {
+    var out = document.getElementById('fr-test-result');
+    var cep = testCep.value.replace(/\D/g, '');
+    if (cep.length !== 8) { out.textContent = ''; return; }
+    UI.api(A('frete?cep=' + cep + '&subtotal=0')).then(function (r) {
+      if (r.error) { out.textContent = r.error; return; }
+      var q = r.frete;
+      out.textContent = q.sem_regras ? 'Sem faixas: entrega sem custo.'
+        : !q.disponivel ? 'Fora das faixas: a loja não entrega neste CEP.'
+        : q.regra + ': ' + (q.valor > 0 ? UI.money(q.valor) : 'grátis') + (q.prazo != null ? ', ' + q.prazo + ' dia(s)' : '');
+    });
+  });
   document.getElementById('ip-sim-value').addEventListener('input', simulate);
   document.getElementById('ip-form').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -223,5 +337,5 @@
   document.addEventListener('ui:discount-decided', function () { if (loaded.descontos) loadDiscounts(); });
 
   var start = (location.hash || '').replace('#', '');
-  openTab(['produtos', 'cupons', 'parcelamento', 'descontos'].indexOf(start) >= 0 ? start : 'produtos');
+  openTab(['produtos', 'cupons', 'parcelamento', 'frete', 'descontos'].indexOf(start) >= 0 ? start : 'produtos');
 })();

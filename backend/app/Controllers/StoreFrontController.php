@@ -95,11 +95,81 @@ class StoreFrontController extends Controller
             $catRepo = new \App\Repositories\StoreVitrineCategoryRepository();
             $vitrineCategory = $catRepo->find($catId, (int) $store['id']);
         }
+
+        $reviewRepo = new \App\Repositories\ReviewRepository();
+        $me = $this->currentUser();
+        $podeAvaliar = false;
+        $minhaAvaliacao = null;
+        if ($me !== null) {
+            $podeAvaliar = $reviewRepo->userBoughtProduct((int) $me['id'], (int) $store['id'], (int) $product['id']);
+            $minhaAvaliacao = $podeAvaliar ? $reviewRepo->findByUser((int) $product['id'], (int) $me['id']) : null;
+        }
+
         $this->render('store/produto', [
             'store' => $store,
             'product' => $product,
             'vitrineCategory' => $vitrineCategory,
+            'related_products' => $this->relatedProducts($service, (int) $store['id'], $product, $vitrineCategory ? $catId : 0),
+            'review_summary' => $reviewRepo->summaryByProduct((int) $product['id']),
+            'reviews' => $reviewRepo->listByProduct((int) $product['id']),
+            'can_review' => $podeAvaliar,
+            'my_review' => $minhaAvaliacao,
+            'is_logged' => $me !== null,
             'title' => $product['name'],
+        ]);
+    }
+
+    /**
+     * "Você também pode gostar": até 4 produtos da mesma categoria, os mais
+     * vendidos primeiro e com estoque. Se a categoria não tiver 4, completa
+     * com os mais vendidos da loja.
+     */
+    private function relatedProducts(ProductService $service, int $storeId, array $product, int $categoryId): array
+    {
+        $id = (int) $product['id'];
+        $outros = static fn (array $lista): array => array_values(array_filter(
+            $lista,
+            static fn (array $p): bool => (int) $p['id'] !== $id && (int) ($p['stock_quantity'] ?? 0) > 0
+        ));
+        $lista = $categoryId > 0
+            ? $outros(storefront_products($service->listForStoreByCategory($storeId, $categoryId, true), $storeId, 'mais-vendidos'))
+            : [];
+        if (count($lista) < 4) {
+            $ja = array_fill_keys(array_map(static fn (array $p): int => (int) $p['id'], $lista), true);
+            foreach ($outros(storefront_products($service->listForStore($storeId, true), $storeId, 'mais-vendidos')) as $p) {
+                if (!isset($ja[(int) $p['id']])) {
+                    $lista[] = $p;
+                }
+                if (count($lista) >= 4) {
+                    break;
+                }
+            }
+        }
+
+        return array_slice($lista, 0, 4);
+    }
+
+    public function favoritos(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $me = $this->requireCustomerLogin($slug, 'favoritos');
+        $ids = (new \App\Repositories\FavoriteRepository())->productIds((int) $me['id'], (int) $store['id']);
+        $service = new ProductService(new ProductRepository(), new \App\Repositories\StockMovementRepository(), new ProductImageRepository());
+        $porId = [];
+        foreach ($service->listForStore((int) $store['id'], true) as $p) {
+            $porId[(int) $p['id']] = $p;
+        }
+        // Mantém a ordem de quando foram favoritados (mais recente primeiro).
+        $produtos = [];
+        foreach ($ids as $pid) {
+            if (isset($porId[$pid])) {
+                $produtos[] = \App\Services\StockReservation::applyTo($porId[$pid]);
+            }
+        }
+        $this->render('store/favoritos', [
+            'store' => $store,
+            'products' => $produtos,
+            'title' => 'Meus favoritos',
         ]);
     }
 

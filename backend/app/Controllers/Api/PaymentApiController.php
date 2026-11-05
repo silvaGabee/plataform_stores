@@ -77,7 +77,11 @@ class PaymentApiController extends Controller
             }
             $autoConfirmCard = true;
         }
-        $amount = (float) $order['total'];
+        // Online: o valor depende da forma de pagamento (desconto à vista no
+        // PIX). O QR precisa nascer com o mesmo valor que o OrderService grava.
+        $amount = $orderType === 'pdv'
+            ? (float) $order['total']
+            : $this->orderService()->precoParaPagamento($order, (string) $method)['total'];
         $parcelamento = [];
         if ($method === 'cartao' && $orderType !== 'pdv' && $deliveryType === 'entrega') {
             // Parcelamento real no cartão, pela regra da loja (tabela Price

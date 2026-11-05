@@ -46,15 +46,56 @@
   /* ───────── cupom e parcelamento ───────── */
   var appliedCoupon = null; // {code, discount, total}
   var totalEl = document.getElementById('checkout-total');
+  var breakdownEl = document.getElementById('checkout-breakdown');
   var subtotalBase = totalEl ? parseFloat(totalEl.getAttribute('data-subtotal')) || 0 : 0;
+  var pixPct = totalEl ? parseFloat(totalEl.getAttribute('data-pix-pct')) || 0 : 0;
+  // Frete da entrega: null = ainda não calculado (sem endereço escolhido).
+  var freteInfo = null;
+  var addressZip = {};
   function brl(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-  function currentTotal() { return appliedCoupon ? appliedCoupon.total : subtotalBase; }
+  /** Mesma conta do servidor (OrderPricing): em centavos, para não divergir no arredondamento. */
+  function pixDesconto(base) {
+    if (base <= 0 || pixPct <= 0) return 0;
+    return Math.round(Math.round(base * 100) * pixPct / 100) / 100;
+  }
+  function conta() {
+    var itens = subtotalBase;
+    var cupom = appliedCoupon ? Number(appliedCoupon.discount) || 0 : 0;
+    var entrega = getDeliveryType() === 'entrega';
+    var frete = entrega && freteInfo && freteInfo.disponivel ? Number(freteInfo.valor) || 0 : 0;
+    var pix = getPaymentMethod() === 'pix' ? pixDesconto(itens - cupom) : 0;
+    return { itens: itens, cupom: cupom, frete: frete, entrega: entrega, pix: pix, total: Math.round((itens - cupom - pix + frete) * 100) / 100 };
+  }
+  /** Base do cartão: itens − cupom + frete (o desconto do PIX não vale no cartão). */
+  function currentTotal() { var c = conta(); return Math.round((c.itens - c.cupom + c.frete) * 100) / 100; }
   function checkoutAlert(msg) { if (window.UI) UI.toast(msg, 'error'); else alert(msg); }
   function renderTotal() {
     if (!totalEl) return;
-    totalEl.innerHTML = appliedCoupon
-      ? '<s class="checkout-total-old">' + brl(subtotalBase) + '</s> ' + brl(appliedCoupon.total)
-      : brl(subtotalBase);
+    var c = conta();
+    totalEl.textContent = brl(c.total);
+    if (!breakdownEl) return;
+    var linhas = ['<div><dt>Itens</dt><dd>' + brl(c.itens) + '</dd></div>'];
+    if (c.cupom > 0) linhas.push('<div class="is-discount"><dt>Cupom ' + escapeHtml(appliedCoupon.code) + '</dt><dd>− ' + brl(c.cupom) + '</dd></div>');
+    if (c.entrega) {
+      var freteTxt = !freteInfo ? 'Escolha o endereço' : !freteInfo.disponivel ? 'Não entregamos neste CEP' : c.frete > 0 ? brl(c.frete) : 'Grátis';
+      if (freteInfo && freteInfo.disponivel && freteInfo.prazo != null) freteTxt += ' · até ' + freteInfo.prazo + ' dia' + (freteInfo.prazo === 1 ? '' : 's') + ' úte' + (freteInfo.prazo === 1 ? 'il' : 'is');
+      linhas.push('<div' + (freteInfo && !freteInfo.disponivel ? ' class="is-error"' : '') + '><dt>Frete</dt><dd>' + freteTxt + '</dd></div>');
+    }
+    if (c.pix > 0) linhas.push('<div class="is-discount"><dt>Desconto à vista no PIX (' + String(pixPct).replace('.', ',') + '%)</dt><dd>− ' + brl(c.pix) + '</dd></div>');
+    else if (pixPct > 0) linhas.push('<div class="is-hint"><dt>No PIX sai por</dt><dd>' + brl(c.itens - c.cupom - pixDesconto(c.itens - c.cupom) + c.frete) + '</dd></div>');
+    breakdownEl.innerHTML = linhas.join('');
+  }
+  function updateShipping() {
+    if (getDeliveryType() !== 'entrega' || !addressSelect) { freteInfo = null; renderTotal(); loadInstallments(); return; }
+    var id = addressSelect.value || lastCreatedAddressId;
+    var cep = id ? addressZip[String(id)] : '';
+    cep = String(cep || '').replace(/\D/g, '');
+    if (cep.length !== 8) { freteInfo = null; renderTotal(); return; }
+    UI.api('api/loja/' + storeSlug + '/frete?cep=' + cep + '&subtotal=' + subtotalBase.toFixed(2)).then(function (r) {
+      freteInfo = r && r.frete ? r.frete : null;
+      renderTotal();
+      loadInstallments();
+    });
   }
   function loadInstallments() {
     var sel = document.getElementById('card-installments');
@@ -480,6 +521,7 @@
     if (addressEmpty) addressEmpty.classList.add('hidden');
     if (addressPicker) addressPicker.classList.remove('hidden');
     list.forEach(function (addr) {
+      addressZip[String(addr.id)] = addr.zipcode || '';
       var opt = document.createElement('option');
       opt.value = addr.id;
       opt.textContent = formatAddressLabel(addr);
@@ -503,6 +545,7 @@
     return api(url).then(function (res) {
       var list = res.addresses || [];
       renderAddressUi(list, false);
+      updateShipping();
       return res;
     }).catch(function () {
       addressSelect.innerHTML = '<option value="">Erro ao carregar endereços</option>';
@@ -518,14 +561,17 @@
         updateCardBlockVisibility();
         if (isEntrega) {
           loadAddresses();
+        } else {
+          updateShipping();
         }
       });
     });
   }
+  if (addressSelect) addressSelect.addEventListener('change', updateShipping);
 
   if (form.querySelectorAll('input[name="payment_method"]').length) {
     form.querySelectorAll('input[name="payment_method"]').forEach(function (radio) {
-      radio.addEventListener('change', updateCardBlockVisibility);
+      radio.addEventListener('change', function () { updateCardBlockVisibility(); renderTotal(); });
     });
   }
 
@@ -658,6 +704,10 @@
       var addressId = (addressSelect && addressSelect.value) ? parseInt(addressSelect.value, 10) : lastCreatedAddressId;
       if (!addressId) {
         checkoutAlert('Para entrega, selecione um endereço ou cadastre um novo.');
+        return;
+      }
+      if (freteInfo && !freteInfo.disponivel) {
+        checkoutAlert('A loja não entrega no CEP deste endereço. Escolha outro endereço ou retire na loja.');
         return;
       }
     }
@@ -842,6 +892,7 @@
     });
   }
   loadInstallments();
+  renderTotal();
 
   function clearLocalCart() {
     try {

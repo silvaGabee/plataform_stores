@@ -140,6 +140,8 @@ CREATE TABLE `orders` (
   `status` enum('pendente','pago','cancelado','enviado') NOT NULL DEFAULT 'pendente',
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `pix_discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `shipping_fee` decimal(12,2) NOT NULL DEFAULT 0.00,
   `coupon_code` varchar(40) DEFAULT NULL,
   `pdv_customer_name` varchar(120) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -193,6 +195,23 @@ CREATE TABLE `product_images` (
   PRIMARY KEY (`id`),
   KEY `idx_product` (`product_id`),
   CONSTRAINT `product_images_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_reviews` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `store_id` int(10) unsigned NOT NULL,
+  `product_id` int(10) unsigned NOT NULL,
+  `user_id` int(10) unsigned NOT NULL,
+  `rating` tinyint(3) unsigned NOT NULL,
+  `comment` varchar(1000) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_product_user` (`product_id`,`user_id`),
+  KEY `idx_store_product` (`store_id`,`product_id`),
+  KEY `idx_user` (`user_id`),
+  CONSTRAINT `fk_reviews_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reviews_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reviews_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `product_variants` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -322,6 +341,19 @@ CREATE TABLE `store_pix_configs` (
   KEY `idx_store` (`store_id`),
   CONSTRAINT `store_pix_configs_ibfk_1` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `store_shipping_rules` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `store_id` int(10) unsigned NOT NULL,
+  `name` varchar(80) NOT NULL,
+  `cep_start` char(8) NOT NULL,
+  `cep_end` char(8) NOT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `days` tinyint(3) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_store_cep` (`store_id`,`cep_start`,`cep_end`),
+  CONSTRAINT `fk_shipping_rules_store` FOREIGN KEY (`store_id`) REFERENCES `stores` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `store_vitrine_categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `store_id` int(10) unsigned NOT NULL,
@@ -350,6 +382,8 @@ CREATE TABLE `stores` (
   `installments_free` tinyint(3) unsigned NOT NULL DEFAULT 3,
   `installments_rate` decimal(5,2) NOT NULL DEFAULT 1.99,
   `installments_min_value` decimal(10,2) NOT NULL DEFAULT 20.00,
+  `pix_discount_pct` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `free_shipping_min` decimal(10,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `idx_slug` (`slug`)
@@ -369,6 +403,15 @@ CREATE TABLE `user_addresses` (
   PRIMARY KEY (`id`),
   KEY `idx_user` (`user_id`),
   CONSTRAINT `user_addresses_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `user_favorites` (
+  `user_id` int(10) unsigned NOT NULL,
+  `product_id` int(10) unsigned NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`user_id`,`product_id`),
+  KEY `idx_product` (`product_id`),
+  CONSTRAINT `fk_favorites_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_favorites_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `users` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -406,3 +449,4 @@ INSERT INTO schema_migrations (version) VALUES ('0019_order_items_cost_price.sql
 INSERT INTO schema_migrations (version) VALUES ('0020_bi_indexes.sql');
 INSERT INTO schema_migrations (version) VALUES ('0021_vendas_reservas_descontos.php');
 INSERT INTO schema_migrations (version) VALUES ('0022_pdv_vendas_entregues.sql');
+INSERT INTO schema_migrations (version) VALUES ('0023_vitrine_whatsapp_pix_frete_avaliacoes.php');

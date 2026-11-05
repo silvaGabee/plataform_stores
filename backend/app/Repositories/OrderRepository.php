@@ -74,7 +74,7 @@ class OrderRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, discount, pdv_customer_name, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, discount, shipping_fee, pdv_customer_name, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $data['store_id'],
@@ -86,6 +86,7 @@ class OrderRepository
             $data['status'] ?? 'pendente',
             $data['total'] ?? 0,
             $data['discount'] ?? 0,
+            $data['shipping_fee'] ?? 0,
             $data['pdv_customer_name'] ?? null,
             // Segredo do link do comprovante: é o que substitui o id sequencial
             // como prova de que quem abriu a página é quem fez o pedido.
@@ -243,6 +244,22 @@ class OrderRepository
     public function setCoupon(int $orderId, ?string $code): void
     {
         $this->pdo->prepare('UPDATE orders SET coupon_code = ? WHERE id = ?')->execute([$code, $orderId]);
+    }
+
+    /** Regrava desconto (cupom + PIX), a parte do PIX e o total, numa escrita só. */
+    public function setPricing(int $orderId, float $discount, float $pixDiscount, float $total): void
+    {
+        $this->pdo->prepare('UPDATE orders SET discount = ?, pix_discount = ?, total = ? WHERE id = ?')
+            ->execute([$discount, $pixDiscount, $total, $orderId]);
+    }
+
+    /** Soma dos itens (preço gravado × quantidade), sem desconto nem frete. */
+    public function itemsSubtotal(int $orderId): float
+    {
+        $st = $this->pdo->prepare('SELECT COALESCE(SUM(quantity * price), 0) FROM order_items WHERE order_id = ?');
+        $st->execute([$orderId]);
+
+        return round((float) $st->fetchColumn(), 2);
     }
 
     /**

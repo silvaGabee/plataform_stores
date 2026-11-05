@@ -16,6 +16,7 @@ use App\Controllers\Api\AnalyzingBIApiController;
 use App\Controllers\Api\VitrineCategoryApiController;
 use App\Controllers\Api\FinanceApiController;
 use App\Controllers\Api\PromotionApiController;
+use App\Controllers\Api\VitrineExtrasApiController;
 use App\Http\Guard;
 
 /**
@@ -118,6 +119,19 @@ return [
     'POST /api/loja/{slug}/products/{id}/promo' => [PromotionApiController::class, 'setPromo', 'store.promotions.manage'],
     'GET /api/loja/{slug}/parcelamento' => [PromotionApiController::class, 'installments', Guard::PUBLICO],
     'POST /api/loja/{slug}/store/installments' => [PromotionApiController::class, 'saveInstallmentRules', 'store.settings.write'],
+    'POST /api/loja/{slug}/store/pix-discount' => [VitrineExtrasApiController::class, 'savePixDiscount', 'store.settings.write'],
+    'POST /api/loja/{slug}/store/phone' => [VitrineExtrasApiController::class, 'savePhone', 'store.settings.write'],
+
+    // Frete por CEP: cotação pública (carrinho/checkout), faixas no painel.
+    'GET /api/loja/{slug}/frete' => [VitrineExtrasApiController::class, 'shippingQuote', Guard::PUBLICO],
+    'GET /api/loja/{slug}/frete/faixas' => [VitrineExtrasApiController::class, 'listShipping', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/frete/faixas' => [VitrineExtrasApiController::class, 'createShipping', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/frete/faixas/{id}/excluir' => [VitrineExtrasApiController::class, 'deleteShipping', 'store.promotions.manage'],
+    'POST /api/loja/{slug}/frete/gratis' => [VitrineExtrasApiController::class, 'saveFreeShipping', 'store.promotions.manage'],
+
+    // Cliente logado: favoritos e avaliação (só de produto comprado — regra no controller).
+    'POST /api/loja/{slug}/favoritos/{id}' => [VitrineExtrasApiController::class, 'toggleFavorite', Guard::AUTENTICADO],
+    'POST /api/loja/{slug}/produtos/{id}/avaliacao' => [VitrineExtrasApiController::class, 'saveReview', Guard::AUTENTICADO],
 
     // Pagamento do cliente: o controller exige posse do pedido (ver Fase 0).
     'POST /api/loja/{slug}/payments' => [PaymentApiController::class, 'create', Guard::AUTENTICADO],

@@ -1493,6 +1493,8 @@ if (!function_exists('ui_icon')) {
             'trash' => '<path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
             'package' => '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>',
             'shield' => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+            'whatsapp' => '<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.6z"/><path d="M9.2 8.6c.2-.4.5-.4.8-.4h.5c.2 0 .4.1.5.4l.6 1.5c.1.2 0 .5-.1.6l-.5.6c.6 1.1 1.5 2 2.6 2.6l.6-.5c.2-.2.4-.2.6-.1l1.5.6c.3.1.4.3.4.5v.5c0 .3 0 .6-.4.8-.6.4-1.6.6-2.7.1a9 9 0 0 1-4.3-4.3c-.5-1.1-.3-2.1.1-2.7z"/>',
+            'heart' => '<path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/>',
         ];
         $inner = $paths[$name] ?? $paths['alert'];
         $cls = trim('ui-icon ' . $class);
@@ -1562,8 +1564,94 @@ if (!function_exists('storefront_sort_options')) {
             'promocoes' => 'Promoções',
             'menor-preco' => 'Menor preço',
             'maior-preco' => 'Maior preço',
+            'mais-avaliados' => 'Mais bem avaliados',
             'a-z' => 'Nome (A–Z)',
         ];
+    }
+}
+
+if (!function_exists('store_whatsapp_url')) {
+    /**
+     * Link wa.me do número da loja, com mensagem opcional. Número brasileiro
+     * sem DDI (10 ou 11 dígitos) ganha o 55. Sem número válido: null.
+     */
+    function store_whatsapp_url(array $store, ?string $mensagem = null): ?string
+    {
+        $d = preg_replace('/\D/', '', (string) ($store['phone'] ?? '')) ?? '';
+        if (strlen($d) === 10 || strlen($d) === 11) {
+            $d = '55' . $d;
+        }
+        if (strlen($d) < 12 || strlen($d) > 13) {
+            return null;
+        }
+        $url = 'https://wa.me/' . $d;
+
+        return $mensagem !== null && $mensagem !== '' ? $url . '?text=' . rawurlencode($mensagem) : $url;
+    }
+}
+
+if (!function_exists('storefront_review_summary')) {
+    /**
+     * Média e total de avaliações de cada produto da loja. Cache por
+     * requisição: a vitrine chama uma vez por card.
+     *
+     * @return array<int, array{media: float, total: int}>
+     */
+    function storefront_review_summary(int $storeId): array
+    {
+        static $cache = [];
+        if (!isset($cache[$storeId])) {
+            try {
+                $cache[$storeId] = (new \App\Repositories\ReviewRepository())->summaryByStore($storeId);
+            } catch (\Throwable $e) {
+                $cache[$storeId] = []; // banco sem a migration 0023: vitrine segue sem estrelas
+            }
+        }
+
+        return $cache[$storeId];
+    }
+}
+
+if (!function_exists('storefront_favorite_ids')) {
+    /**
+     * Produtos que o cliente logado favoritou nesta loja (vazio sem login).
+     *
+     * @return array<int, true>
+     */
+    function storefront_favorite_ids(int $storeId): array
+    {
+        static $cache = [];
+        $userId = logged_in() ? (int) ($_SESSION['logged_user_id'] ?? 0) : 0;
+        if ($userId < 1) {
+            return [];
+        }
+        $chave = $userId . ':' . $storeId;
+        if (!isset($cache[$chave])) {
+            try {
+                $cache[$chave] = array_fill_keys((new \App\Repositories\FavoriteRepository())->productIds($userId, $storeId), true);
+            } catch (\Throwable $e) {
+                $cache[$chave] = [];
+            }
+        }
+
+        return $cache[$chave];
+    }
+}
+
+if (!function_exists('ui_stars')) {
+    /** Estrelas de 0 a 5 (com meia estrela), só visuais; o texto acessível vai no rótulo. */
+    function ui_stars(float $nota, int $tamanho = 14): string
+    {
+        $nota = max(0.0, min(5.0, $nota));
+        $html = '';
+        for ($i = 1; $i <= 5; $i++) {
+            $preenchido = $nota >= $i ? 'full' : ($nota >= $i - 0.5 ? 'half' : 'empty');
+            // A meia estrela usa o gradiente #ui-star-half, definido uma vez no layout da loja.
+            $html .= '<svg class="ui-star ui-star--' . $preenchido . '" width="' . $tamanho . '" height="' . $tamanho . '" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
+                . '<path d="M12 2.5l2.94 5.96 6.58.96-4.76 4.64 1.12 6.55L12 17.52l-5.88 3.09 1.12-6.55L2.48 9.42l6.58-.96L12 2.5z"/></svg>';
+        }
+
+        return '<span class="ui-stars" aria-hidden="true">' . $html . '</span>';
     }
 }
 
@@ -1587,7 +1675,8 @@ if (!function_exists('storefront_products')) {
         $ordem = $ordem ?? storefront_current_sort();
         $products = array_map([\App\Services\StockReservation::class, 'applyTo'], $products);
         $vendas = $ordem === 'mais-vendidos' ? (new \App\Repositories\ProductRepository())->salesCountByProduct($storeId) : [];
-        usort($products, static function (array $a, array $b) use ($ordem, $vendas): int {
+        $notas = $ordem === 'mais-avaliados' ? storefront_review_summary($storeId) : [];
+        usort($products, static function (array $a, array $b) use ($ordem, $vendas, $notas): int {
             // Esgotado sempre por último, em qualquer ordenação.
             $ea = (int) ($a['stock_quantity'] ?? 0) > 0 ? 0 : 1;
             $eb = (int) ($b['stock_quantity'] ?? 0) > 0 ? 0 : 1;
@@ -1606,6 +1695,13 @@ if (!function_exists('storefront_products')) {
                     break;
                 case 'maior-preco':
                     $c = product_effective_price($b) <=> product_effective_price($a);
+                    break;
+                case 'mais-avaliados':
+                    // Média primeiro; com a mesma média, quem tem mais avaliações.
+                    // Sem avaliação fica depois de qualquer avaliado.
+                    $na = $notas[(int) $a['id']] ?? ['media' => -1.0, 'total' => 0];
+                    $nb = $notas[(int) $b['id']] ?? ['media' => -1.0, 'total' => 0];
+                    $c = ($nb['media'] <=> $na['media']) ?: ($nb['total'] <=> $na['total']);
                     break;
                 case 'a-z':
                     $c = 0;

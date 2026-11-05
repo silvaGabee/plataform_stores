@@ -590,8 +590,39 @@
     return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
 
+  /**
+   * PIX à vista × parcelamento. A taxa equivalente vem do servidor
+   * (CashDiscount): i tal que 1 − d = a(n, i) / n, com n = parcelas sem juros.
+   */
+  function renderPix(p) {
+    var el = document.getElementById('bi-pix-body');
+    if (!el || !p) return;
+    var pct = function (n) { return Number(n || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%'; };
+    var saldo = (Number(p.juros_parcelamento) || 0) - (Number(p.desconto_pix) || 0);
+    var leitura;
+    if (!p.pix_pct) {
+      leitura = 'A loja não dá desconto no PIX. Configure em Promoções e pagamentos › Parcelamento e PIX.';
+    } else {
+      var n = p.parcelas_sem_juros;
+      leitura = 'Dar ' + pct(p.pix_pct) + ' no PIX equivale a ' + pct(p.taxa_equivalente_pix) + ' ao mês em relação a ' +
+        (n > 1 ? n + 'x sem juros' : 'receber no cartão em 30 dias') + '. ' +
+        (p.taxa_parcelamento > 0
+          ? (p.taxa_equivalente_pix > p.taxa_parcelamento
+            ? 'É mais caro que os ' + pct(p.taxa_parcelamento) + ' a.m. cobrados no parcelamento com juros.'
+            : 'Fica abaixo dos ' + pct(p.taxa_parcelamento) + ' a.m. cobrados no parcelamento com juros.')
+          : '');
+    }
+    el.innerHTML =
+      '<div class="bi-pix-stat"><span>Desconto dado no PIX</span><strong>' + formatMoney(p.desconto_pix) + '</strong><small>' + p.pedidos_pix + ' pedido(s)</small></div>' +
+      '<div class="bi-pix-stat"><span>Juros recebidos no cartão</span><strong>' + formatMoney(p.juros_parcelamento) + '</strong><small>' + p.pedidos_parcelados + ' pedido(s) parcelado(s)</small></div>' +
+      '<div class="bi-pix-stat ' + (saldo >= 0 ? 'is-pos' : 'is-neg') + '"><span>Saldo (juros − desconto)</span><strong>' + formatMoney(saldo) + '</strong><small>no mês</small></div>' +
+      '<p class="bi-pix-note">' + escapeHtml(leitura) + '</p>';
+  }
+
   function showData(data) {
     hideError();
+    setHidden('bi-pix', false);
+    renderPix(data.pix_parcelamento);
     setHidden('bi-loading', true);
     setHidden('bi-kpis', false);
     setHidden('bi-revenue-section', false);

@@ -203,6 +203,17 @@ class OrderService
         $customerName = trim((string) ($pdv['customer_name'] ?? ''));
         $customerName = $customerName !== '' ? mb_substr($customerName, 0, 120) : null;
 
+        // Frete: só pedido online com entrega. Calculado aqui, pelo CEP do
+        // endereço gravado — o valor que o navegador mostrou é só informativo.
+        $frete = 0.0;
+        if ($orderType !== 'pdv' && ($deliveryType ?? 'retirada') === 'entrega' && $addressId) {
+            $cotacao = $this->cotarFrete($storeId, $addressId, $total);
+            if (!$cotacao['disponivel']) {
+                throw new \InvalidArgumentException('A loja não entrega no CEP ' . ShippingQuote::formatCep((string) ($cotacao['cep'] ?? '')) . '. Escolha outro endereço ou retire na loja.');
+            }
+            $frete = $cotacao['valor'];
+        }
+
         $orderId = $this->orderRepo->create([
             'store_id'      => $storeId,
             'customer_id'   => $customerId,
@@ -211,8 +222,9 @@ class OrderService
             'delivery_type' => $deliveryType ?? 'retirada',
             'address_id'   => $addressId,
             'status'       => 'pendente',
-            'total'        => round($total - $discount, 2),
+            'total'        => round($total - $discount + $frete, 2),
             'discount'     => $discount,
+            'shipping_fee' => $frete,
             'pdv_customer_name' => $customerName,
         ]);
         foreach ($items as $item) {
@@ -278,6 +290,19 @@ class OrderService
         //     retentativa de rede). Devolve o que já existe, sem duplicar.
         //   método diferente -> a pessoa mudou de ideia. Cancela o anterior.
         // Recusar os dois casos travaria quem só quer trocar de PIX para cartão.
+        // Pedido online: o desconto do PIX entra (ou sai, se a pessoa trocou
+        // para cartão) agora, com o pedido travado. O valor do PIX é sempre o
+        // calculado aqui; o do cartão já chega com os juros sobre este total.
+        if (strtolower((string) ($order['order_type'] ?? 'online')) === 'online') {
+            $preco = $this->precoParaPagamento($order, $method);
+            if (abs($preco['pix_discount'] - (float) ($order['pix_discount'] ?? 0)) > 0.004
+                || abs($preco['total'] - (float) $order['total']) > 0.004) {
+                $this->orderRepo->setPricing($orderId, $preco['discount'], $preco['pix_discount'], $preco['total']);
+            }
+            if ($method === 'pix') {
+                $amount = $preco['total'];
+            }
+        }
         $existing = $this->paymentRepo->getPendingByOrder($orderId);
         if ($existing !== null) {
             $sameMethod = strtolower((string) $existing['method']) === strtolower($method);
@@ -418,6 +443,47 @@ class OrderService
             ]);
         }
         return $this->paymentRepo->find($paymentId);
+    }
+
+    /**
+     * Conta do pedido online para uma forma de pagamento: itens, cupom, frete
+     * e — se for PIX — o desconto à vista da loja.
+     *
+     * @return array{itens: float, cupom: float, pix_discount: float, frete: float, discount: float, total: float}
+     */
+    public function precoParaPagamento(array $order, string $method): array
+    {
+        $store = (new \App\Repositories\StoreRepository())->find((int) $order['store_id']) ?? [];
+        $itens = $this->orderRepo->itemsSubtotal((int) $order['id']);
+        $cupom = (float) ($order['discount'] ?? 0) - (float) ($order['pix_discount'] ?? 0);
+        $online = strtolower((string) ($order['order_type'] ?? 'online')) === 'online';
+
+        return OrderPricing::breakdown(
+            $itens,
+            $cupom,
+            (float) ($order['shipping_fee'] ?? 0),
+            OrderPricing::pixPct($store),
+            $online && $method === 'pix'
+        );
+    }
+
+    /**
+     * Frete para um endereço do cliente.
+     *
+     * @return array{disponivel: bool, valor: float, prazo: ?int, gratis: bool, regra: ?string, sem_regras: bool, cep: ?string}
+     */
+    public function cotarFrete(int $storeId, int $addressId, float $subtotal): array
+    {
+        $endereco = (new \App\Repositories\UserAddressRepository())->find($addressId);
+        $store = (new \App\Repositories\StoreRepository())->find($storeId) ?? [];
+        $min = isset($store['free_shipping_min']) && $store['free_shipping_min'] !== null ? (float) $store['free_shipping_min'] : null;
+
+        return ShippingQuote::quote(
+            (new \App\Repositories\ShippingRuleRepository())->listByStore($storeId),
+            $min,
+            (string) ($endereco['zipcode'] ?? ''),
+            $subtotal
+        );
     }
 
     public function getOrderWithItems(int $orderId, int $storeId): ?array

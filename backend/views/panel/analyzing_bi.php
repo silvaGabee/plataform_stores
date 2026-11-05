@@ -89,6 +89,12 @@ ob_start();
         </article>
     </section>
 
+    <section id="bi-pix" class="bi-ideas bi-pix hidden" aria-labelledby="bi-pix-title">
+        <h2 id="bi-pix-title" class="bi-section-title">PIX à vista × parcelamento <span class="bi-badge">mês atual</span></h2>
+        <p class="bi-section-desc">Quanto a loja abriu mão com o desconto no PIX, quanto recebeu de juros no cartão e o desconto expresso como taxa de juros ao mês.</p>
+        <div class="bi-pix-grid" id="bi-pix-body"></div>
+    </section>
+
     <section id="bi-ideas" class="bi-ideas hidden" aria-labelledby="bi-ideas-title">
         <h2 id="bi-ideas-title" class="bi-section-title">Ideias de investimento</h2>
         <p class="bi-section-desc">Sugestões automáticas com base nos números.</p>

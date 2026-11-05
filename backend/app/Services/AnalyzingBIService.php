@@ -183,7 +183,20 @@ class AnalyzingBIService
             'nota' => 'Estrutura opcional para POST futuro ao assistente de IA com o mesmo contexto do painel.',
         ];
 
+        // PIX à vista x parcelamento: o que a loja abriu mão no mês, o que
+        // recebeu de juros e quanto o desconto vale como taxa mensal.
+        $store = (new \App\Repositories\StoreRepository())->find($storeId) ?? [];
+        $regras = \App\Services\InstallmentPlan::rules($store);
+        $pixPct = \App\Services\OrderPricing::pixPct($store);
+        $pixParcelamento = $this->repo->pixVsInstallments($storeId, $currStart, $currEnd) + [
+            'pix_pct' => $pixPct,
+            'parcelas_sem_juros' => $regras['free'],
+            'taxa_parcelamento' => $regras['rate'],
+            'taxa_equivalente_pix' => \App\Domain\Finance\CashDiscount::taxaEquivalente($pixPct, $regras['free']),
+        ];
+
         return [
+            'pix_parcelamento' => $pixParcelamento,
             'valor_total' => round($valorTotal, 2),
             'valor_mensal' => round($valorMensal, 2),
             'quantidade_pedidos' => $quantidadePedidos,

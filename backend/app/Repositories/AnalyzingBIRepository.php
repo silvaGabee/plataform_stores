@@ -36,6 +36,37 @@ class AnalyzingBIRepository
         return (float) $stmt->fetchColumn();
     }
 
+    /**
+     * Desconto à vista no PIX concedido x juros recebidos no parcelamento,
+     * em pedidos pagos do período.
+     *
+     * @return array{desconto_pix: float, pedidos_pix: int, juros_parcelamento: float, pedidos_parcelados: int}
+     */
+    public function pixVsInstallments(int $storeId, string $fromDatetime, string $toDatetime): array
+    {
+        $st = $this->pdo->prepare(
+            "SELECT COALESCE(SUM(pix_discount), 0) AS desconto, COALESCE(SUM(pix_discount > 0), 0) AS pedidos
+             FROM orders WHERE store_id = ? AND status = 'pago' AND created_at >= ? AND created_at <= ?"
+        );
+        $st->execute([$storeId, $fromDatetime, $toDatetime]);
+        $pix = $st->fetch() ?: [];
+
+        $st = $this->pdo->prepare(
+            "SELECT COALESCE(SUM(p.interest_amount), 0) AS juros, COALESCE(SUM(p.installments > 1), 0) AS pedidos
+             FROM payments p INNER JOIN orders o ON o.id = p.order_id
+             WHERE p.store_id = ? AND p.status = 'confirmado' AND o.status = 'pago' AND o.created_at >= ? AND o.created_at <= ?"
+        );
+        $st->execute([$storeId, $fromDatetime, $toDatetime]);
+        $cartao = $st->fetch() ?: [];
+
+        return [
+            'desconto_pix' => round((float) ($pix['desconto'] ?? 0), 2),
+            'pedidos_pix' => (int) ($pix['pedidos'] ?? 0),
+            'juros_parcelamento' => round((float) ($cartao['juros'] ?? 0), 2),
+            'pedidos_parcelados' => (int) ($cartao['pedidos'] ?? 0),
+        ];
+    }
+
     public function countPaidOrders(int $storeId, ?string $fromDatetime, ?string $toDatetime): int
     {
         $sql = 'SELECT COUNT(*) FROM orders WHERE store_id = ? AND status = ?';
