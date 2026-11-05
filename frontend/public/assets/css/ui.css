@@ -398,6 +398,10 @@ html[data-theme="dark"] .store-front .store-user-btn { color: #f8fafc; }
 .store-front .store-header .container,
 .store-front .store-footer .container { max-width: min(1440px, 100%) !important; }
 .store-front .store-subpage-inner.container { max-width: min(1100px, 100%) !important; }
+/* Busca → conteúdo: somavam 62px (folga da busca + margem + topo do corpo),
+   um vão maior que qualquer outro da página. Fica em ~36px. */
+.store-front .store-vitrine-search-wrap { margin-bottom: 0; }
+.store-front .store-vitrine-page #store-vitrine-dynamic.store-vitrine-body { padding-top: 1rem; }
 .store-front .products-grid--v2 { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 @media (max-width: 560px) { .store-front .products-grid--v2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
