@@ -315,12 +315,16 @@ class OrderApiController extends Controller
 
     /**
      * Quem registrou a venda (metas / desempenho por funcionário).
-     * PDV: operador logado no painel.
-     * Online: se um gerente/funcionário da mesma loja estiver logado (ex.: atendimento pelo site),
-     * a venda entra na meta dele; cliente comum logado não recebe esse crédito.
+     *
+     * Só o PDV tem operador. Na vitrine o cliente é sempre quem está logado, então
+     * um pedido online de alguém da equipe é uma compra dele, e não uma venda: antes
+     * ela contava para a meta. Atender um cliente é registrar a venda no PDV.
      */
     private function resolveOrderCreatedBy(int $storeId, string $orderType): ?int
     {
+        if ($orderType !== 'pdv') {
+            return null;
+        }
         $opId = (int) ($_SESSION['user_id'] ?? $_SESSION['logged_user_id'] ?? 0);
         if ($opId < 1) {
             return null;
@@ -332,12 +336,6 @@ class OrderApiController extends Controller
         if (!in_array($type, ['funcionario', 'gerente'], true)) {
             return null;
         }
-        if ($orderType === 'pdv') {
-            return $opId;
-        }
-        if ($orderType === 'online') {
-            return $opId;
-        }
-        return null;
+        return $opId;
     }
 }

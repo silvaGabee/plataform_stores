@@ -390,7 +390,7 @@ Só a regra da queda deixaria de fora justamente o pior caso, o produto que nunc
 
 ### 3.3.7 Repartição das metas
 
-A meta da loja cobre todas as vendas, mas o vendido de cada funcionário conta só as vendas registradas no nome dele. A vitrine e as vendas do gerente não contam para ninguém da equipe. Por isso, dividir a meta inteira seria injusto: com meta de R$ 10.000,00 e R$ 6.000,00 vendidos pela vitrine, a loja poderia bater 100% com todos os funcionários abaixo da meta.
+A meta da loja cobre todas as vendas, mas o vendido de cada funcionário conta só as vendas registradas no nome dele. A vitrine e as vendas do gerente não contam para nenhum funcionário, e isso inclui a compra que um funcionário faz na vitrine com a própria conta: nela ele é o cliente, não o vendedor. Por isso, dividir a meta inteira seria injusto: com meta de R$ 10.000,00 e R$ 6.000,00 vendidos pela vitrine, a loja poderia bater 100% com todos os funcionários abaixo da meta.
 
 Assim, o gerente informa qual parte T da meta será dividida. O sistema sugere um valor proporcional ao que os funcionários venderam nos três meses anteriores: com R$ 10.000,00 de meta e 40% das vendas feitas por eles, a sugestão é de R$ 4.000,00. O vendido da loja também é mostrado separado em funcionários, gerente e vitrine, e as três partes somam o total.
 

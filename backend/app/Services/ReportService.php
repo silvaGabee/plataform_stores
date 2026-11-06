@@ -42,12 +42,14 @@ class ReportService
     {
         // A equipe sai de store_members: users deixou de ter store_id/user_type.
         // A loja do pedido agora vem do parâmetro, não de u.store_id.
+        // Só o PDV conta: pedidos online antigos ainda têm created_by de quando a
+        // compra de alguém da equipe era creditada a ele.
         $stmt = $this->pdo->prepare(
             "SELECT u.id, u.name, COUNT(o.id) as orders_count, COALESCE(SUM(o.total - o.shipping_fee), 0) as total_sales
              FROM store_members m
              JOIN users u ON u.id = m.user_id
              LEFT JOIN orders o ON o.created_by = u.id AND o.store_id = m.store_id AND o.status = 'pago'
-               AND o.created_at BETWEEN ? AND ?
+               AND o.order_type = 'pdv' AND o.created_at BETWEEN ? AND ?
              WHERE m.store_id = ?
              GROUP BY u.id, u.name ORDER BY total_sales DESC"
         );

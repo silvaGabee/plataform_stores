@@ -232,8 +232,42 @@ $venda = json_decode(http('POST', "{$base}/api/loja/{$slug}/orders", $jarFunc, [
 $idVenda = (int) ($venda['order']['id'] ?? 0);
 $pedido = $jsonDe("/api/loja/{$slug}/orders/{$idVenda}", $jarFunc);
 $ok('item de pedido não traz o custo', !empty($pedido['items']) && !array_key_exists('cost_price', $pedido['items'][0]));
-if ($idVenda > 0) {
-    http('POST', "{$base}/api/loja/{$slug}/orders/{$idVenda}/cancel", $jarGerente, ['json' => [], 'csrf' => $csrfGerente]);
+
+// Só o PDV credita a venda: na vitrine, quem é da equipe está comprando para si.
+$pdo = \App\Database\Database::getConnection();
+$operador = static function (int $id) use ($pdo) {
+    $q = $pdo->prepare('SELECT created_by FROM orders WHERE id = ?');
+    $q->execute([$id]);
+    return $q->fetchColumn();
+};
+$pagar = static fn (int $id, string $status) => $pdo->prepare('UPDATE orders SET status = ? WHERE id = ?')->execute([$status, $id]);
+$vendidoFunc = static fn (): float => (float) ($jsonDe("/api/loja/{$slug}/goals", $jarFunc)['employees'][0]['total_sales'] ?? 0);
+$idFunc = (int) ($metasFun['employees'][0]['user_id'] ?? 0);
+
+$compra = json_decode(http('POST', "{$base}/api/loja/{$slug}/orders", $jarFunc, [
+    'json' => ['order_type' => 'online', 'items' => [['product_id' => $semVariacao, 'quantity' => 1]]],
+    'csrf' => $csrfFunc,
+])['body'], true) ?: [];
+$idCompra = (int) ($compra['order']['id'] ?? 0);
+$ok('venda no PDV fica no nome de quem registrou', $idVenda > 0 && (int) $operador($idVenda) === $idFunc);
+$ok('compra na vitrine não fica no nome do funcionário', $idCompra > 0 && $operador($idCompra) === null);
+
+// O status vai a pago só durante a leitura; a limpeza abaixo devolve a reserva.
+$antes = $vendidoFunc();
+$pagar($idVenda, 'pago');
+$comVenda = $vendidoFunc();
+$ok('venda paga no PDV conta para a meta', $comVenda > $antes);
+$pagar($idVenda, 'pendente');
+// Pedido online antigo, de quando a compra era creditada.
+$pdo->prepare('UPDATE orders SET created_by = ? WHERE id = ?')->execute([$idFunc, $idCompra]);
+$pagar($idCompra, 'pago');
+$ok('compra antiga na vitrine não conta para a meta', abs($vendidoFunc() - $antes) < 0.01);
+$pagar($idCompra, 'pendente');
+
+foreach ([$idVenda, $idCompra] as $id) {
+    if ($id > 0) {
+        http('POST', "{$base}/api/loja/{$slug}/orders/{$id}/cancel", $jarGerente, ['json' => [], 'csrf' => $csrfGerente]);
+    }
 }
 
 // ---------------------------------------------- escrita: o furo da Fase 2
