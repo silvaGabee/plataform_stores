@@ -17,7 +17,7 @@ class ReportService
     public function salesByPeriod(int $storeId, string $dateFrom, string $dateTo): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT DATE(created_at) as date, COUNT(*) as total_orders, SUM(total) as revenue 
+            "SELECT DATE(created_at) as date, COUNT(*) as total_orders, SUM(total - shipping_fee) as revenue
              FROM orders WHERE store_id = ? AND status = 'pago' AND created_at BETWEEN ? AND ? 
              GROUP BY DATE(created_at) ORDER BY date"
         );
@@ -54,7 +54,7 @@ class ReportService
         // A equipe sai de store_members: users deixou de ter store_id/user_type.
         // A loja do pedido agora vem do parâmetro, não de u.store_id.
         $stmt = $this->pdo->prepare(
-            "SELECT u.id, u.name, COUNT(o.id) as orders_count, COALESCE(SUM(o.total), 0) as total_sales
+            "SELECT u.id, u.name, COUNT(o.id) as orders_count, COALESCE(SUM(o.total - o.shipping_fee), 0) as total_sales
              FROM store_members m
              JOIN users u ON u.id = m.user_id
              LEFT JOIN orders o ON o.created_by = u.id AND o.store_id = m.store_id AND o.status = 'pago'
@@ -67,12 +67,12 @@ class ReportService
     }
 
     /**
-     * Retorna faturamento separado por tipo: físico (PDV) e online.
+     * Retorna faturamento separado por tipo: físico (PDV) e online, sem o frete.
      * @return array{revenue_fisico: float, revenue_online: float, total: float}
      */
     public function storeRevenueByType(int $storeId, ?string $dateFrom = null, ?string $dateTo = null): array
     {
-        $sql = "SELECT order_type, COALESCE(SUM(total), 0) as revenue 
+        $sql = "SELECT order_type, COALESCE(SUM(total - shipping_fee), 0) as revenue
                 FROM orders 
                 WHERE store_id = ? AND status = 'pago'";
         $params = [$storeId];

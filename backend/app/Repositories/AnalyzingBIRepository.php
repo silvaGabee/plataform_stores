@@ -17,10 +17,16 @@ class AnalyzingBIRepository
         $this->pdo = $pdo ?? Database::getConnection();
     }
 
-    /** Pedidos contados como venda: status pago (alinhado aos relatórios do sistema). */
+    /**
+     * Receita de mercadorias dos pedidos pagos, líquida de desconto.
+     *
+     * O frete fica de fora: orders.total o inclui, mas ele não é venda de
+     * mercadoria, não tem CMV e não entra no lucro. Com ele, L = R − CMV não
+     * fecharia em pedido com entrega, e faturamento e ticket médio subiriam.
+     */
     public function sumPaidOrdersTotal(int $storeId, ?string $fromDatetime, ?string $toDatetime): float
     {
-        $sql = 'SELECT COALESCE(SUM(total), 0) FROM orders WHERE store_id = ? AND status = ?';
+        $sql = 'SELECT COALESCE(SUM(total - shipping_fee), 0) FROM orders WHERE store_id = ? AND status = ?';
         $params = [$storeId, 'pago'];
         if ($fromDatetime !== null) {
             $sql .= ' AND created_at >= ?';
@@ -239,7 +245,8 @@ class AnalyzingBIRepository
     }
 
     /**
-     * Faturamento agregado por dia ou mês (só pedidos pagos / enviados da loja).
+     * Faturamento agregado por dia ou mês (só pedidos pagos / enviados da loja),
+     * sem o frete, como em sumPaidOrdersTotal().
      *
      * @param 'day'|'month' $granularity
      *
@@ -249,7 +256,7 @@ class AnalyzingBIRepository
     {
         if ($granularity === 'month') {
             $sql = 'SELECT DATE_FORMAT(o.created_at, \'%Y-%m-01\') AS `data`,
-                COALESCE(SUM(o.total), 0) AS valor
+                COALESCE(SUM(o.total - o.shipping_fee), 0) AS valor
                 FROM orders o
                 WHERE o.store_id = ? AND o.status IN (\'pago\', \'enviado\')
                 AND o.created_at >= ? AND o.created_at <= ?
@@ -257,7 +264,7 @@ class AnalyzingBIRepository
                 ORDER BY `data` ASC';
         } else {
             $sql = 'SELECT DATE(o.created_at) AS `data`,
-                COALESCE(SUM(o.total), 0) AS valor
+                COALESCE(SUM(o.total - o.shipping_fee), 0) AS valor
                 FROM orders o
                 WHERE o.store_id = ? AND o.status IN (\'pago\', \'enviado\')
                 AND o.created_at >= ? AND o.created_at <= ?

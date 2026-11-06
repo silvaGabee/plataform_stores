@@ -136,6 +136,8 @@ A receita bruta (R) é a soma de preço de venda × quantidade de cada item vend
 L = R − CMV = Σ qᵢ · (pvᵢ − pcᵢ)
 ```
 
+O frete cobrado do cliente não faz parte de R: ele não é venda de mercadoria e não tem CMV. Se entrasse na receita, a igualdade acima deixaria de valer em todo pedido com entrega.
+
 A diferença pv − pc é a margem unitária: quanto cada unidade contribui para o resultado. Um erro comum no pequeno comércio é confundir margem com markup, que usam o mesmo numerador, mas bases diferentes (ASSAF NETO, 2016):
 
 **Quadro 1 – Markup e margem**
@@ -282,7 +284,7 @@ O banco tem 23 tabelas e foi desenhado a partir das fórmulas: cada grandeza que
 |---|---|
 | `products` | `sale_price` (preço de venda), `cost_price` (preço de custo), `stock_quantity`, `min_stock` |
 | `product_variants` | estoque por variação de cor e tamanho |
-| `orders` | `total`, `discount` (desconto do balcão), `status`, `order_type` (online ou pdv), `created_at` |
+| `orders` | `total` (itens − descontos + frete), `discount` (desconto do balcão, cupom e PIX), `shipping_fee` (frete), `status`, `order_type` (online ou pdv), `created_at` |
 | `order_items` | `quantity`, `price` e `cost_price`: preço e custo no momento da venda |
 | `payments` | forma (dinheiro, cartão, PIX), situação e valor |
 | `cash_registers` / `cash_movements` | abertura, fechamento, entradas e saídas do caixa |
@@ -302,13 +304,15 @@ Esta seção mostra como cada fórmula do Capítulo 2 foi escrita em código. Os
 
 ### 3.3.1 Receita bruta: o somatório vira SUM()
 
-A receita é a soma do total dos pedidos pagos (R = Σ total). O filtro `status = 'pago'` garante que só entram vendas concretizadas, e as datas definem o período:
+A receita é a soma do total dos pedidos pagos, sem o frete (R = Σ (total − frete)). O filtro `status = 'pago'` garante que só entram vendas concretizadas, e as datas definem o período:
 
 ```sql
-SELECT COALESCE(SUM(total), 0) FROM orders
+SELECT COALESCE(SUM(total - shipping_fee), 0) FROM orders
 WHERE store_id = ? AND status = 'pago'
   AND created_at >= ? AND created_at <= ?
 ```
+
+O frete precisa ser subtraído porque `orders.total` é o valor que o cliente paga pelo pedido, e isso inclui a entrega. Quando o frete foi implementado, ele passou a entrar no faturamento e no ticket médio, mas não no lucro, que é calculado pelos itens. A conta L = R − CMV deixou de fechar nos pedidos com entrega, e foi assim que o erro apareceu. Os juros do parcelamento não têm esse problema: ficam na tabela `payments` e não alteram `orders.total`.
 
 ### 3.3.2 Lucro bruto
 
@@ -347,6 +351,8 @@ $valorTotal = $this->repo->sumPaidOrdersTotal($storeId, null, null);
 $quantidadePedidos = $this->repo->countPaidOrders($storeId, null, null);
 $ticketMedio = $quantidadePedidos > 0 ? $valorTotal / $quantidadePedidos : 0.0;
 ```
+
+Como `sumPaidOrdersTotal` já desconta o frete, o ticket médio mede só o valor em mercadorias de cada pedido.
 
 ### 3.3.5 Taxa de variação percentual
 
@@ -519,7 +525,7 @@ Fonte: os autores (2026).
 
 Fonte: os autores (2026).
 
-O painel mostrou exatamente esses valores. Fizemos também uma verificação cruzada: o lucro calculado pela diferença entre receita e custo (510 − 235 = 275) bate com a soma dos lucros por produto (135 + 120 + 20 = 275).
+O painel mostrou exatamente esses valores. Fizemos também uma verificação cruzada: o lucro calculado pela diferença entre receita e custo (510 − 235 = 275) bate com a soma dos lucros por produto (135 + 120 + 20 = 275). Os pedidos desse teste não têm frete. O caso com frete foi conferido em grande volume, na seção 4.2.4.
 
 A Camiseta foi colocada no teste de propósito, para expor o erro da média simples. Pela média simples, o preço médio seria (50 + 45) ÷ 2 = R$ 47,50. O sistema mostrou R$ 47,00, que é a média ponderada correta. A diferença de R$ 0,50 por unidade, nas cinco unidades vendidas, daria R$ 2,50 de faturamento atribuído a mais ao produto.
 
@@ -562,6 +568,8 @@ Além disso, o projeto tem uma suíte própria de 82 testes automatizados (`php 
 ### 4.2.4 Conferência com grande volume
 
 Para sair da escala do teste de mesa, a ferramenta `bi_benchmark.php` cria um banco separado, gera 50 mil pedidos sintéticos (124.330 itens) e confere os números do BI com um cálculo independente feito item a item. Todos coincidiram: faturamento de R$ 40.151.727,39 em 42.525 pedidos pagos e lucro de R$ 18.545.550,68, que continuou o mesmo depois que todos os custos do cadastro foram aumentados em 50%, o que prova que o custo está congelado na venda.
+
+Depois da implementação do frete, os pedidos online sintéticos passaram a ter frete, que soma R$ 414.824,00 nos pedidos pagos, e a ferramenta passou a conferir também a igualdade L = R − CMV. Faturamento e lucro seguiram exatamente nos valores acima, e a igualdade fechou. Se o frete ainda fosse contado como receita, o faturamento desse conjunto seria de R$ 40.566.551,39 e o ticket médio subiria de R$ 944,19 para R$ 953,95.
 
 A medição também mostrou que, nesse volume, o painel levava quase 2 segundos para abrir. O plano de execução (`EXPLAIN`) indicou que o banco percorria todos os pedidos da loja linha a linha. Com dois índices compostos (migração 0020), o tempo caiu, e a conferência dos valores foi repetida depois da mudança:
 

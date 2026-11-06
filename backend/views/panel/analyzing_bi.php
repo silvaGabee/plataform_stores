@@ -17,12 +17,12 @@ ob_start();
             <article class="bi-kpi bi-kpi--hero">
                 <h2 class="bi-kpi-label">Valor total vendido</h2>
                 <p class="bi-kpi-value" id="bi-kpi-total">—</p>
-                <p class="bi-kpi-desc">Vendas totais da loja</p>
+                <p class="bi-kpi-desc">Vendas totais da loja, sem o frete</p>
             </article>
             <article class="bi-kpi bi-kpi--hero">
                 <h2 class="bi-kpi-label">Valor total do mês</h2>
                 <p class="bi-kpi-value" id="bi-kpi-month">—</p>
-                <p class="bi-kpi-desc">Faturamento só deste mês</p>
+                <p class="bi-kpi-desc">Faturamento só deste mês, sem o frete</p>
             </article>
         </div>
         <div class="bi-kpis-row bi-kpis-row--stats">
@@ -34,7 +34,7 @@ ob_start();
             <article class="bi-kpi">
                 <h2 class="bi-kpi-label">Ticket médio</h2>
                 <p class="bi-kpi-value" id="bi-kpi-ticket">—</p>
-                <p class="bi-kpi-desc">Valor médio de cada pedido</p>
+                <p class="bi-kpi-desc">Valor médio de cada pedido, sem o frete</p>
             </article>
             <article class="bi-kpi bi-kpi--accent">
                 <h2 class="bi-kpi-label">Lucro estimado</h2>
@@ -48,7 +48,7 @@ ob_start();
         <div class="bi-revenue-head">
             <div class="bi-revenue-head-text">
                 <h2 id="bi-revenue-title" class="bi-section-title">Faturamento ao longo do tempo</h2>
-                <p class="bi-section-desc bi-revenue-desc">Evolução do faturamento da loja (pedidos pagos ou enviados), só desta loja. Útil para ver crescimento, quedas e tendências.</p>
+                <p class="bi-section-desc bi-revenue-desc">Evolução do faturamento da loja (pedidos pagos ou enviados, sem o frete), só desta loja. Útil para ver crescimento, quedas e tendências.</p>
             </div>
             <div class="bi-revenue-filters" role="group" aria-label="Período do gráfico">
                 <button type="button" class="bi-revenue-filter" data-periodo="7d">7 dias</button>

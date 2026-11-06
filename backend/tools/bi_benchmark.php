@@ -81,7 +81,7 @@ for ($p = 1; $p <= $nProdutos; $p++) {
 }
 $pdo->exec('INSERT INTO products (id, store_id, name, cost_price, sale_price, stock_quantity, min_stock) VALUES ' . implode(',', $linhas));
 
-$esperado = ['faturamento' => 0, 'pedidos' => 0, 'lucro_cent' => 0];
+$esperado = ['faturamento' => 0, 'pedidos' => 0, 'lucro_cent' => 0, 'cmv_cent' => 0, 'frete_cent' => 0];
 $lote = 2000;
 $itemId = 0;
 $pedidosSql = [];
@@ -91,7 +91,7 @@ $itensSql = [];
 // continua vazio e acusava os `if` abaixo como sempre falsos.
 $flush = static function (array &$pedidosSql, array &$itensSql) use ($pdo): void {
     if ($pedidosSql !== []) {
-        $pdo->exec('INSERT INTO orders (id, store_id, customer_id, order_type, status, total, discount, created_at) VALUES ' . implode(',', $pedidosSql));
+        $pdo->exec('INSERT INTO orders (id, store_id, customer_id, order_type, status, total, discount, shipping_fee, created_at) VALUES' . implode(',', $pedidosSql));
     }
     if ($itensSql !== []) {
         $pdo->exec('INSERT INTO order_items (id, order_id, product_id, quantity, price, cost_price) VALUES ' . implode(',', $itensSql));
@@ -108,6 +108,7 @@ for ($o = 1; $o <= $nPedidos; $o++) {
 
     $subtotalCent = 0;
     $margemCent = 0;
+    $cmvCent = 0;
     $nItens = mt_rand(1, 4);
     $usados = [];
     for ($k = 0; $k < $nItens; $k++) {
@@ -121,17 +122,24 @@ for ($o = 1; $o <= $nPedidos; $o++) {
         $custo = $produtos[$pid]['custo'];
         $subtotalCent += (int) round($q * $preco * 100);
         $margemCent += (int) round($q * ($preco - $custo) * 100);
+        $cmvCent += (int) round($q * $custo * 100);
         $itensSql[] = sprintf('(%d, %d, %d, %d, %.2f, %.2f)', ++$itemId, $o, $pid, $q, $preco, $custo);
     }
     // ~20% dos pedidos de balcão com desconto de até 15% do subtotal.
     $descontoCent = ($tipo === 'pdv' && mt_rand(1, 5) === 1) ? (int) floor($subtotalCent * mt_rand(1, 15) / 100) : 0;
-    $totalCent = $subtotalCent - $descontoCent;
-    $pedidosSql[] = sprintf("(%d, 1, 1, '%s', '%s', %.2f, %.2f, '%s')", $o, $tipo, $status, $totalCent / 100, $descontoCent / 100, $quando);
+    // Pedido online paga frete, que entra em orders.total, mas não na receita.
+    // Vem do número do pedido, e não de mt_rand(), para não mudar a sequência
+    // sorteada: os demais dados continuam iguais aos das medições anteriores.
+    $freteCent = $tipo === 'online' ? 500 + ($o % 30) * 100 : 0;
+    $receitaCent = $subtotalCent - $descontoCent;
+    $pedidosSql[] = sprintf("(%d, 1, 1, '%s', '%s', %.2f, %.2f, %.2f, '%s')", $o, $tipo, $status, ($receitaCent + $freteCent) / 100, $descontoCent / 100, $freteCent / 100, $quando);
 
     if ($status === 'pago') {
-        $esperado['faturamento'] += $totalCent;
+        $esperado['faturamento'] += $receitaCent;
         $esperado['pedidos']++;
         $esperado['lucro_cent'] += $margemCent - $descontoCent;
+        $esperado['cmv_cent'] += $cmvCent;
+        $esperado['frete_cent'] += $freteCent;
     }
     if ($o % $lote === 0) {
         $flush($pedidosSql, $itensSql);
@@ -161,12 +169,17 @@ $confere = static function (string $nome, float $esperadoV, float $obtido) use (
 };
 
 echo "Conferência (BI × cálculo independente em PHP)\n";
-$confere('Faturamento (pedidos pagos)', $esperado['faturamento'] / 100, $repo->sumPaidOrdersTotal(1, null, null));
+$faturamento = $repo->sumPaidOrdersTotal(1, null, null);
+printf("  Frete dos pedidos pagos, fora do faturamento: R$ %s\n", number_format($esperado['frete_cent'] / 100, 2, ',', '.'));
+$confere('Faturamento (pedidos pagos, sem frete)', $esperado['faturamento'] / 100, $faturamento);
+$faturamentoTotal = (float) $pdo->query("SELECT SUM(total) FROM orders WHERE status = 'pago'")->fetchColumn();
+$confere('Σ orders.total − frete = faturamento', $faturamentoTotal - $esperado['frete_cent'] / 100, $faturamento);
 $confere('Quantidade de pedidos pagos', $esperado['pedidos'], $repo->countPaidOrders(1, null, null));
 $lucroAntes = $repo->sumEstimatedProfit(1, null, null);
 // O rateio do desconto é proporcional e feito em ponto flutuante pelo banco;
 // a soma das partes reconstitui o desconto com erro de frações de centavo.
 $confere('Lucro (custo congelado, desconto rateado)', $esperado['lucro_cent'] / 100, $lucroAntes);
+$confere('L = R − CMV', $faturamento - $esperado['cmv_cent'] / 100, $lucroAntes);
 $somaPorProduto = array_sum(array_map(static fn ($r) => (float) $r['lucro_total'], $repo->fetchProductProfitByPeriod(1, null, null)));
 $confere('Σ lucro por produto = lucro total', $lucroAntes, $somaPorProduto);
 
