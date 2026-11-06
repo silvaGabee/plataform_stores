@@ -14,6 +14,9 @@ use App\Services\ReportService;
 
 class GoalsApiController extends Controller
 {
+    /** Meses completos usados para sugerir a parte da meta que cabe aos funcionários. */
+    private const MESES_HISTORICO = 3;
+
     /**
      * Metas e vendas de um mês.
      *
@@ -43,8 +46,11 @@ class GoalsApiController extends Controller
         $podeGerenciar = Permissions::can('store.goals.write', $storeId);
         $eu = (int) ($_SESSION['logged_user_id'] ?? 0);
 
+        $funcionarios = (new StoreMemberRepository())->listMembers($storeId, Permissions::FUNCIONARIO);
+        $idsFuncionarios = array_map(static fn (array $u): int => (int) $u['id'], $funcionarios);
+
         $linhas = [];
-        foreach ((new StoreMemberRepository())->listMembers($storeId, Permissions::FUNCIONARIO) as $u) {
+        foreach ($funcionarios as $u) {
             $id = (int) $u['id'];
             if (!$podeGerenciar && $id !== $eu) {
                 continue;
@@ -73,6 +79,25 @@ class GoalsApiController extends Controller
             $resposta['store_goal'] = $valorMeta;
             $resposta['store_sales'] = $vendidoLoja;
             $resposta['store_percent'] = AnalyzingBIService::goalPercent($vendidoLoja, $valorMeta);
+
+            // De onde veio o vendido. A vitrine e as vendas de quem saiu da equipe
+            // não têm funcionário, então são o que sobra: as três partes sempre
+            // fecham com o total da loja.
+            $vendidoEquipe = 0.0;
+            $vendidoGerentes = 0.0;
+            foreach ($vendas as $id => $p) {
+                if (in_array($id, $idsFuncionarios, true)) {
+                    $vendidoEquipe += (float) $p['total_sales'];
+                } else {
+                    $vendidoGerentes += (float) $p['total_sales'];
+                }
+            }
+            $resposta['sales_by_source'] = [
+                'employees' => round($vendidoEquipe, 2),
+                'managers' => round($vendidoGerentes, 2),
+                'others' => round($vendidoLoja - $vendidoEquipe - $vendidoGerentes, 2),
+            ];
+            $resposta['team_history'] = $this->participacaoDaEquipe($storeId, $from, $idsFuncionarios);
         }
         $this->json($resposta);
     }
@@ -93,21 +118,29 @@ class GoalsApiController extends Controller
             return;
         }
 
-        // A meta é de vendas e o rateio é só entre funcionários: o gerente
-        // define a meta, não a recebe.
-        $funcionarios = !empty($input['distribute_to_employees']) && $goalAmount > 0
+        // A meta da loja inclui a vitrine e as vendas do gerente, que não contam
+        // para nenhum funcionário. Por isso o rateio é de um valor informado, e não
+        // da meta inteira: senão a loja bateria 100% com a equipe abaixo da meta.
+        $dividir = !empty($input['distribute_to_employees']) && $goalAmount > 0;
+        $valorEquipe = round((float) ($input['distribute_amount'] ?? 0), 2);
+        if ($dividir && ($valorEquipe <= 0 || $valorEquipe > $goalAmount)) {
+            $this->json(['error' => 'Informe quanto dividir: mais que zero e até o valor da meta da loja.'], 400);
+            return;
+        }
+        // O gerente define a meta, não a recebe.
+        $funcionarios = $dividir
             ? (new StoreMemberRepository())->listMembers($storeId, Permissions::FUNCIONARIO)
             : [];
 
-        Database::transaction(function () use ($storeId, $period, $goalAmount, $funcionarios): void {
+        Database::transaction(function () use ($storeId, $period, $goalAmount, $valorEquipe, $funcionarios): void {
             (new StoreGoalRepository())->set($storeId, $period, $goalAmount);
             if ($funcionarios === []) {
                 return;
             }
-            // Rateio em centavos: as partes somam exatamente a meta da loja.
+            // Rateio em centavos: as partes somam exatamente o valor dividido.
             // Antes cada parte era round(meta / n, 2) e R$ 1.000 entre 3
             // fechava em R$ 999,99.
-            $partes = Money::splitEvenly($goalAmount, count($funcionarios));
+            $partes = Money::splitEvenly($valorEquipe, count($funcionarios));
             $metas = [];
             foreach (array_values($funcionarios) as $i => $u) {
                 $metas[(int) $u['id']] = $partes[$i];
@@ -142,6 +175,34 @@ class GoalsApiController extends Controller
         }
         (new EmployeeGoalRepository())->set($storeId, $userId, $period, $goalAmount);
         $this->json(['success' => true]);
+    }
+
+    /**
+     * Quanto os funcionários atuais venderam nos meses completos anteriores ao
+     * período, em relação à loja. É a base da sugestão de quanto dividir; percent
+     * nulo significa que a loja não vendeu nada nesses meses.
+     *
+     * @param list<int> $idsFuncionarios
+     * @return array{months: int, percent: ?float}
+     */
+    private function participacaoDaEquipe(int $storeId, string $inicioDoPeriodo, array $idsFuncionarios): array
+    {
+        $reports = new ReportService();
+        $base = (int) strtotime($inicioDoPeriodo);
+        $de = date('Y-m-d', (int) strtotime('-' . self::MESES_HISTORICO . ' months', $base));
+        $ate = date('Y-m-d', (int) strtotime('-1 day', $base));
+        $equipe = 0.0;
+        foreach ($reports->employeePerformance($storeId, $de, $ate) as $p) {
+            if (in_array((int) $p['id'], $idsFuncionarios, true)) {
+                $equipe += (float) $p['total_sales'];
+            }
+        }
+
+        return [
+            'months' => self::MESES_HISTORICO,
+            // A mesma conta do percentual da meta: parte ÷ todo × 100.
+            'percent' => AnalyzingBIService::goalPercent($equipe, $reports->storeRevenueByType($storeId, $de, $ate)['total']),
+        ];
     }
 
     private function normalizePeriod(string $period): string

@@ -206,6 +206,13 @@ $metasFun = $jsonDe("/api/loja/{$slug}/goals", $jarFunc);
 $ok('gerente vê a meta e o faturamento da loja', array_key_exists('store_goal', $metasGer) && array_key_exists('store_sales', $metasGer));
 $ok('funcionário não vê a meta nem o faturamento da loja', !array_key_exists('store_goal', $metasFun) && !array_key_exists('store_sales', $metasFun));
 $ok('funcionário vê só a própria linha de metas', count($metasFun['employees'] ?? []) === 1);
+// O rateio é de um valor informado: a meta da loja inclui vendas sem funcionário.
+$rateio = static fn (array $corpo): int => http('POST', "{$base}/api/loja/{$slug}/goals/store", $jarGerente, [
+    'json' => $corpo + ['period' => date('Y-m'), 'goal_amount' => 1000, 'distribute_to_employees' => true],
+    'csrf' => $csrfGerente,
+])['status'];
+$ok('dividir sem informar o valor é recusado', $rateio([]) === 400);
+$ok('dividir mais que a meta da loja é recusado', $rateio(['distribute_amount' => 1000.01]) === 400);
 $idGerente = (int) (\App\Database\Database::getConnection()->query("SELECT id FROM users WHERE email = 'gerente@loja.test'")->fetchColumn());
 $ok('o gerente não entra na lista de metas da equipe', !in_array($idGerente, array_column($metasGer['employees'] ?? [], 'user_id'), true));
 

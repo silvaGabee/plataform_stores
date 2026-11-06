@@ -154,7 +154,7 @@ Páginas em [backend/routes/web.php](backend/routes/web.php); API em [backend/ro
 | Pagamentos | `POST …/payments`, confirmação, pendentes |
 | Caixa e PDV | abrir/fechar turno, movimentos, resumo, `…/finance/installments` (tabela Price) |
 | Analyzing BI | `…/analyzing-bi`, `…/analyzing-bi/faturamento`, `…/analyzing-bi/indicadores` |
-| Metas | `…/goals`, meta da loja e por funcionário (o funcionário recebe só a própria linha) |
+| Metas | `…/goals`, meta da loja e por funcionário (o funcionário recebe só a própria linha; o rateio divide o valor informado, não a meta inteira) |
 | Equipe | usuários, cargos, hierarquia |
 | Assistente de IA | `…/ai/chat`, `…/ai/descricao-produto` |
 

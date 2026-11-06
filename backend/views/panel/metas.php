@@ -15,6 +15,7 @@ $__gerente = !empty($panel_is_gerente);
     </header>
 
     <div class="ui-stats" id="goals-stats" aria-live="polite"></div>
+    <?php if ($__gerente): ?><p class="ui-hint" id="goals-sources"></p><?php endif; ?>
 
     <?php if ($__gerente): ?>
     <div class="ui-stack">
@@ -23,7 +24,11 @@ $__gerente = !empty($panel_is_gerente);
             <p class="text-muted">Inclui todas as vendas pagas do mês, no balcão e na vitrine, sem o frete.</p>
             <label class="ui-field"><span>Meta do mês (R$)</span><input name="goal_amount" type="number" step="0.01" min="0" required placeholder="0,00"></label>
             <label class="goals-check"><input type="checkbox" name="distribute"> <span>Dividir igualmente entre os funcionários</span></label>
-            <p class="ui-hint">A divisão substitui as metas individuais deste mês. O gerente não entra na divisão.</p>
+            <div class="ui-form" id="goals-split" hidden>
+                <label class="ui-field"><span>Quanto dividir entre eles (R$)</span><input name="distribute_amount" type="number" step="0.01" min="0.01" placeholder="0,00"></label>
+                <p class="ui-hint" id="goals-split-hint"></p>
+                <p class="ui-hint">A divisão substitui as metas individuais deste mês. A vitrine e as vendas do gerente não contam para nenhum funcionário, então a parte deles fica fora da divisão.</p>
+            </div>
             <button type="submit" class="btn btn-primary ui-btn-icon"><?= ui_icon('check', 16) ?><span>Salvar meta</span></button>
         </form>
         <div class="ui-card ui-card--flush">
