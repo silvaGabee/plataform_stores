@@ -661,6 +661,10 @@
     var elProfMonth = document.getElementById('bi-kpi-profit-month');
     if (elProfMonth) elProfMonth.textContent = formatMoney(data.lucro_mensal);
     renderGoal(data.meta_mes);
+    var elMargin = document.getElementById('bi-kpi-margin');
+    if (elMargin && data.margem_mes != null) {
+      elMargin.textContent = 'Margem de ' + formatPct(data.margem_mes) + (data.markup_mes != null ? ' · markup de ' + formatPct(data.markup_mes) : '');
+    }
 
     bindRevenueFiltersOnce();
     var activeP = document.querySelector('.bi-revenue-filter--active');
@@ -674,6 +678,122 @@
     renderCritical(data.estoque_critico);
     renderIdeas(data.ideias_investimento);
   }
+
+  /* ───────────── capital, Curva ABC, giro e cupons (carregados à parte) ───────────── */
+
+  var TOPO_TABELA = 20;
+
+  function pctOuTraco(n) {
+    return n === null || n === undefined ? '—' : formatPct(n);
+  }
+
+  function miniStat(rotulo, valor, nota, classe) {
+    return '<div class="bi-pix-stat' + (classe ? ' ' + classe : '') + '"><span>' + escapeHtml(rotulo) + '</span><strong>' + escapeHtml(valor) + '</strong><small>' + escapeHtml(nota) + '</small></div>';
+  }
+
+  function dataBr(iso) {
+    var p = String(iso).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  }
+
+  function linhasOuVazio(tbody, html, colunas, vazio) {
+    tbody.innerHTML = html || '<tr><td colspan="' + colunas + '" class="ui-empty">' + escapeHtml(vazio) + '</td></tr>';
+  }
+
+  function renderCapital(c) {
+    var pct = c.total > 0 ? ' (' + formatPct(c.parado / c.total * 100) + ' do total)' : '';
+    document.getElementById('bi-capital-body').innerHTML =
+      miniStat('Capital em estoque', formatMoney(c.total), formatQty(c.unidades) + ' unidades') +
+      miniStat('Sem vender há ' + c.dias_sem_venda + ' dias ou mais', formatMoney(c.parado), 'dinheiro parado de fato' + pct, c.parado > 0 ? 'is-neg' : '') +
+      miniStat('Produtos com estoque e sem custo', String(c.sem_custo), c.sem_custo ? 'entram com R$ 0,00: o total está abaixo do real' : 'o total considera todos os produtos', c.sem_custo ? 'is-neg' : '');
+  }
+
+  function renderAbc(abc) {
+    var r = abc.resumo;
+    document.getElementById('bi-abc-resumo').innerHTML = ['A', 'B', 'C'].map(function (k) {
+      return miniStat('Classe ' + k, formatPct(r[k].percentual) + ' da receita', r[k].produtos + ' produto(s) · ' + formatMoney(r[k].receita));
+    }).join('');
+    var badge = { A: 'ui-badge--ok', B: 'ui-badge--info', C: 'ui-badge--muted' };
+    linhasOuVazio(document.getElementById('bi-abc-rows'), abc.itens.slice(0, TOPO_TABELA).map(function (i) {
+      return '<tr><td data-label="Produto"><strong>' + escapeHtml(i.nome) + '</strong></td>' +
+        '<td data-label="Classe"><span class="ui-badge ' + badge[i.classe] + '">' + i.classe + '</span></td>' +
+        '<td data-label="Faturamento" class="ui-num">' + formatMoney(i.receita) + '</td>' +
+        '<td data-label="Acumulado" class="ui-num">' + formatPct(i.acumulado) + '</td>' +
+        '<td data-label="Margem" class="ui-num">' + pctOuTraco(i.margem) + '</td>' +
+        '<td data-label="Markup" class="ui-num">' + pctOuTraco(i.markup) + '</td></tr>';
+    }).join(''), 6, 'Sem vendas pagas nos últimos 12 meses.');
+    document.getElementById('bi-abc-note').textContent = abc.itens.length > TOPO_TABELA ? 'Mostrando ' + TOPO_TABELA + ' de ' + abc.itens.length + ' produtos.' : '';
+  }
+
+  var itensEstoque = [];
+  var ordemEstoque = 'repor';
+
+  function renderEstoque() {
+    var semData = 1e9;
+    var lista = itensEstoque.slice().sort(function (a, b) {
+      if (ordemEstoque === 'capital') return b.capital - a.capital;
+      var da = a.repor_em_dias === null ? semData : a.repor_em_dias;
+      var db = b.repor_em_dias === null ? semData : b.repor_em_dias;
+      return da - db || b.capital - a.capital;
+    });
+    linhasOuVazio(document.getElementById('bi-stock-rows'), lista.slice(0, TOPO_TABELA).map(function (i) {
+      var cobertura = i.estoque < 1 ? 'Esgotado' : i.cobertura_dias === null ? 'Sem venda em 90 dias' : 'Dura mais ' + i.cobertura_dias + ' dias';
+      var repor = i.repor_em_dias === null ? '—'
+        : i.repor_em_dias === 0 ? '<span class="ui-badge ui-badge--danger">Repor agora</span>'
+        : dataBr(i.repor_em);
+      return '<tr><td data-label="Produto"><strong>' + escapeHtml(i.nome) + '</strong></td>' +
+        '<td data-label="Estoque" class="ui-num">' + formatQty(i.estoque) + '</td>' +
+        '<td data-label="Em custo" class="ui-num">' + formatMoney(i.capital) + '</td>' +
+        '<td data-label="Giro" class="ui-num">' + (i.giro === null ? '—' : String(i.giro).replace('.', ',') + '×') + '</td>' +
+        '<td data-label="Cobertura">' + escapeHtml(cobertura) + '</td>' +
+        '<td data-label="Repor até">' + repor + '</td></tr>';
+    }).join(''), 6, 'Nenhum produto cadastrado.');
+    document.getElementById('bi-stock-note').textContent = lista.length > TOPO_TABELA ? 'Mostrando ' + TOPO_TABELA + ' de ' + lista.length + ' produtos.' : '';
+  }
+
+  function renderCupons(c) {
+    var com = c.com_cupom, sem = c.sem_cupom;
+    document.getElementById('bi-coupons-resumo').innerHTML =
+      miniStat('Desconto dado em cupons', formatMoney(com.desconto), com.pedidos + ' pedido(s)') +
+      miniStat('Com cupom', formatMoney(com.ticket_medio) + ' por pedido', 'margem de ' + pctOuTraco(com.margem)) +
+      miniStat('Sem cupom', formatMoney(sem.ticket_medio) + ' por pedido', sem.pedidos + ' pedido(s), margem de ' + pctOuTraco(sem.margem));
+    linhasOuVazio(document.getElementById('bi-coupons-rows'), c.cupons.map(function (i) {
+      return '<tr><td data-label="Cupom"><span class="ui-code">' + escapeHtml(i.codigo) + '</span></td>' +
+        '<td data-label="Pedidos" class="ui-num">' + i.pedidos + '</td>' +
+        '<td data-label="Desconto" class="ui-num">' + formatMoney(i.desconto) + '</td>' +
+        '<td data-label="Receita" class="ui-num">' + formatMoney(i.receita) + '</td>' +
+        '<td data-label="Lucro" class="ui-num">' + formatMoney(i.lucro) + '</td>' +
+        '<td data-label="Margem" class="ui-num">' + pctOuTraco(i.margem) + '</td></tr>';
+    }).join(''), 6, 'Nenhuma compra paga com cupom nos últimos 90 dias.');
+  }
+
+  function loadIndicators() {
+    fetch(apiUrl('/api/loja/' + encodeURIComponent(storeSlug) + '/analyzing-bi/indicadores'), {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Erro ao carregar os indicadores de produto.');
+        return r.json();
+      })
+      .then(function (d) {
+        ['bi-capital', 'bi-abc', 'bi-stock', 'bi-coupons'].forEach(function (id) { setHidden(id, false); });
+        renderCapital(d.capital);
+        renderAbc(d.abc);
+        itensEstoque = d.estoque || [];
+        renderEstoque();
+        renderCupons(d.cupons);
+      })
+      .catch(function (e) { showError(e.message); });
+  }
+
+  document.querySelectorAll('#bi-stock .ui-seg-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#bi-stock .ui-seg-btn').forEach(function (x) { x.classList.toggle('is-active', x === b); });
+      ordemEstoque = b.getAttribute('data-ordem');
+      renderEstoque();
+    });
+  });
 
   fetch(apiUrl('/api/loja/' + encodeURIComponent(storeSlug) + '/analyzing-bi'), {
     credentials: 'same-origin',
@@ -696,7 +816,10 @@
         return j || {};
       });
     })
-    .then(showData)
+    .then(function (data) {
+      showData(data);
+      loadIndicators();
+    })
     .catch(function (e) {
       setHidden('bi-loading', true);
       showError(e.message || 'Erro ao carregar.');

@@ -271,6 +271,14 @@ $resultado = Database::transaction(function (PDO $pdo) use ($force, $pegarFotos,
     $pdo->prepare('INSERT INTO store_goals (store_id, period, goal_amount) VALUES (?, ?, ?)')
         ->execute([$storeId, $periodo, 15000.00]);
 
+    // ---------------------------------------------------- códigos de barras
+    $pdo->prepare("UPDATE products SET barcode = CONCAT('78900', LPAD(id, 8, '0')) WHERE store_id = ?")->execute([$storeId]);
+    $pdo->prepare(
+        "UPDATE product_variants v INNER JOIN products p ON p.id = v.product_id
+            SET v.barcode = CONCAT('78901', LPAD(v.id, 8, '0'))
+          WHERE p.store_id = ? AND v.variant_type = 'combinacao'"
+    )->execute([$storeId]);
+
     $produtos = (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn();
 
     return ['store_id' => $storeId, 'slug' => 'teste', 'produtos' => $produtos];

@@ -74,6 +74,29 @@ class ProductRepository
         return $stmt->fetchAll();
     }
 
+    public function setBarcode(int $id, ?string $barcode): void
+    {
+        $this->pdo->prepare('UPDATE products SET barcode = ? WHERE id = ?')->execute([$barcode, $id]);
+    }
+
+    /**
+     * Produtos da loja que já usam este código, no próprio produto ou numa variação.
+     *
+     * @return list<int>
+     */
+    public function productIdsWithBarcode(int $storeId, string $barcode): array
+    {
+        $st = $this->pdo->prepare(
+            'SELECT id FROM products WHERE store_id = ? AND barcode = ?
+             UNION
+             SELECT v.product_id FROM product_variants v INNER JOIN products p ON p.id = v.product_id
+             WHERE p.store_id = ? AND v.barcode = ?'
+        );
+        $st->execute([$storeId, $barcode, $storeId, $barcode]);
+
+        return array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(

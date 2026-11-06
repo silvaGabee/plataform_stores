@@ -301,6 +301,80 @@ class AnalyzingBIRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Todos os produtos da loja com estoque e vendas pagas desde $inicioAno.
+     * Receita líquida do desconto rateado e sem frete, como no resto do BI.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function fetchProductIndicators(int $storeId, string $inicioAno, string $inicioJanela): array
+    {
+        $sql = 'SELECT p.id, p.name, p.stock_quantity, p.min_stock, p.cost_price, p.created_at,
+                COALESCE(s.quantidade, 0) AS quantidade,
+                COALESCE(s.receita, 0) AS receita,
+                COALESCE(s.cmv, 0) AS cmv,
+                COALESCE(s.quantidade_janela, 0) AS quantidade_janela,
+                s.primeira_venda
+            FROM products p
+            LEFT JOIN (
+                SELECT oi.product_id,
+                    SUM(oi.quantity) AS quantidade,
+                    SUM(oi.quantity * oi.price - ' . self::DESCONTO_ITEM . ') AS receita,
+                    SUM(oi.quantity * ' . self::CUSTO_ITEM . ') AS cmv,
+                    SUM(CASE WHEN o.created_at >= ? THEN oi.quantity ELSE 0 END) AS quantidade_janela,
+                    MIN(o.created_at) AS primeira_venda
+                FROM orders o
+                INNER JOIN order_items oi ON oi.order_id = o.id
+                LEFT JOIN products p ON p.id = oi.product_id
+                WHERE o.store_id = ? AND o.status = \'pago\' AND o.created_at >= ?
+                GROUP BY oi.product_id
+            ) s ON s.product_id = p.id
+            WHERE p.store_id = ?';
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$inicioJanela, $storeId, $inicioAno, $storeId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Pedidos online pagos desde $inicio, agrupados pelo cupom. A linha com
+     * coupon_code NULL reúne os pedidos sem cupom. O desconto do cupom é o total
+     * menos a parte do PIX. O lucro segue a fórmula de sumEstimatedProfit().
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function fetchCouponImpact(int $storeId, string $inicio): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT coupon_code, COUNT(*) AS pedidos, SUM(discount - pix_discount) AS desconto, SUM(total - shipping_fee) AS receita
+             FROM orders
+             WHERE store_id = ? AND status = 'pago' AND order_type = 'online' AND created_at >= ?
+             GROUP BY coupon_code"
+        );
+        $stmt->execute([$storeId, $inicio]);
+        $linhas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $stmt = $this->pdo->prepare(
+            'SELECT o.coupon_code, SUM(oi.quantity * (oi.price - ' . self::CUSTO_ITEM . ') - ' . self::DESCONTO_ITEM . ') AS lucro
+             FROM orders o
+             INNER JOIN order_items oi ON oi.order_id = o.id
+             LEFT JOIN products p ON p.id = oi.product_id
+             WHERE o.store_id = ? AND o.status = \'pago\' AND o.order_type = \'online\' AND o.created_at >= ?
+             GROUP BY o.coupon_code'
+        );
+        $stmt->execute([$storeId, $inicio]);
+        $lucros = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
+            $lucros[(string) $l['coupon_code']] = (float) $l['lucro'];
+        }
+        foreach ($linhas as &$linha) {
+            $linha['lucro'] = $lucros[(string) $linha['coupon_code']] ?? 0.0;
+        }
+        unset($linha);
+
+        return $linhas;
+    }
+
     /** Meta de faturamento da loja no mês (YYYY-MM), ou null se não foi definida. */
     public function fetchStoreGoal(int $storeId, string $period): ?float
     {

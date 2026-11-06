@@ -241,6 +241,61 @@ class OrderRepository
         return true;
     }
 
+    /**
+     * Marca como estornado um pedido pago. Devolve false se ele já não estava pago,
+     * o que impede estornar duas vezes.
+     */
+    public function markRefunded(int $orderId, int $storeId, int $byUserId, string $reason): bool
+    {
+        $st = $this->pdo->prepare("UPDATE orders SET status = 'estornado', refunded_at = NOW(), refunded_by = ?, refund_reason = ? WHERE id = ? AND store_id = ? AND status = 'pago'");
+        $st->execute([$byUserId, $reason, $orderId, $storeId]);
+
+        return $st->rowCount() === 1;
+    }
+
+    /**
+     * Vendas pagas e estornadas dos dois canais, das mais recentes às mais antigas.
+     *
+     * No balcão, customer_id guarda o próprio operador; o cliente é o nome digitado.
+     *
+     * @param ?string $busca número do pedido ou parte do nome do cliente
+     * @param ?string $status 'pago' ou 'estornado'; qualquer outro valor traz os dois
+     */
+    public function listSales(int $storeId, ?string $busca, ?string $status, int $limit = 100): array
+    {
+        $limit = max(1, min(200, $limit));
+        $sql = "SELECT o.id, o.order_type, o.status, o.total, o.discount, o.shipping_fee, o.coupon_code, o.created_at,
+                    o.refunded_at, o.refund_reason, r.name AS refunded_by_name,
+                    CASE WHEN o.order_type = 'pdv' THEN COALESCE(NULLIF(o.pdv_customer_name, ''), 'Balcão') ELSE u.name END AS customer_name,
+                    (SELECT p.method FROM payments p WHERE p.order_id = o.id AND p.status IN ('confirmado', 'estornado') ORDER BY p.id DESC LIMIT 1) AS payment_method
+                FROM orders o
+                LEFT JOIN users u ON u.id = o.customer_id
+                LEFT JOIN users r ON r.id = o.refunded_by
+                WHERE o.store_id = ?";
+        $args = [$storeId];
+        if ($status === 'pago' || $status === 'estornado') {
+            $sql .= ' AND o.status = ?';
+            $args[] = $status;
+        } else {
+            $sql .= " AND o.status IN ('pago', 'estornado')";
+        }
+        $busca = trim((string) $busca);
+        if ($busca !== '') {
+            $numero = ltrim($busca, '#');
+            if (ctype_digit($numero)) {
+                $sql .= ' AND o.id = ?';
+                $args[] = (int) $numero;
+            } else {
+                $sql .= " AND (CASE WHEN o.order_type = 'pdv' THEN o.pdv_customer_name ELSE u.name END) LIKE ?";
+                $args[] = '%' . addcslashes($busca, '%_\\') . '%';
+            }
+        }
+        $st = $this->pdo->prepare($sql . " ORDER BY o.created_at DESC, o.id DESC LIMIT {$limit}");
+        $st->execute($args);
+
+        return $st->fetchAll();
+    }
+
     public function setCoupon(int $orderId, ?string $code): void
     {
         $this->pdo->prepare('UPDATE orders SET coupon_code = ? WHERE id = ?')->execute([$code, $orderId]);

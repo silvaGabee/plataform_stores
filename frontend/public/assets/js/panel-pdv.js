@@ -227,8 +227,22 @@
       if (state.category && (p.vitrine_category_ids || []).map(Number).indexOf(state.category) === -1) return false;
       if (!q) return true;
       if (isCode && String(p.id) === code) return true;
+      if (barcodeMatch(p, state.search) !== null) return true;
       return norm(p.display_name || p.name).indexOf(q) !== -1;
     });
+  }
+
+  /**
+   * Chave de venda do código neste produto: '' para o código do próprio produto,
+   * a variação para o de uma variação, null se o código não for dele.
+   */
+  function barcodeMatch(p, code) {
+    code = String(code).trim().toUpperCase();
+    if (!code) return null;
+    if (p.barcode && String(p.barcode).toUpperCase() === code) return '';
+    var v = (p.variants || []).filter(function (x) { return x.barcode && String(x.barcode).toUpperCase() === code; })[0];
+    if (!v) return null;
+    return v.variant_type === 'combinacao' ? v.variant_value : v.variant_type + ':' + v.variant_value;
   }
 
   function renderCategories() {
@@ -1335,6 +1349,18 @@
   searchInput.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
     e.preventDefault();
+    // Código de barras primeiro: um EAN pode coincidir com um #número por acaso.
+    var lido = this.value;
+    for (var i = 0; i < state.products.length; i++) {
+      var chave = barcodeMatch(state.products[i], lido);
+      if (chave !== null) {
+        addToCart(state.products[i], chave || null);
+        this.value = '';
+        state.search = '';
+        renderProducts();
+        return;
+      }
+    }
     var q = this.value.trim().replace(/^#/, '');
     var list = filteredProducts().filter(function (p) { return productStock(p) > 0; });
     var exact = /^\d+$/.test(q) ? findProduct(q) : null;

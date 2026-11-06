@@ -54,6 +54,15 @@ class ProductVariantRepository
 
     public function replaceForProduct(int $productId, array $variants): void
     {
+        // A matriz é regravada a cada edição (inclusive na tela de Estoque) e não
+        // traz os códigos. Sem guardá-los aqui, salvar o estoque apagaria todos.
+        $st = $this->pdo->prepare('SELECT variant_type, variant_value, barcode FROM product_variants WHERE product_id = ? AND barcode IS NOT NULL');
+        $st->execute([$productId]);
+        $codigos = [];
+        foreach ($st->fetchAll() as $linha) {
+            $codigos[$linha['variant_type'] . "\0" . $linha['variant_value']] = $linha['barcode'];
+        }
+
         $del = $this->pdo->prepare('DELETE FROM product_variants WHERE product_id = ?');
         $del->execute([$productId]);
 
@@ -62,7 +71,7 @@ class ProductVariantRepository
         }
 
         $stmt = $this->pdo->prepare(
-            'INSERT INTO product_variants (product_id, variant_type, variant_value, stock_quantity, sort_order) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO product_variants (product_id, variant_type, variant_value, barcode, stock_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
         );
         $order = 0;
         foreach ($variants as $row) {
@@ -72,7 +81,21 @@ class ProductVariantRepository
             if ($type === '' || $value === '') {
                 continue;
             }
-            $stmt->execute([$productId, $type, $value, $stock, $order++]);
+            $stmt->execute([$productId, $type, $value, $codigos[$type . "\0" . $value] ?? null, $stock, $order++]);
+        }
+    }
+
+    /**
+     * Grava os códigos por variação. A chave é o valor gravado: "Cor|Tamanho" na
+     * matriz. Variação que não existe é ignorada.
+     *
+     * @param array<string, ?string> $codigos
+     */
+    public function setBarcodes(int $productId, array $codigos): void
+    {
+        $st = $this->pdo->prepare("UPDATE product_variants SET barcode = ? WHERE product_id = ? AND variant_value = ? AND variant_type <> '_meta'");
+        foreach ($codigos as $valor => $codigo) {
+            $st->execute([$codigo, $productId, (string) $valor]);
         }
     }
 

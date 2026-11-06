@@ -110,6 +110,11 @@
                             <input type="number" id="product-min-stock" value="0" min="0" step="1">
                             <p class="panel-field-hint">Com um mínimo definido, o BI avisa quando o total chega a ele ou quando alguma variação zera.</p>
                         </div>
+                        <div class="panel-config-field">
+                            <label for="product-barcode">Código de barras ou SKU</label>
+                            <input type="text" id="product-barcode" maxlength="40" autocomplete="off" placeholder="Passe o leitor ou digite">
+                            <p class="panel-field-hint">No PDV, ler este código adiciona o produto à venda. Com variações, use os códigos por cor e tamanho abaixo.</p>
+                        </div>
                     </div>
                 </section>
 
@@ -161,6 +166,8 @@
                                     <tbody></tbody>
                                 </table>
                             </div>
+                            <p class="variant-matrix-step-label variant-barcodes-title">Código de barras de cada variação <span class="panel-label-optional">(opcional)</span></p>
+                            <div class="variant-barcodes" id="variant-barcodes"></div>
                         </div>
                     </div>
                 </section>

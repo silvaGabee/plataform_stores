@@ -55,6 +55,8 @@ $titulos = [
                                     $chip = ['Aguardando pagamento', 'warn'];
                                 } elseif ($st === 'cancelado') {
                                     $chip = [empty($o['cancelled_by']) && !empty($o['expires_at']) ? 'Cancelado: prazo expirou' : 'Cancelado', 'muted'];
+                                } elseif ($st === 'estornado') {
+                                    $chip = ['Estornado', 'muted'];
                                 } else {
                                     $stage = (string) ($o['delivery_stage'] ?? 'solicitado');
                                     $chip = [$isRetirada && $stage === 'entregue' ? 'Retirado' : ($deliveryLabels[$stage] ?? $stage), $stage === 'entregue' ? 'ok' : 'info'];

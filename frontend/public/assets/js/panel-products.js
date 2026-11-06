@@ -863,6 +863,7 @@
     if (variantMatrix.colors.length === 0 || getOrderedSizes().length === 0) {
       thead.innerHTML = '';
       tbody.innerHTML = '';
+      renderVariantBarcodes();
       return;
     }
     var headRow = '<tr><th scope="col">' + (variantMatrix.axis === 'numeracao' ? 'Nº' : 'Tam.') + '</th>';
@@ -899,6 +900,55 @@
       tbody.appendChild(tr);
     });
     syncStockFieldFromVariants();
+    renderVariantBarcodes();
+  }
+
+  /** Códigos por "Cor|Tamanho", guardados fora dos campos para sobreviver a cada redesenho. */
+  var variantBarcodes = {};
+
+  function renderVariantBarcodes() {
+    var box = document.getElementById('variant-barcodes');
+    if (!box) return;
+    box.innerHTML = '';
+    getOrderedSizes().forEach(function (size) {
+      variantMatrix.colors.forEach(function (color) {
+        var key = color + '|' + size;
+        var label = document.createElement('label');
+        label.className = 'variant-barcode-field';
+        var span = document.createElement('span');
+        span.textContent = color + ' · ' + size;
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 40;
+        input.autocomplete = 'off';
+        input.value = variantBarcodes[key] || '';
+        input.addEventListener('input', function () { variantBarcodes[key] = input.value; });
+        // O leitor tecla Enter depois do código; aqui isso não pode enviar o formulário.
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+        label.appendChild(span);
+        label.appendChild(input);
+        box.appendChild(label);
+      });
+    });
+  }
+
+  function variantBarcodesFromApi(data) {
+    variantBarcodes = {};
+    ((data && data.variants) || []).forEach(function (v) {
+      if (v.variant_type === 'combinacao' && v.barcode) variantBarcodes[v.variant_value] = v.barcode;
+    });
+  }
+
+  /** Só as combinações que ainda existem na matriz. */
+  function variantBarcodesPayload() {
+    var out = {};
+    getOrderedSizes().forEach(function (size) {
+      variantMatrix.colors.forEach(function (color) {
+        var key = color + '|' + size;
+        out[key] = variantBarcodes[key] || '';
+      });
+    });
+    return out;
   }
 
   function renderVariantMatrixUi() {
@@ -929,6 +979,7 @@
   }
 
   function setProductVariantsFromApi(data) {
+    variantBarcodesFromApi(data);
     var matrix = (data && data.variants_matrix) ? data.variants_matrix : null;
     if (matrix && matrix.colors && matrix.colors.length) {
       variantMatrix = normalizeLoadedVariantMatrix(matrix);
@@ -939,6 +990,7 @@
   }
 
   function resetProductVariants() {
+    variantBarcodes = {};
     variantMatrix = { axis: null, colors: [], sizes: [], stock: {}, color_meta: {} };
     var picker = document.getElementById('variant-color-picker');
     if (picker) {
@@ -1205,6 +1257,7 @@
         document.getElementById('product-sale').value = formatBrCurrency(p.sale_price || 0);
         document.getElementById('product-stock').value = p.stock_quantity || 0;
         document.getElementById('product-min-stock').value = p.min_stock || 0;
+        document.getElementById('product-barcode').value = p.barcode || '';
         setProductVitrineCategories(p.vitrine_category_ids || p.vitrine_category_id);
       }
       api('/api/loja/' + storeSlug + '/products/' + id).then(function (res) {
@@ -1215,6 +1268,7 @@
           document.getElementById('product-sale').value = formatBrCurrency(res.sale_price || 0);
           document.getElementById('product-stock').value = res.stock_quantity || 0;
           document.getElementById('product-min-stock').value = res.min_stock || 0;
+          document.getElementById('product-barcode').value = res.barcode || '';
           setProductVitrineCategories(res.vitrine_category_ids || res.vitrine_category_id);
           productExistingImages = (res.images || []).slice();
           setProductVariantsFromApi(res);
@@ -1270,6 +1324,8 @@
     modal.querySelectorAll('.close-modal').forEach(function (b) {
       b.addEventListener('click', function () { modal.classList.add('hidden'); });
     });
+    var barcodeEl = document.getElementById('product-barcode');
+    if (barcodeEl) barcodeEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
     var costEl = document.getElementById('product-cost');
     var saleEl = document.getElementById('product-sale');
     if (costEl) costEl.addEventListener('blur', function () { if (this.value) this.value = formatBrCurrency(parseBrCurrency(this.value)); });
@@ -1353,6 +1409,8 @@
         sale_price: parseBrCurrency(document.getElementById('product-sale').value),
         stock_quantity: parseInt(document.getElementById('product-stock').value, 10) || 0,
         min_stock: parseInt(document.getElementById('product-min-stock').value, 10) || 0,
+        barcode: document.getElementById('product-barcode').value,
+        variant_barcodes: variantBarcodesPayload(),
         vitrine_category_ids: categoryIds,
         vitrine_category_id: categoryIds.length ? categoryIds[0] : null
       };
@@ -1374,6 +1432,8 @@
           sale_price: payload.sale_price,
           stock_quantity: payload.stock_quantity,
           min_stock: payload.min_stock,
+          barcode: payload.barcode,
+          variant_barcodes: payload.variant_barcodes,
           vitrine_category_ids: payload.vitrine_category_ids,
           vitrine_category_id: payload.vitrine_category_id,
           variants_matrix: payload.variants_matrix,
@@ -1425,6 +1485,8 @@
         }
         modal.classList.add('hidden');
         load();
+      }).catch(function (err) {
+        alert('Erro ao salvar: ' + (err.message || err));
       });
     });
     var addCatBtn = document.getElementById('product-vitrine-category-add');

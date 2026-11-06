@@ -13,7 +13,9 @@
  *     meses (aparece em "produtos parados");
  *   - reajuste de custo do fornecedor três meses atrás — as vendas anteriores
  *     guardam o custo antigo (custo congelado no item);
- *   - PDV e online, dinheiro/cartão/PIX, descontos no balcão.
+ *   - PDV e online, dinheiro/cartão/PIX, descontos no balcão;
+ *   - compras online com o cupom DEMO10 (só no pedido; não cria cupom na loja);
+ *   - três clientes que param de comprar há mais de 60 dias.
  *
  * O estoque NÃO é alterado: é histórico para análise, não movimentação.
  *
@@ -82,7 +84,7 @@ if (count($produtos) < 2) {
     exit(1);
 }
 $variacoes = [];
-$stmt = $pdo->prepare("SELECT product_id, variant_value FROM product_variants WHERE variant_type = 'combinacao' AND product_id = ?");
+$stmt = $pdo->prepare("SELECT variant_value FROM product_variants WHERE variant_type = 'combinacao' AND product_id = ?");
 foreach ($produtos as $p) {
     $stmt->execute([$p['id']]);
     $variacoes[(int) $p['id']] = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -145,8 +147,8 @@ $resultado = Database::transaction(function () use (
     }
 
     $insOrder = $pdo->prepare(
-        'INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, delivery_stage, status, total, discount, pdv_customer_name, created_at, access_token)
-         VALUES (?, ?, ?, ?, \'retirada\', \'entregue\', ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, delivery_stage, status, total, discount, coupon_code, pdv_customer_name, created_at, access_token)
+         VALUES (?, ?, ?, ?, \'retirada\', \'entregue\', ?, ?, ?, ?, ?, ?, ?)'
     );
     $insItem = $pdo->prepare('INSERT INTO order_items (order_id, product_id, variant_key, quantity, price, cost_price) VALUES (?, ?, ?, ?, ?, ?)');
     $insPay = $pdo->prepare('INSERT INTO payments (order_id, store_id, method, status, amount, created_at) VALUES (?, ?, ?, ?, ?, ?)');
@@ -208,6 +210,10 @@ $resultado = Database::transaction(function () use (
                 $subtotal += $it['qtd'] * $it['preco'];
             }
             $desconto = ($pdv && mt_rand(1, 100) <= 15) ? round($subtotal * mt_rand(5, 10) / 100, 2) : 0.0;
+            $cupom = !$pdv && mt_rand(1, 100) <= 20 ? 'DEMO10' : null;
+            if ($cupom !== null) {
+                $desconto = round($subtotal * 0.10, 2);
+            }
             $total = round($subtotal - $desconto, 2);
 
             $r = mt_rand(1, 100);
@@ -218,11 +224,13 @@ $resultado = Database::transaction(function () use (
             $metodo = $pdv
                 ? $sorteio(['dinheiro' => 30, 'cartao' => 45, 'pix' => 25])
                 : $sorteio(['pix' => 60, 'cartao' => 40]);
-            $cliente = $clientes[array_rand($clientes)];
+            // Os três últimos clientes param de comprar 70 dias antes de hoje.
+            $ativos = $quando < $agora->modify('-70 days') ? $clientes : array_slice($clientes, 0, -3);
+            $cliente = $ativos[array_rand($ativos)];
             $operador = $pdv ? (int) $funcionarios[array_rand($funcionarios)]['user_id'] : null;
 
             $insOrder->execute([
-                $storeId, $cliente['id'], $operador, $pdv ? 'pdv' : 'online', $status, $total, $desconto,
+                $storeId, $cliente['id'], $operador, $pdv ? 'pdv' : 'online', $status, $total, $desconto, $cupom,
                 $pdv && mt_rand(0, 1) ? $cliente['nome'] : null,
                 $quando->format('Y-m-d H:i:s'), bin2hex(random_bytes(16)),
             ]);

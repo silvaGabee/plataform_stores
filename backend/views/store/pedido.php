@@ -5,6 +5,7 @@ $statusLabels = [
     'pendente' => 'Pendente',
     'pago' => 'Pago',
     'cancelado' => 'Cancelado',
+    'estornado' => 'Estornado',
     'entregue' => 'Entregue',
 ];
 $statusLabel = $statusLabels[$statusKey] ?? ucfirst($statusKey);
@@ -154,7 +155,7 @@ $content = ob_start();
             </section>
             <?php endif; ?>
 
-            <?php if (!$isCancelled && ($order['order_type'] ?? 'online') === 'online'): ?>
+            <?php if (!$isCancelled && $statusKey !== 'estornado' && ($order['order_type'] ?? 'online') === 'online'): ?>
             <section class="order-panel order-timeline-panel" aria-labelledby="order-timeline-title">
                 <h2 id="order-timeline-title" class="order-panel-title">Acompanhe seu pedido</h2>
                 <ol class="order-timeline order-timeline--<?= count($timeline) ?>">
@@ -187,6 +188,16 @@ $content = ob_start();
                 <div>
                     <strong><?= $expiredByTime ? 'O prazo de pagamento expirou' : 'Pedido cancelado' ?></strong>
                     <p><?= $expiredByTime ? 'Como o pagamento não foi confirmado a tempo, as peças voltaram para a venda. Você pode fazer um novo pedido quando quiser.' : 'Este pedido foi cancelado e nenhum valor será cobrado.' ?></p>
+                </div>
+            </section>
+            <?php endif; ?>
+
+            <?php if ($statusKey === 'estornado'): ?>
+            <section class="ui-notice ui-notice--muted" role="status">
+                <?= ui_icon('x', 20) ?>
+                <div>
+                    <strong>Pedido estornado</strong>
+                    <p>Esta compra foi cancelada pela loja depois do pagamento. Fale com a loja se tiver dúvidas sobre a devolução do valor.</p>
                 </div>
             </section>
             <?php endif; ?>
@@ -274,7 +285,7 @@ $content = ob_start();
                         $methodKey = strtolower($pay['method'] ?? '');
                         $methodLabel = $paymentMethodLabels[$methodKey] ?? ucfirst($methodKey);
                         $payStatusKey = strtolower($pay['status'] ?? '');
-                        $payStatusLabels = ['pendente' => 'Pendente', 'confirmado' => 'Confirmado', 'cancelado' => 'Cancelado'];
+                        $payStatusLabels = ['pendente' => 'Pendente', 'confirmado' => 'Confirmado', 'cancelado' => 'Cancelado', 'estornado' => 'Estornado'];
                         $payStatusLabel = $payStatusLabels[$payStatusKey] ?? ucfirst($payStatusKey);
                     ?>
                     <li class="order-payment-card <?= $payConfirmed ? 'order-payment-card--confirmed' : '' ?>">

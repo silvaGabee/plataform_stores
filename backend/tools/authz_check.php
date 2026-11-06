@@ -159,6 +159,11 @@ $casos = [
     ['config PIX',          'GET',  "/api/loja/{$slug}/pix-config",          200, 403, 401],
     ['pagamentos pendentes','GET',  "/api/loja/{$slug}/payments/pending",    200, 403, 401],
 
+    // Só gerente: receita, clientes e estorno.
+    ['indicadores do BI',   'GET',  "/api/loja/{$slug}/analyzing-bi/indicadores", 200, 403, 401],
+    ['vendas e estornos',   'GET',  "/api/loja/{$slug}/orders/vendas",       200, 403, 401],
+    ['clientes',            'GET',  "/api/loja/{$slug}/clientes",            200, 403, 401],
+
     // Público:
     ['categorias públicas', 'GET',  "/api/loja/{$slug}/vitrine-categories/public", 200, 200, 200],
 
@@ -239,6 +244,8 @@ $escritas = [
     ['mudar nome da loja', 'POST', "/api/loja/{$slug}/store/name", ['name' => 'Nome Novo']],
     ['definir meta', 'POST', "/api/loja/{$slug}/goals/store",
         ['period' => date('Y-m'), 'goal_amount' => 1000]],
+    ['estornar venda', 'POST', "/api/loja/{$slug}/orders/1/estornar",
+        ['reason' => 'teste', 'return_to_stock' => true]],
     ['definir meta individual', 'POST', "/api/loja/{$slug}/goals/employee",
         ['period' => date('Y-m'), 'user_id' => 1, 'goal_amount' => 1000]],
     ['criar cargo', 'POST', "/api/loja/{$slug}/roles", ['name' => '__authz_teste__']],
@@ -269,6 +276,8 @@ $paginas = [
     ['produtos',     "/painel/{$slug}/produtos",       200, 200],
     ['PDV',          "/painel/{$slug}/pdv",            200, 200],
     ['metas',        "/painel/{$slug}/metas",          200, 200],
+    ['vendas',       "/painel/{$slug}/vendas",         200, 302],
+    ['clientes',     "/painel/{$slug}/clientes",       200, 302],
     ['funcionários', "/painel/{$slug}/funcionarios",   200, 302],
     ['configurações', "/painel/{$slug}/configuracoes", 200, 302],
     ['Analyzing BI', "/painel/{$slug}/analyzing-bi",   200, 302],

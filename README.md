@@ -149,10 +149,11 @@ Páginas em [backend/routes/web.php](backend/routes/web.php); API em [backend/ro
 | Carrinho e checkout | `POST …/cart/sync`, `…/checkout/addresses` |
 | Loja | `…/pix-config`, `…/banner`, `…/store-icon`, `…/store/appearance` |
 | Catálogo | `…/products`, imagens, estoque por variação, categorias da vitrine |
-| Pedidos e entregas | `…/orders`, estágios de entrega |
+| Pedidos e entregas | `…/orders`, estágios de entrega, `…/orders/vendas`, `…/orders/{id}/estornar` |
+| Clientes | `…/clientes` |
 | Pagamentos | `POST …/payments`, confirmação, pendentes |
 | Caixa e PDV | abrir/fechar turno, movimentos, resumo, `…/finance/installments` (tabela Price) |
-| Analyzing BI | `…/analyzing-bi`, `…/analyzing-bi/faturamento` |
+| Analyzing BI | `…/analyzing-bi`, `…/analyzing-bi/faturamento`, `…/analyzing-bi/indicadores` |
 | Metas | `…/goals`, meta da loja e por funcionário (o funcionário recebe só a própria linha) |
 | Equipe | usuários, cargos, hierarquia |
 | Assistente de IA | `…/ai/chat`, `…/ai/descricao-produto` |
@@ -166,6 +167,8 @@ Erros da API voltam em JSON com o campo `error`.
 - **Reserva de estoque.** Pedido online pendente segura as peças: 30 min para escolher o pagamento e pagar o PIX, 3 dias quando o cartão é pago na retirada. Vencido o prazo, o pedido é cancelado sozinho e o estoque volta para a venda (`OrderService::expirarPendentes`). O PDV e a vitrine já mostram o disponível sem as reservas (`StockReservation`).
 - **Pagamento.** O gerente confirma PIX e cartão na retirada em *Entregas › Aguardando pagamento*. Cartão com entrega é confirmado na hora, com parcelamento pela regra da loja (sem juros até N parcelas; acima, tabela Price — `InstallmentPlan`).
 - **Entregas.** Só pedido pago entra no quadro e as etapas só avançam. Venda de balcão já sai como entregue.
+- **Estorno.** Em *Vendas*, o gerente estorna o pedido pago inteiro, com motivo, e escolhe se as peças voltam ao estoque. A venda sai da receita e do lucro do mês em que aconteceu. O sistema só registra: PIX e cartão são devolvidos por fora; dinheiro do balcão sai do caixa aberto.
+- **Código de barras.** Cada produto e cada variação podem ter um código (EAN ou SKU), único na loja. No PDV, o leitor digita o código no campo de busca e tecla Enter.
 - **Descontos.** Preço promocional e cupons são do gerente (*Promoções*). No PDV, desconto dado por funcionário vira um pedido que o gerente aprova ou recusa em qualquer tela do painel; a aprovação vale uma vez, para aquele subtotal e aquele desconto.
 - **Histórico de estoque.** Toda entrada, venda e ajuste (inclusive a reposição pela matriz cor × tamanho) gera movimentação com o responsável. Só o gerente consulta e exporta (CSV).
 - **Tema.** A vitrine segue a cor de fundo da loja (fundo escuro = tema escuro), sem botão de tema; painel e plataforma têm claro/escuro. Os ícones de categoria são servidos pelo próprio projeto (funcionam sem internet).
@@ -184,6 +187,7 @@ Erros da API voltam em JSON com o campo `error`.
 | Criar/editar produto, ajustar estoque, categorias | ✔ | — |
 | Equipe, gestão de cargos, definir metas | ✔ | — |
 | Analyzing BI, faturamento e lucro (também no assistente de IA), configurações, chave PIX | ✔ | — |
+| Vendas e estornos, clientes | ✔ | — |
 | Confirmar pagamento | ✔ | só dinheiro no PDV |
 
 Toda rota declara a permissão no terceiro elemento do handler, e o `App\Http\Guard` decide antes do controller. **Rota sem declaração não executa.**

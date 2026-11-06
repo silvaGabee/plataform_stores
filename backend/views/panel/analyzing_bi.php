@@ -32,7 +32,8 @@ ob_start();
             <article class="bi-kpi bi-kpi--hero bi-kpi--accent">
                 <h2 class="bi-kpi-label">Lucro estimado do mês</h2>
                 <p class="bi-kpi-value" id="bi-kpi-profit-month">—</p>
-                <p class="bi-kpi-desc">Lucro só deste mês: faturamento do mês menos o custo do que foi vendido</p>
+                <p class="bi-kpi-desc">Faturamento do mês menos o custo do que foi vendido</p>
+                <p class="bi-kpi-desc" id="bi-kpi-margin"></p>
             </article>
         </div>
         <div class="bi-kpis-row bi-kpis-row--stats">
@@ -103,6 +104,53 @@ ob_start();
         <h2 id="bi-pix-title" class="bi-section-title">PIX à vista × parcelamento <span class="bi-badge">mês atual</span></h2>
         <p class="bi-section-desc">Quanto a loja abriu mão com o desconto no PIX, quanto recebeu de juros no cartão e o desconto expresso como taxa de juros ao mês.</p>
         <div class="bi-pix-grid" id="bi-pix-body"></div>
+    </section>
+
+    <section id="bi-capital" class="bi-ideas bi-pix hidden" aria-labelledby="bi-capital-title">
+        <h2 id="bi-capital-title" class="bi-section-title">Capital em estoque</h2>
+        <p class="bi-section-desc">Quanto dinheiro está em mercadoria: estoque × custo atual de cada produto.</p>
+        <div class="bi-pix-grid" id="bi-capital-body"></div>
+    </section>
+
+    <section id="bi-abc" class="bi-ideas hidden" aria-labelledby="bi-abc-title">
+        <h2 id="bi-abc-title" class="bi-section-title">Curva ABC <span class="bi-badge">12 meses</span></h2>
+        <p class="bi-section-desc">Produtos ordenados pelo faturamento. Classe A: os primeiros, até somar 80% da receita; B: até 95%; C: o restante. Margem é o lucro sobre a venda; markup, o lucro sobre o custo.</p>
+        <div class="bi-pix-grid" id="bi-abc-resumo"></div>
+        <div class="ui-table-wrap">
+            <table class="ui-table ui-table--compact">
+                <thead><tr><th>Produto</th><th>Classe</th><th class="ui-num">Faturamento</th><th class="ui-num">Acumulado</th><th class="ui-num">Margem</th><th class="ui-num">Markup</th></tr></thead>
+                <tbody id="bi-abc-rows"></tbody>
+            </table>
+        </div>
+        <p class="bi-muted" id="bi-abc-note"></p>
+    </section>
+
+    <section id="bi-stock" class="bi-ideas hidden" aria-labelledby="bi-stock-title">
+        <h2 id="bi-stock-title" class="bi-section-title">Giro e cobertura de estoque</h2>
+        <p class="bi-section-desc">A cobertura projeta quantos dias o estoque dura no ritmo de venda dos últimos 90 dias. "Repor até" é quando ele chega ao mínimo; desconte o prazo do seu fornecedor. O giro é o custo do vendido em 12 meses ÷ o estoque atual a custo.</p>
+        <div class="ui-seg" role="group" aria-label="Ordenar">
+            <button type="button" class="ui-seg-btn is-active" data-ordem="repor">Repor primeiro</button>
+            <button type="button" class="ui-seg-btn" data-ordem="capital">Mais dinheiro em estoque</button>
+        </div>
+        <div class="ui-table-wrap">
+            <table class="ui-table ui-table--compact">
+                <thead><tr><th>Produto</th><th class="ui-num">Estoque</th><th class="ui-num">Em custo</th><th class="ui-num">Giro</th><th>Cobertura</th><th>Repor até</th></tr></thead>
+                <tbody id="bi-stock-rows"></tbody>
+            </table>
+        </div>
+        <p class="bi-muted" id="bi-stock-note"></p>
+    </section>
+
+    <section id="bi-coupons" class="bi-ideas hidden" aria-labelledby="bi-coupons-title">
+        <h2 id="bi-coupons-title" class="bi-section-title">Cupons <span class="bi-badge">90 dias</span></h2>
+        <p class="bi-section-desc">Quanto foi dado de desconto e o que sobrou de receita e lucro, em compras pagas da vitrine. A comparação mostra a diferença entre os dois grupos, não quanto o cupom fez vender a mais: quem usou cupom talvez comprasse de qualquer jeito.</p>
+        <div class="bi-pix-grid" id="bi-coupons-resumo"></div>
+        <div class="ui-table-wrap" id="bi-coupons-table">
+            <table class="ui-table ui-table--compact">
+                <thead><tr><th>Cupom</th><th class="ui-num">Pedidos</th><th class="ui-num">Desconto</th><th class="ui-num">Receita</th><th class="ui-num">Lucro</th><th class="ui-num">Margem</th></tr></thead>
+                <tbody id="bi-coupons-rows"></tbody>
+            </table>
+        </div>
     </section>
 
     <section id="bi-ideas" class="bi-ideas hidden" aria-labelledby="bi-ideas-title">

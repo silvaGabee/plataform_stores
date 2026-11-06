@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Finance\ProductMetrics;
 use App\Domain\Finance\Trend;
 use App\Repositories\AnalyzingBIRepository;
 use DateTimeImmutable;
@@ -184,6 +185,9 @@ class AnalyzingBIService
             'ticket_medio' => round($ticketMedio, 2),
             'lucro_estimado' => round($lucroEstimado, 2),
             'lucro_mensal' => round($lucroMensal, 2),
+            // Como L = R − CMV, o custo do que foi vendido é R − L.
+            'margem_mes' => ProductMetrics::marginPercent($valorMensal, $lucroMensal),
+            'markup_mes' => ProductMetrics::markupPercent($valorMensal - $lucroMensal, $lucroMensal),
             'meta_mes' => [
                 'meta' => $metaMes,
                 'realizado' => round($valorMensal, 2),
@@ -270,6 +274,188 @@ class AnalyzingBIService
         }
 
         return array_slice($out, 0, 12);
+    }
+
+    /** Período da Curva ABC e do giro: um ano cobre as estações. */
+    private const MESES_INDICADORES = 12;
+    /** Ritmo de venda usado na cobertura: recente, para acompanhar a demanda atual. */
+    private const DIAS_JANELA_COBERTURA = 90;
+    /** Período do impacto dos cupons. */
+    private const DIAS_CUPONS = 90;
+
+    /**
+     * Indicadores por produto e de cupons. Ficam fora de buildPayload() por lerem
+     * doze meses de itens: a tela mostra os cartões e carrega estes depois.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildIndicators(int $storeId): array
+    {
+        $tz = new DateTimeZone((string) (config('app.timezone') ?: 'America/Sao_Paulo'));
+        $now = new DateTimeImmutable('now', $tz);
+        $linhas = $this->repo->fetchProductIndicators(
+            $storeId,
+            $now->modify('-' . self::MESES_INDICADORES . ' months')->format('Y-m-d H:i:s'),
+            $now->modify('-' . self::DIAS_JANELA_COBERTURA . ' days')->format('Y-m-d H:i:s')
+        );
+        $parados = self::montarProdutosParados([], $this->repo->fetchProductsWithoutSalesSince(
+            $storeId,
+            $now->modify('-' . self::DIAS_SEM_VENDA . ' days')->format('Y-m-d H:i:s')
+        ), $now);
+
+        return [
+            'capital' => [
+                'parado' => round(array_sum(array_column($parados, 'capital_parado')), 2),
+                'dias_sem_venda' => self::DIAS_SEM_VENDA,
+            ] + self::resumoCapital($linhas),
+            'abc' => self::montarAbc($linhas),
+            'estoque' => self::montarEstoque($linhas, $now),
+            'cupons' => self::montarCupons($this->repo->fetchCouponImpact(
+                $storeId,
+                $now->modify('-' . self::DIAS_CUPONS . ' days')->format('Y-m-d H:i:s')
+            )),
+            'periodo' => [
+                'meses_abc' => self::MESES_INDICADORES,
+                'dias_cobertura' => self::DIAS_JANELA_COBERTURA,
+                'dias_cupons' => self::DIAS_CUPONS,
+            ],
+        ];
+    }
+
+    /**
+     * Capital em estoque: Σ estoque × custo atual do cadastro. Produto com estoque e
+     * sem custo entra com zero, então é contado à parte: o total está subestimado.
+     *
+     * @param list<array<string, mixed>> $linhas
+     * @return array{total: float, unidades: int, sem_custo: int}
+     */
+    public static function resumoCapital(array $linhas): array
+    {
+        $total = 0.0;
+        $unidades = 0;
+        $semCusto = 0;
+        foreach ($linhas as $l) {
+            $estoque = max(0, (int) $l['stock_quantity']);
+            $custo = (float) ($l['cost_price'] ?? 0);
+            $total += $estoque * $custo;
+            $unidades += $estoque;
+            if ($estoque > 0 && $custo <= 0) {
+                $semCusto++;
+            }
+        }
+
+        return ['total' => round($total, 2), 'unidades' => $unidades, 'sem_custo' => $semCusto];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $linhas
+     * @return array{itens: list<array<string, mixed>>, resumo: array<string, array{produtos: int, receita: float, percentual: float}>}
+     */
+    public static function montarAbc(array $linhas): array
+    {
+        $itens = [];
+        foreach (ProductMetrics::abc($linhas) as $l) {
+            $receita = (float) $l['receita'];
+            $cmv = (float) $l['cmv'];
+            $itens[] = [
+                'produto_id' => (int) $l['id'],
+                'nome' => (string) $l['name'],
+                'classe' => $l['classe'],
+                'receita' => round($receita, 2),
+                'participacao' => $l['participacao'],
+                'acumulado' => $l['acumulado'],
+                'margem' => ProductMetrics::marginPercent($receita, $receita - $cmv),
+                'markup' => ProductMetrics::markupPercent($cmv, $receita - $cmv),
+            ];
+        }
+        $total = array_sum(array_column($itens, 'receita'));
+        $resumo = [];
+        foreach (['A', 'B', 'C'] as $classe) {
+            $daClasse = array_filter($itens, static fn (array $i): bool => $i['classe'] === $classe);
+            $receita = array_sum(array_column($daClasse, 'receita'));
+            $resumo[$classe] = [
+                'produtos' => count($daClasse),
+                'receita' => round($receita, 2),
+                'percentual' => $total > 0 ? round($receita / $total * 100, 1) : 0.0,
+            ];
+        }
+
+        return ['itens' => $itens, 'resumo' => $resumo];
+    }
+
+    /**
+     * Capital, giro e cobertura por produto.
+     *
+     * A janela do ritmo de venda é a menor entre 90 dias e a idade do produto: um
+     * item cadastrado há 10 dias que vendeu 10 vende 1 por dia, não 1 a cada 9.
+     * A idade conta da venda mais antiga, se ela vier antes do cadastro, como em
+     * histórico importado: senão, o ritmo seria dividido por quase nenhum dia.
+     * O giro usa o estoque atual porque o sistema não guarda o estoque médio.
+     *
+     * @param list<array<string, mixed>> $linhas
+     * @return list<array<string, mixed>>
+     */
+    public static function montarEstoque(array $linhas, DateTimeImmutable $now): array
+    {
+        $itens = [];
+        foreach ($linhas as $l) {
+            $estoque = max(0, (int) $l['stock_quantity']);
+            $minimo = max(0, (int) $l['min_stock']);
+            $custo = (float) ($l['cost_price'] ?? 0);
+            $vendido = (float) $l['quantidade_janela'];
+            $inicio = min(array_filter([(string) $l['created_at'], (string) ($l['primeira_venda'] ?? '')]));
+            $criado = new DateTimeImmutable($inicio, $now->getTimezone());
+            $idade = (int) floor(($now->getTimestamp() - $criado->getTimestamp()) / 86400);
+            $janela = max(1, min(self::DIAS_JANELA_COBERTURA, $idade));
+            $diasRepor = ProductMetrics::daysUntil($estoque, $minimo, $vendido, $janela);
+            $itens[] = [
+                'produto_id' => (int) $l['id'],
+                'nome' => (string) $l['name'],
+                'estoque' => $estoque,
+                'estoque_minimo' => $minimo,
+                'capital' => round($estoque * $custo, 2),
+                'giro' => ProductMetrics::turnover((float) $l['cmv'], $estoque * $custo),
+                'vendido_janela' => $vendido,
+                'cobertura_dias' => ProductMetrics::daysUntil($estoque, 0, $vendido, $janela),
+                'repor_em_dias' => $diasRepor,
+                'repor_em' => $diasRepor === null ? null : $now->modify('+' . $diasRepor . ' days')->format('Y-m-d'),
+            ];
+        }
+
+        return $itens;
+    }
+
+    /**
+     * Cupons: quanto foi dado de desconto e o que sobrou de receita e lucro.
+     *
+     * A comparação com os pedidos sem cupom descreve os dois grupos, mas não mede
+     * venda a mais: não há como saber quem compraria igual sem o desconto.
+     *
+     * @param list<array<string, mixed>> $linhas de fetchCouponImpact()
+     * @return array{cupons: list<array<string, mixed>>, com_cupom: array<string, mixed>, sem_cupom: array<string, mixed>}
+     */
+    public static function montarCupons(array $linhas): array
+    {
+        $grupo = static function (array $ls): array {
+            $pedidos = (int) array_sum(array_column($ls, 'pedidos'));
+            $receita = (float) array_sum(array_column($ls, 'receita'));
+            $lucro = (float) array_sum(array_column($ls, 'lucro'));
+
+            return [
+                'pedidos' => $pedidos,
+                'desconto' => round((float) array_sum(array_column($ls, 'desconto')), 2),
+                'receita' => round($receita, 2),
+                'lucro' => round($lucro, 2),
+                'ticket_medio' => $pedidos > 0 ? round($receita / $pedidos, 2) : 0.0,
+                'margem' => ProductMetrics::marginPercent($receita, $lucro),
+            ];
+        };
+        $com = array_values(array_filter($linhas, static fn (array $l): bool => $l['coupon_code'] !== null));
+        $sem = array_values(array_filter($linhas, static fn (array $l): bool => $l['coupon_code'] === null));
+        $cupons = array_map(static fn (array $l): array => ['codigo' => (string) $l['coupon_code']] + $grupo([$l]), $com);
+        usort($cupons, static fn (array $a, array $b): int => $b['desconto'] <=> $a['desconto']);
+
+        return ['cupons' => $cupons, 'com_cupom' => $grupo($com), 'sem_cupom' => $grupo($sem)];
     }
 
     /** Dias sem nenhuma venda paga para um produto com estoque contar como parado. */

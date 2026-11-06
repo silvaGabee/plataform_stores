@@ -63,6 +63,21 @@ class PanelController extends Controller
         $this->render('panel/metas', ['store' => $store, 'title' => 'Metas']);
     }
 
+    /** Vendas pagas e estornos: só gerente (a rota já exige store.orders.refund). */
+    public function sales(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/vendas', ['store' => $store, 'title' => 'Vendas']);
+    }
+
+    public function customers(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/clientes', ['store' => $store, 'title' => 'Clientes']);
+    }
+
     public function employees(string $slug): void
     {
         $store = $this->getStore($slug);

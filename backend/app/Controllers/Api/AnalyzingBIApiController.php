@@ -19,6 +19,17 @@ class AnalyzingBIApiController extends Controller
         $this->json($service->buildPayload($storeId));
     }
 
+    /** GET /api/loja/{slug}/analyzing-bi/indicadores — capital, Curva ABC, giro e cupons. */
+    public function indicadores(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+        }
+        $this->requireGerenteOfStore($storeId);
+        $this->json((new AnalyzingBIService())->buildIndicators($storeId));
+    }
+
     /** GET /api/loja/{slug}/analyzing-bi/faturamento?periodo=7d|30d|3m */
     public function faturamento(string $slug): void
     {

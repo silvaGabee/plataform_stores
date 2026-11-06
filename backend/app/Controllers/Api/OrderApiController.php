@@ -156,6 +156,40 @@ class OrderApiController extends Controller
         }
     }
 
+    /** GET: vendas pagas e estornadas, para a tela de Vendas do gerente. */
+    public function sales(string $slug): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $this->json(['orders' => (new OrderRepository())->listSales($storeId, $_GET['q'] ?? null, $_GET['status'] ?? null)]);
+    }
+
+    /** POST: o gerente estorna um pedido pago. Corpo: { reason, return_to_stock }. */
+    public function refund(string $slug, int $id): void
+    {
+        $storeId = $this->getStoreIdFromSlug($slug);
+        if (!$storeId) {
+            $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
+        }
+        $input = $this->getJsonInput();
+        try {
+            $r = $this->orderService()->refundOrder(
+                $id,
+                $storeId,
+                (int) ($_SESSION['logged_user_id'] ?? 0),
+                (string) ($input['reason'] ?? ''),
+                !empty($input['return_to_stock'])
+            );
+            $this->json(['success' => true] + $r);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
     /** POST: o próprio cliente desiste de um pedido que ainda não pagou. */
     public function cancelMine(string $slug, int $id): void
     {

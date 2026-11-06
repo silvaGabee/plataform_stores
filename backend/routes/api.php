@@ -11,6 +11,7 @@ use App\Controllers\Api\RoleApiController;
 use App\Controllers\Api\StockMovementApiController;
 use App\Controllers\Api\CartApiController;
 use App\Controllers\Api\CheckoutApiController;
+use App\Controllers\Api\CustomerApiController;
 use App\Controllers\Api\GoalsApiController;
 use App\Controllers\Api\AnalyzingBIApiController;
 use App\Controllers\Api\VitrineCategoryApiController;
@@ -91,6 +92,7 @@ return [
 
     'GET /api/loja/{slug}/orders/entregas' => [OrderApiController::class, 'listForEntregas', 'store.orders.read'],
     'GET /api/loja/{slug}/orders/aguardando-pagamento' => [OrderApiController::class, 'awaitingPayment', 'store.payments.read'],
+    'GET /api/loja/{slug}/orders/vendas' => [OrderApiController::class, 'sales', 'store.orders.refund'],
     'GET /api/loja/{slug}/orders' => [OrderApiController::class, 'list', 'store.orders.read'],
     'GET /api/loja/{slug}/orders/{id}' => [OrderApiController::class, 'get', 'store.orders.read'],
     // Pedido da vitrine é criado pelo cliente logado; o controller distingue
@@ -100,6 +102,9 @@ return [
     // "Remover do histórico" apagava a venda (DELETE FROM orders) e com ela o
     // faturamento do BI. Removido: o quadro já mostra só os últimos entregues.
     'POST /api/loja/{slug}/orders/{id}/cancel' => [OrderApiController::class, 'cancel', 'store.orders.cancel'],
+    'POST /api/loja/{slug}/orders/{id}/estornar' => [OrderApiController::class, 'refund', 'store.orders.refund'],
+
+    'GET /api/loja/{slug}/clientes' => [CustomerApiController::class, 'list', 'store.customers.read'],
 
     // Área do cliente: cancelar pedido não pago e retomar o pagamento PIX.
     'POST /api/loja/{slug}/meus-pedidos/{id}/cancelar' => [OrderApiController::class, 'cancelMine', Guard::AUTENTICADO],
@@ -156,6 +161,7 @@ return [
     // nada no front os chamava, e um padrão de rota tão genérico competia com
     // qualquer caminho de um segmento sob /api/.
     'GET /api/loja/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento', 'store.bi.read'],
+    'GET /api/loja/{slug}/analyzing-bi/indicadores' => [AnalyzingBIApiController::class, 'indicadores', 'store.bi.read'],
     'GET /api/loja/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index', 'store.bi.read'],
 
     'GET /api/loja/{slug}/goals' => [GoalsApiController::class, 'get', 'store.goals.read'],

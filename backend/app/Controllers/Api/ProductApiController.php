@@ -131,7 +131,12 @@ class ProductApiController extends Controller
             $input = $this->normalizeVitrineCategoriesInput($input);
         }
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
-        $product = $service->update($id, $storeId, $input);
+        try {
+            $product = $service->update($id, $storeId, $input);
+        } catch (\InvalidArgumentException $e) {
+            $this->json(['error' => $e->getMessage()], 400);
+            return;
+        }
         if (!$product) {
             $this->json(['error' => 'Produto não encontrado'], 404);
         }

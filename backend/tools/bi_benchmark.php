@@ -187,6 +187,10 @@ $mesIni = $agora->modify('first day of this month')->setTime(0, 0, 0)->format('Y
 $mesFim = $agora->modify('last day of this month')->setTime(23, 59, 59)->format('Y-m-d H:i:s');
 $somaMes = array_sum(array_map(static fn ($r) => (float) $r['lucro_total'], $repo->fetchProductProfitByPeriod(1, $mesIni, $mesFim)));
 $confere('Lucro do mês = Σ lucro por produto do mês', $repo->sumEstimatedProfit(1, $mesIni, $mesFim), $somaMes);
+// Curva ABC: a receita por produto, com o desconto rateado, tem de fechar com o faturamento.
+$anoIni = $agora->modify('-12 months')->format('Y-m-d H:i:s');
+$somaAbc = array_sum(array_column($service->buildIndicators(1)['abc']['itens'], 'receita'));
+$confere('Σ receita da Curva ABC = faturamento em 12 meses', $repo->sumPaidOrdersTotal(1, $anoIni, null), $somaAbc);
 
 // Muda TODOS os custos do cadastro. O lucro das vendas já feitas não pode mudar.
 $pdo->exec('UPDATE products SET cost_price = cost_price * 1.5');
@@ -205,6 +209,7 @@ $medir = static function (string $nome, callable $fn): void {
     printf("  %-48s %8.1f ms\n", $nome, $t[2]);
 };
 $medir('buildPayload (painel inteiro)', fn () => $service->buildPayload(1));
+$medir('Indicadores (capital, ABC, giro, cupons)', fn () => $service->buildIndicators(1));
 $medir('Faturamento 7 dias + tendência', fn () => $service->getFaturamentoAoLongoDoTempo(1, '7d'));
 $medir('Faturamento 30 dias + tendência', fn () => $service->getFaturamentoAoLongoDoTempo(1, '30d'));
 $medir('Faturamento 3 meses + tendência', fn () => $service->getFaturamentoAoLongoDoTempo(1, '3m'));

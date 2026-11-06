@@ -152,6 +152,41 @@ final class VariantStock
     }
 
     /**
+     * Devolve ao estoque as peças de uma venda estornada. Devolve false quando
+     * não há onde repor: a variação vendida saiu da matriz ou o produto passou a
+     * ter variações depois da venda.
+     */
+    public static function applyReturn(
+        array $product,
+        int $quantity,
+        ?string $variantKey,
+        ProductVariantRepository $variantRepo,
+        ProductRepository $productRepo
+    ): bool {
+        $productId = (int) ($product['id'] ?? 0);
+        if ($productId < 1 || $quantity < 1) {
+            return false;
+        }
+        if (!self::hasVariants($product)) {
+            return $productRepo->incrementStock($productId, $quantity);
+        }
+        $vk = $variantKey !== null ? trim($variantKey) : '';
+        if ($vk === '') {
+            return false;
+        }
+        [$tipo, $valor] = self::resolveTypeAndValue($product, $vk);
+        if ($tipo === null || $valor === null || $tipo === '' || $valor === '') {
+            return false;
+        }
+        if (!$variantRepo->incrementStock($productId, $tipo, $valor, $quantity)) {
+            return false;
+        }
+        $productRepo->updateStock($productId, $variantRepo->totalStock($productId));
+
+        return true;
+    }
+
+    /**
      * Traduz a chave de variação no par (variant_type, variant_value) gravado.
      *
      * @return array{0: ?string, 1: ?string}

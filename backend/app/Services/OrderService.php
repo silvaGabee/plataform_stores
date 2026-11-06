@@ -134,6 +134,96 @@ class OrderService
         return $this->orderRepo->findByIdAndStore($orderId, $storeId) ?? $order;
     }
 
+    /**
+     * Estorna uma venda paga, sempre o pedido inteiro.
+     *
+     * Tudo numa transação: pedido e pagamento viram 'estornado', o uso do cupom
+     * volta e, se o gerente pediu, as peças voltam ao estoque. O BI só soma pedidos
+     * 'pago', então a venda sai da receita e do lucro do mês em que aconteceu.
+     *
+     * O sistema não movimenta dinheiro: pagamento em PIX ou cartão precisa ser
+     * devolvido por fora. Só o dinheiro do balcão passa pelo sistema, e por isso
+     * exige caixa aberto: sem a saída lançada, a gaveta não fecharia.
+     *
+     * @return array{order: array, nao_repostos: list<string>} peças sem onde repor
+     */
+    public function refundOrder(int $orderId, int $storeId, int $byUserId, string $reason, bool $returnToStock): array
+    {
+        $reason = mb_substr(trim($reason), 0, 255);
+        if ($reason === '') {
+            throw new \InvalidArgumentException('Informe o motivo do estorno.');
+        }
+        $r = \App\Database\Database::transaction(
+            fn (): array => $this->refundOrderInTransaction($orderId, $storeId, $byUserId, $reason, $returnToStock)
+        );
+        StockReservation::forget($storeId);
+
+        return $r;
+    }
+
+    private function refundOrderInTransaction(int $orderId, int $storeId, int $byUserId, string $reason, bool $returnToStock): array
+    {
+        $order = $this->orderRepo->findByIdAndStoreForUpdate($orderId, $storeId);
+        if (!$order) {
+            throw new \InvalidArgumentException('Pedido não encontrado.');
+        }
+        if ($order['status'] !== 'pago') {
+            throw new \InvalidArgumentException($order['status'] === 'estornado'
+                ? 'Este pedido já foi estornado.'
+                : 'Só um pedido pago pode ser estornado. Pedido pendente é cancelado.');
+        }
+        $isPdv = strtolower((string) ($order['order_type'] ?? '')) === 'pdv';
+        foreach ($this->paymentRepo->findByOrder($orderId) as $pagamento) {
+            if ($pagamento['status'] !== 'confirmado') {
+                continue;
+            }
+            if ($isPdv && strtolower((string) $pagamento['method']) === 'dinheiro') {
+                $caixa = $this->cashRegisterRepo->findOpenByStore($storeId);
+                if (!$caixa) {
+                    throw new \InvalidArgumentException('Esta venda foi em dinheiro: abra o caixa para registrar a devolução.');
+                }
+                $this->cashMovementRepo->create([
+                    'cash_register_id' => $caixa['id'],
+                    'order_id'         => $orderId,
+                    'type'             => 'saida',
+                    'amount'           => $pagamento['amount'],
+                    'description'      => 'Estorno da venda #' . $orderId,
+                ]);
+            }
+            $this->paymentRepo->updateStatus((int) $pagamento['id'], 'estornado');
+        }
+        if (!$this->orderRepo->markRefunded($orderId, $storeId, $byUserId, $reason)) {
+            throw new \InvalidArgumentException('Não foi possível estornar: o pedido mudou de situação.');
+        }
+        if (!empty($order['coupon_code'])) {
+            (new CouponRepository())->release($storeId, (string) $order['coupon_code']);
+        }
+
+        $naoRepostos = [];
+        foreach ($returnToStock ? $this->orderItemRepo->getByOrder($orderId) : [] as $item) {
+            $product = $this->productService()->getByIdAndStore((int) $item['product_id'], $storeId);
+            $qty = (int) $item['quantity'];
+            $vk = isset($item['variant_key']) ? trim((string) $item['variant_key']) : '';
+            $vk = $vk === '' ? null : $vk;
+            $label = $product && $vk !== null ? product_variant_key_label($product, $vk) : '';
+            $nome = (string) ($item['product_name'] ?? 'Produto') . ($label !== '' ? ' (' . $label . ')' : '');
+            if (!$product || !\App\Domain\Product\VariantStock::applyReturn($product, $qty, $vk, $this->variantRepo, $this->productRepo)) {
+                $naoRepostos[] = $qty . ' × ' . $nome;
+                continue;
+            }
+            $this->stockMovementRepo->create([
+                'store_id'   => $storeId,
+                'product_id' => $product['id'],
+                'user_id'    => $byUserId,
+                'type'       => 'devolucao',
+                'quantity'   => $qty,
+                'reason'     => 'Estorno - Pedido #' . $orderId . ($label !== '' ? ' (' . $label . ')' : ''),
+            ]);
+        }
+
+        return ['order' => $this->orderRepo->findByIdAndStore($orderId, $storeId) ?? $order, 'nao_repostos' => $naoRepostos];
+    }
+
     private function createOrderInTransaction(int $storeId, int $customerId, array $items, string $orderType, ?int $createdBy, ?string $deliveryType, ?int $addressId, array $pdv, array $online = []): array
     {
         $total = 0;

@@ -45,7 +45,7 @@ ob_start();
             <div class="pdv-catalog-toolbar">
                 <label class="pdv-search" for="pdv-search">
                     <?= $__pdvIcon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35', 18) ?>
-                    <input type="search" id="pdv-search" placeholder="Buscar por nome ou código do produto" autocomplete="off" spellcheck="false">
+                    <input type="search" id="pdv-search" placeholder="Buscar por nome, código de barras ou #número" autocomplete="off" spellcheck="false">
                     <kbd class="pdv-kbd">F2</kbd>
                 </label>
                 <label class="pdv-stock-filter">

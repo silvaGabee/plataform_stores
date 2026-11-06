@@ -137,7 +137,7 @@ CREATE TABLE `orders` (
   `address_id` int(10) unsigned DEFAULT NULL,
   `delivery_stage` enum('solicitado','empacotando','entregue_transportadora','em_rota','entregue') NOT NULL DEFAULT 'solicitado',
   `tracking_code` varchar(100) DEFAULT NULL,
-  `status` enum('pendente','pago','cancelado','enviado') NOT NULL DEFAULT 'pendente',
+  `status` enum('pendente','pago','cancelado','enviado','estornado') NOT NULL DEFAULT 'pendente',
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `pix_discount` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -148,6 +148,9 @@ CREATE TABLE `orders` (
   `expires_at` datetime DEFAULT NULL,
   `cancelled_at` datetime DEFAULT NULL,
   `cancelled_by` int(10) unsigned DEFAULT NULL,
+  `refunded_at` datetime DEFAULT NULL,
+  `refunded_by` int(10) unsigned DEFAULT NULL,
+  `refund_reason` varchar(255) DEFAULT NULL,
   `access_token` char(32) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `created_by` (`created_by`),
@@ -169,7 +172,7 @@ CREATE TABLE `payments` (
   `order_id` int(10) unsigned NOT NULL,
   `store_id` int(10) unsigned NOT NULL,
   `method` enum('dinheiro','cartao','pix') NOT NULL,
-  `status` enum('pendente','confirmado','cancelado') NOT NULL DEFAULT 'pendente',
+  `status` enum('pendente','confirmado','cancelado','estornado') NOT NULL DEFAULT 'pendente',
   `amount` decimal(12,2) NOT NULL,
   `installments` tinyint(3) unsigned NOT NULL DEFAULT 1,
   `installment_amount` decimal(12,2) DEFAULT NULL,
@@ -218,12 +221,14 @@ CREATE TABLE `product_variants` (
   `product_id` int(10) unsigned NOT NULL,
   `variant_type` varchar(20) NOT NULL,
   `variant_value` varchar(40) NOT NULL,
+  `barcode` varchar(40) DEFAULT NULL,
   `stock_quantity` int(11) NOT NULL DEFAULT 0,
   `sort_order` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_product_variant` (`product_id`,`variant_type`,`variant_value`),
   KEY `idx_product` (`product_id`),
+  KEY `idx_barcode` (`barcode`),
   CONSTRAINT `product_variants_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `product_vitrine_categories` (
@@ -239,6 +244,7 @@ CREATE TABLE `products` (
   `store_id` int(10) unsigned NOT NULL,
   `vitrine_category_id` int(10) unsigned DEFAULT NULL,
   `name` varchar(255) NOT NULL,
+  `barcode` varchar(40) DEFAULT NULL,
   `description` text DEFAULT NULL,
   `cost_price` decimal(12,2) DEFAULT 0.00,
   `sale_price` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -247,6 +253,7 @@ CREATE TABLE `products` (
   `min_stock` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_store_barcode` (`store_id`,`barcode`),
   KEY `idx_store` (`store_id`),
   KEY `idx_vitrine_category` (`vitrine_category_id`),
   CONSTRAINT `fk_products_vitrine_category` FOREIGN KEY (`vitrine_category_id`) REFERENCES `store_vitrine_categories` (`id`) ON DELETE SET NULL,
@@ -450,3 +457,4 @@ INSERT INTO schema_migrations (version) VALUES ('0020_bi_indexes.sql');
 INSERT INTO schema_migrations (version) VALUES ('0021_vendas_reservas_descontos.php');
 INSERT INTO schema_migrations (version) VALUES ('0022_pdv_vendas_entregues.sql');
 INSERT INTO schema_migrations (version) VALUES ('0023_vitrine_whatsapp_pix_frete_avaliacoes.php');
+INSERT INTO schema_migrations (version) VALUES ('0024_estorno_codigo_barras.php');

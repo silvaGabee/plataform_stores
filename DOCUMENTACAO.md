@@ -153,6 +153,8 @@ Fonte: os autores (2026).
 
 Sobre essas grandezas se constroem os indicadores de gestão. O ticket médio é a receita dividida pelo número de vendas (TM = R / n). O ponto de reposição avisa quando o estoque chega ao mínimo definido. A repartição proporcional divide um total T entre participantes segundo pesos; com pesos iguais, cada um recebe T / n, que é a forma mais simples de dividir uma meta entre a equipe.
 
+Outros indicadores olham para o produto. O capital em estoque é o dinheiro aplicado em mercadoria (C = Σ q × pc). O giro mostra quantas vezes esse valor foi vendido em um período (G = CMV / estoque a custo). A cobertura projeta por quantos dias o estoque dura no ritmo atual de venda (D = estoque / venda média diária). A Curva ABC aplica o princípio de Pareto ao faturamento: poucos itens costumam concentrar a maior parte da receita, então eles são separados em classes A, B e C para receber mais atenção.
+
 ### 2.1.5 Séries temporais
 
 Quando um indicador é observado dia após dia, forma-se uma série temporal. Para ler a tendência corretamente, os intervalos precisam ser regulares: um dia sem vendas tem de aparecer como zero, e não sumir do gráfico. As técnicas mais simples de projeção são a média móvel e a reta de tendência pelos mínimos quadrados. Nesta, numeram-se os períodos x = 0, 1, …, n − 1 e procura-se a reta ŷ = a + b·x que deixa a menor soma dos quadrados dos desvios:
@@ -284,7 +286,7 @@ O banco tem 23 tabelas e foi desenhado a partir das fórmulas: cada grandeza que
 |---|---|
 | `products` | `sale_price` (preço de venda), `cost_price` (preço de custo), `stock_quantity`, `min_stock` |
 | `product_variants` | estoque por variação de cor e tamanho |
-| `orders` | `total` (itens − descontos + frete), `discount` (desconto do balcão, cupom e PIX), `shipping_fee` (frete), `status`, `order_type` (online ou pdv), `created_at` |
+| `orders` | `total` (itens − descontos + frete), `discount` (desconto do balcão, cupom e PIX), `shipping_fee` (frete), `status` (pendente, pago, cancelado ou estornado), `order_type` (online ou pdv), `created_at` |
 | `order_items` | `quantity`, `price` e `cost_price`: preço e custo no momento da venda |
 | `payments` | forma (dinheiro, cartão, PIX), situação e valor |
 | `cash_registers` / `cash_movements` | abertura, fechamento, entradas e saídas do caixa |
@@ -447,7 +449,45 @@ $payment = $this->paymentRepo->findForUpdate($paymentId); // SELECT ... FOR UPDA
 
 Essa é a ligação menos óbvia entre as duas disciplinas. A Matemática Financeira fornece a fórmula, mas é a Computação que garante que os números colocados nela sejam verdadeiros. Uma margem bem calculada sobre um estoque baixado duas vezes continua sendo um número errado.
 
-### 3.3.12 Do número à decisão
+### 3.3.12 Margem e markup em percentual
+
+A distinção do Quadro 1 agora aparece no painel. A margem usa a receita como base, e o markup usa o custo. Como L = R − CMV, os dois saem das grandezas que o sistema já calcula, com o desconto rateado e o custo congelado na venda:
+
+```php
+public static function marginPercent(float $receita, float $lucro): ?float
+{
+    return $receita > 0 ? round($lucro / $receita * 100, 2) : null;
+}
+
+public static function markupPercent(float $custo, float $lucro): ?float
+{
+    return $custo > 0 ? round($lucro / $custo * 100, 2) : null;
+}
+```
+
+Sem base, a função devolve `null` e a tela mostra um traço. Um produto sem custo registrado não tem markup, e mostrar 0% seria falso.
+
+### 3.3.13 Curva ABC
+
+Os produtos são ordenados pelo faturamento dos últimos 12 meses, e cada um recebe o percentual acumulado. A classe depende do acumulado **antes** do item: até 80%, classe A; até 95%, classe B; depois, classe C. Olhar o acumulado anterior garante que o item que cruza os 80% continue na classe A; caso contrário, um único produto com 90% da receita ficaria fora dela.
+
+Com receitas de 700, 150, 100 e 50 (total de 1.000), os acumulados são 70%, 85%, 95% e 100%, e as classes são A, A, B e C. A curva classifica só pelo faturamento, então a tabela mostra a margem ao lado: um item da classe A pode vender muito e render pouco. A conferência com grande volume verifica que a soma da receita da curva é igual ao faturamento do período.
+
+### 3.3.14 Capital, giro e cobertura de estoque
+
+O capital em estoque é Σ estoque × custo atual do cadastro. Produto com estoque e sem custo entra com zero, então o sistema avisa quantos estão nessa situação, porque o total fica abaixo do real. Capital em estoque não é o mesmo que capital parado: a tela separa o total do valor preso em produtos sem venda há pelo menos 30 dias.
+
+A cobertura divide o estoque pela venda média diária dos últimos 90 dias, ou do período de vida do produto, se ele for mais novo. Com 30 unidades em estoque e 60 vendidas em 90 dias, a venda é de 2/3 por dia e o estoque dura 45 dias. A data de reposição usa a mesma conta até o estoque mínimo, não até zero: com mínimo de 10, faltam 20 unidades, ou 30 dias.
+
+Há duas aproximações, indicadas na tela. O giro usa o estoque atual no denominador, e não o estoque médio, que o sistema não guarda. A projeção também não conhece o prazo do fornecedor, então a data é quando o estoque chega ao mínimo, e não quando o pedido de compra deve ser feito.
+
+### 3.3.15 Cupons e estorno na receita
+
+Para cada cupom, o BI mostra pedidos, desconto, receita, lucro e margem dos últimos 90 dias e compara os pedidos com e sem cupom. Essa comparação descreve os dois grupos, mas não mede quanto o cupom fez vender a mais: não há como saber quem compraria igual sem o desconto. Medir o efeito exigiria um experimento com grupo de controle.
+
+O estorno muda a situação do pedido para "estornado". Como todas as consultas somam apenas pedidos pagos, a venda sai da receita, do lucro e das metas sem nenhuma fórmula nova. A consequência é que o valor sai do mês em que a venda aconteceu, e um mês já encerrado pode mudar. A contabilidade costuma registrar a devolução no mês em que ela ocorre; aqui, a escolha mantém L = R − CMV válido em qualquer período.
+
+### 3.3.16 Do número à decisão
 
 Os indicadores chegam ao navegador em JSON. O faturamento vira gráfico de linha (Chart.js); o lucro por produto vira gráfico de barras feito em HTML e CSS, em que a altura de cada barra é a razão entre o lucro do item e o maior lucro do conjunto. Por fim, o sistema gera frases de recomendação: se o faturamento do mês cresceu mais de 1% em relação ao anterior, sugere reforçar o estoque dos campeões; se caiu mais de 1%, sugere rever campanhas ou o mix de produtos.
 
@@ -461,11 +501,11 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 
 | Item | Quantidade |
 |---|---|
-| Telas | 24 (6 da plataforma, 8 da vitrine, 10 do painel) |
+| Telas | 26 (6 da plataforma, 8 da vitrine, 12 do painel) |
 | Tabelas no banco | 23 |
-| Migrações de banco versionadas | 20 |
+| Migrações de banco versionadas | 24 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 108, todos passando |
+| Testes automatizados | 125, todos passando |
 
 Fonte: os autores (2026).
 
@@ -481,15 +521,17 @@ A vitrine (`/loja/{slug}`) tem catálogo com banner, categorias e busca, página
 
 ### 4.1.3 Painel
 
-O painel (`/painel/{slug}`) reúne dashboard do dia, cadastro de produtos com preço de venda e de custo, estoque por variação com histórico, quadro de entregas em formato Kanban, PDV, metas de venda, funcionários, hierarquia de cargos, configurações (identidade visual e chave PIX) e o Analyzing BI. PDV e vitrine usam o mesmo estoque e a mesma tabela de pedidos: uma venda no balcão reduz na hora a quantidade disponível na loja virtual.
+O painel (`/painel/{slug}`) reúne dashboard do dia, cadastro de produtos com preço de venda e de custo, estoque por variação com histórico, quadro de entregas em formato Kanban, PDV, vendas e estornos, clientes, metas de venda, funcionários, hierarquia de cargos, configurações (identidade visual e chave PIX) e o Analyzing BI. PDV e vitrine usam o mesmo estoque e a mesma tabela de pedidos: uma venda no balcão reduz na hora a quantidade disponível na loja virtual.
 
 O PDV foi refeito para o ritmo do balcão: tem atalhos de teclado, desconto no pedido (em reais ou em porcentagem), cálculo de troco e emissão de cupom. No pagamento com cartão, há um simulador de parcelamento pela tabela Price que mostra a parcela, o total, os juros e a tabela de amortização mês a mês.
 
 O funcionário opera a loja (PDV, caixa e entregas), mas não a gerencia. Catálogo, equipe, configurações e BI são do gerente, e o funcionário também não recebe o custo dos produtos nem o faturamento da loja, seja nas respostas da API, seja no contexto do assistente de IA. Essa regra fica no servidor, em uma matriz de permissões consultada antes de qualquer controlador. Esconder botões na tela não basta, porque qualquer um pode chamar o endereço da API diretamente.
 
+Na tela de vendas, o gerente estorna um pedido pago informando o motivo e se as peças voltam ao estoque. Em uma única transação, pedido e pagamento mudam de situação, o uso do cupom é devolvido e o estoque é reposto na variação vendida. Como o pagamento é simulado, o sistema só registra o estorno; a exceção é a venda em dinheiro no balcão, que lança a saída no caixa aberto. O PDV também aceita leitor de código de barras, que funciona como um teclado: lê o código e tecla Enter. Cada variação tem o próprio código, porque cada tamanho é um item diferente na prateleira. A tela de clientes lista quem mais compra e quem não compra há 60 dias ou mais, considerando apenas compras da vitrine, já que a venda de balcão não identifica o cliente.
+
 ### 4.1.4 Analyzing BI
 
-É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, lucro acumulado, lucro do mês, número de pedidos, ticket médio e percentual atingido da meta do mês; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico, que avisa quando o total chega ao mínimo e também quando uma variação zera, como o tamanho M acabar enquanto ainda há P e G; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
+É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, lucro acumulado, lucro do mês, número de pedidos, ticket médio e percentual atingido da meta do mês, além da margem e do markup do mês; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico, que avisa quando o total chega ao mínimo e também quando uma variação zera, como o tamanho M acabar enquanto ainda há P e G; o capital em estoque; a Curva ABC com margem e markup por produto; o giro e a cobertura de estoque, com a data de reposição; o resultado dos cupons; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
 
 ## 4.2 Testes realizados
 
@@ -548,6 +590,10 @@ Testamos também as situações em que a fórmula não tem resposta matemática,
 | Vendeu no mesmo período do mês passado e não vende neste | Queda de 100% | Aparece como produto parado |
 | Tem estoque e nunca vendeu | Sem base para calcular a queda | Aparece como produto parado depois de 30 dias no cadastro |
 | Meta do mês não definida | Realizado ÷ meta sem divisor | Mostra "sem meta", sem percentual |
+| Produto sem custo registrado | Markup = lucro ÷ 0 | Mostra um traço e avisa no capital em estoque |
+| Produto com estoque e sem venda em 90 dias | Cobertura = estoque ÷ 0 | Mostra "Sem venda em 90 dias", sem data de reposição |
+| Produto que representa mais de 80% da receita | Cruza o limite da classe A | Continua na classe A |
+| Estornar duas vezes o mesmo pedido | Devolveria as peças em dobro | A segunda tentativa é recusada |
 
 Fonte: os autores (2026).
 
@@ -567,7 +613,7 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 
 Fonte: os autores (2026).
 
-Além disso, o projeto tem uma suíte própria de 108 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas e as fórmulas financeiras (rateio, regressão, tabela Price, variação percentual, produtos parados, estoque crítico, meta e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
+Além disso, o projeto tem uma suíte própria de 125 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas e as fórmulas financeiras (rateio, regressão, tabela Price, variação percentual, produtos parados, estoque crítico, meta, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
 
 ### 4.2.4 Conferência com grande volume
 
@@ -622,12 +668,15 @@ O objetivo geral foi alcançado, com ressalvas. O sistema registra as vendas pel
 3. **A tendência é linear.** A reta dos mínimos quadrados não trata sazonalidade, como a diferença entre dias da semana ou épocas do ano.
 4. **O volume só foi testado com dados sintéticos.** Os 50 mil pedidos gerados conferiram e foram medidos; operação real e acessos simultâneos em produção, não.
 5. **Os testes cobrem as fórmulas, não as consultas SQL.** As consultas do BI são conferidas pela ferramenta de benchmark, que roda à parte por depender de banco de dados.
+6. **O estorno é sempre do pedido inteiro.** Para devolver só uma peça, é preciso estornar e registrar a venda de novo. O valor também sai do mês da venda, não do mês da devolução.
+7. **A venda de balcão não identifica o cliente.** O relatório de clientes considera apenas as compras da vitrine, e os cupons não são vinculados a um cliente específico.
+8. **O giro e a data de reposição são aproximações.** O giro usa o estoque atual, porque o sistema não guarda o estoque médio, e a data não considera o prazo do fornecedor.
 
 ## 5.3 Sugestões de trabalhos futuros
 
 1. Valor do dinheiro no tempo além do parcelamento: comparação entre pagamento à vista e a prazo, VPL e TIR na compra de estoque, gravação do parcelamento junto com o pagamento e comparação com o SAC.
 2. Sazonalidade na projeção de tendência, por exemplo comparando cada período com o mesmo período do ciclo anterior.
-3. Novos indicadores já descritos na teoria: margem e markup em percentual, Curva ABC, giro de estoque e ponto de equilíbrio.
+3. Novos indicadores: ponto de equilíbrio e medição do efeito dos cupons com grupo de controle.
 4. Integração com um provedor de pagamento real, o que traria a diferença entre venda registrada e dinheiro efetivamente recebido.
 5. Exportação de relatórios em PDF ou planilha e comparação entre lojas, aproveitando a arquitetura multi-loja.
 

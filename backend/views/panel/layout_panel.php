@@ -46,6 +46,10 @@ $__ic = static function (string $d): string {
             <?php if (!empty($panel_is_gerente)): ?>
             <a class="<?= $__navActive('promocoes') ?>" href="<?= base_url("painel/{$store['slug']}/promocoes") ?>"><?= $__ic('M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01') ?><span class="panel-nav-text">Promoções</span></a>
             <?php endif; ?>
+            <?php if (!empty($panel_is_gerente)): ?>
+            <a class="<?= $__navActive('vendas') ?>" href="<?= base_url("painel/{$store['slug']}/vendas") ?>"><?= $__ic('M14 2H6a2 2 0 0 0-2 2v16l3-2 2 2 3-2 3 2 2-2 3 2V8z M14 2v6h6 M8 13h8 M8 17h5') ?><span class="panel-nav-text">Vendas</span></a>
+            <a class="<?= $__navActive('clientes') ?>" href="<?= base_url("painel/{$store['slug']}/clientes") ?>"><?= $__ic('M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z') ?><span class="panel-nav-text">Clientes</span></a>
+            <?php endif; ?>
             <a class="<?= $__navActive('metas') ?>" href="<?= base_url("painel/{$store['slug']}/metas") ?>"><?= $__ic('M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z') ?><span class="panel-nav-text">Metas</span></a>
             <?php if (empty($panel_readonly)): ?>
             <a class="<?= $__navActive('funcionarios') ?>" href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>"><?= $__ic('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75') ?><span class="panel-nav-text">Funcionários</span></a>

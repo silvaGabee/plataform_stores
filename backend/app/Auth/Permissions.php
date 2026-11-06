@@ -44,6 +44,11 @@ final class Permissions
         'store.orders.read'     => [self::GERENTE, self::FUNCIONARIO],
         'store.orders.write'    => [self::GERENTE, self::FUNCIONARIO],
         'store.orders.cancel'   => [self::GERENTE],
+        // Estornar devolve dinheiro e mexe na receita já registrada.
+        'store.orders.refund'   => [self::GERENTE],
+
+        // Clientes: nome, e-mail e quanto cada um gastou.
+        'store.customers.read'  => [self::GERENTE],
 
         'store.stock.history'   => [self::GERENTE],
         'store.discounts.approve' => [self::GERENTE],

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Product\Barcode;
 use App\Repositories\ProductRepository;
 use App\Repositories\ProductImageRepository;
 use App\Repositories\ProductVariantRepository;
@@ -136,6 +137,7 @@ class ProductService
                 'variant_type' => $type,
                 'variant_type_label' => $label,
                 'variant_value' => $value,
+                'barcode' => $row['barcode'] ?? null,
                 'stock_quantity' => (int) $row['stock_quantity'],
             ];
         }, $rows);
@@ -238,12 +240,60 @@ class ProductService
         return $this->getByIdAndStore($productId, $storeId);
     }
 
+    /**
+     * Normaliza os códigos recebidos e recusa repetição, antes de qualquer escrita.
+     *
+     * O mesmo código em dois lugares faria o leitor do PDV vender o item errado.
+     * Dentro do próprio produto só se confere o que veio no formulário, que sempre
+     * traz os códigos do produto e das variações juntos.
+     *
+     * @param array<string, mixed> $data
+     * @return array{tem_produto: bool, produto: ?string, variacoes: ?array<string, ?string>}
+     */
+    private function validarCodigos(int $storeId, ?int $productId, array $data): array
+    {
+        $temProduto = array_key_exists('barcode', $data);
+        $produto = $temProduto ? Barcode::normalize($data['barcode']) : null;
+        $variacoes = null;
+        if (isset($data['variant_barcodes']) && is_array($data['variant_barcodes'])) {
+            $variacoes = [];
+            foreach ($data['variant_barcodes'] as $chave => $codigo) {
+                $variacoes[(string) $chave] = Barcode::normalize($codigo);
+            }
+        }
+        $todos = array_values(array_filter(array_merge([$produto], array_values($variacoes ?? []))));
+        if (count($todos) !== count(array_unique($todos))) {
+            throw new \InvalidArgumentException('O mesmo código de barras foi informado mais de uma vez.');
+        }
+        foreach ($todos as $codigo) {
+            foreach ($this->productRepo->productIdsWithBarcode($storeId, $codigo) as $dono) {
+                if ($dono !== $productId) {
+                    throw new \InvalidArgumentException('O código ' . $codigo . ' já está em uso em outro produto.');
+                }
+            }
+        }
+
+        return ['tem_produto' => $temProduto, 'produto' => $produto, 'variacoes' => $variacoes];
+    }
+
+    /** @param array{tem_produto: bool, produto: ?string, variacoes: ?array<string, ?string>} $codigos */
+    private function gravarCodigos(int $productId, array $codigos): void
+    {
+        if ($codigos['tem_produto']) {
+            $this->productRepo->setBarcode($productId, $codigos['produto']);
+        }
+        if ($codigos['variacoes'] !== null) {
+            $this->variantRepo->setBarcodes($productId, $codigos['variacoes']);
+        }
+    }
+
     public function create(int $storeId, array $data): array
     {
         $data['name'] = trim((string) ($data['name'] ?? ''));
         if ($data['name'] === '') {
             throw new \InvalidArgumentException('Informe o nome do produto.');
         }
+        $codigos = $this->validarCodigos($storeId, null, $data);
         $rawVariants = $data['variants_matrix'] ?? $data['variants'] ?? [];
         unset($data['variants_matrix']);
         $variants = normalize_product_variants_input($rawVariants);
@@ -265,6 +315,7 @@ class ProductService
         if ($variants !== []) {
             $this->variantRepo->replaceForProduct($id, $variants);
         }
+        $this->gravarCodigos($id, $codigos);
         if (!empty($data['image_paths']) && is_array($data['image_paths'])) {
             foreach ($data['image_paths'] as $i => $path) {
                 $this->imageRepo->add($id, $path, $i);
@@ -289,6 +340,7 @@ class ProductService
         if (!$product) {
             return null;
         }
+        $codigos = $this->validarCodigos($storeId, $id, $data);
         $hasVariantsKey = array_key_exists('variants', $data) || array_key_exists('variants_matrix', $data);
         $variants = null;
         if ($hasVariantsKey) {
@@ -326,6 +378,7 @@ class ProductService
         }
         $this->productRepo->update($id, $payload);
         $this->syncVitrineCategories($id, $data);
+        $this->gravarCodigos($id, $codigos);
         $this->registrarDiferencasDeEstoque($storeId, $id, $estoqueAntes, $this->stockSnapshot($id, null));
 
         return $this->getByIdAndStore($id, $storeId);
