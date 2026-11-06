@@ -278,7 +278,7 @@ Fonte: os autores (2026).
 
 ### 3.2.1 Modelagem de dados
 
-O banco tem 23 tabelas e foi desenhado a partir das fórmulas: cada grandeza que aparece em uma conta precisava existir como coluna. As principais estão no Quadro 5.
+O banco tem 28 tabelas e foi desenhado a partir das fórmulas: cada grandeza que aparece em uma conta precisava existir como coluna. As principais estão no Quadro 5.
 
 **Quadro 5 – Tabelas centrais para o cálculo financeiro**
 
@@ -489,7 +489,7 @@ Há duas aproximações, indicadas na tela. O giro usa o estoque atual no denomi
 
 Para cada cupom, o BI mostra pedidos, desconto, receita, lucro e margem dos últimos 90 dias e compara os pedidos com e sem cupom. Essa comparação descreve os dois grupos, mas não mede quanto o cupom fez vender a mais: não há como saber quem compraria igual sem o desconto. Medir o efeito exigiria um experimento com grupo de controle.
 
-O estorno muda a situação do pedido para "estornado". Como todas as consultas somam apenas pedidos pagos, a venda sai da receita, do lucro e das metas sem nenhuma fórmula nova. A consequência é que o valor sai do mês em que a venda aconteceu, e um mês já encerrado pode mudar. A contabilidade costuma registrar a devolução no mês em que ela ocorre; aqui, a escolha mantém L = R − CMV válido em qualquer período.
+O estorno muda a situação do pedido para "estornado". Como todas as consultas somam apenas pedidos pagos, a venda sai da receita, do lucro e das metas sem nenhuma fórmula nova. A consequência é que o valor sai do mês em que a venda aconteceu, e um mês já encerrado pode mudar: estornar em novembro uma venda de agosto reduz o faturamento e o lucro de agosto e altera a comparação de agosto com os outros meses. Um relatório de agosto emitido antes do estorno deixa, portanto, de bater com o que o sistema mostra depois. A contabilidade costuma registrar a devolução no mês em que ela ocorre; aqui, a escolha mantém L = R − CMV válido em qualquer período.
 
 ### 3.3.16 Do número à decisão
 
@@ -505,8 +505,8 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 
 | Item | Quantidade |
 |---|---|
-| Telas | 26 (6 da plataforma, 8 da vitrine, 12 do painel) |
-| Tabelas no banco | 23 |
+| Telas | 29 (6 da plataforma, 9 da vitrine, 14 do painel) |
+| Tabelas no banco | 28 |
 | Migrações de banco versionadas | 24 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
 | Testes automatizados | 125, todos passando |
