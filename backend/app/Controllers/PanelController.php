@@ -57,6 +57,12 @@ class PanelController extends Controller
         $this->render('panel/pdv', ['store' => $store, 'title' => 'PDV', 'pdv_user_name' => $this->getLoggedUserName()]);
     }
 
+    public function goals(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->render('panel/metas', ['store' => $store, 'title' => 'Metas']);
+    }
+
     public function employees(string $slug): void
     {
         $store = $this->getStore($slug);

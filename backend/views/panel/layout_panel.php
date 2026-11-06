@@ -46,6 +46,7 @@ $__ic = static function (string $d): string {
             <?php if (!empty($panel_is_gerente)): ?>
             <a class="<?= $__navActive('promocoes') ?>" href="<?= base_url("painel/{$store['slug']}/promocoes") ?>"><?= $__ic('M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z M7 7h.01') ?><span class="panel-nav-text">Promoções</span></a>
             <?php endif; ?>
+            <a class="<?= $__navActive('metas') ?>" href="<?= base_url("painel/{$store['slug']}/metas") ?>"><?= $__ic('M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z') ?><span class="panel-nav-text">Metas</span></a>
             <?php if (empty($panel_readonly)): ?>
             <a class="<?= $__navActive('funcionarios') ?>" href="<?= base_url("painel/{$store['slug']}/funcionarios") ?>"><?= $__ic('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75') ?><span class="panel-nav-text">Funcionários</span></a>
             <?php endif; ?>

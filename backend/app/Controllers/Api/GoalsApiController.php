@@ -2,60 +2,79 @@
 
 namespace App\Controllers\Api;
 
+use App\Auth\Permissions;
 use App\Controllers\Controller;
-use App\Repositories\StoreGoalRepository;
+use App\Database\Database;
+use App\Domain\Finance\Money;
 use App\Repositories\EmployeeGoalRepository;
-use App\Repositories\UserRepository;
+use App\Repositories\StoreGoalRepository;
+use App\Repositories\StoreMemberRepository;
+use App\Services\AnalyzingBIService;
 use App\Services\ReportService;
 
 class GoalsApiController extends Controller
 {
+    /**
+     * Metas e vendas de um mês.
+     *
+     * O gerente recebe a loja e a equipe. O funcionário recebe só a própria
+     * linha: a rota é aberta aos dois, e o faturamento da loja e as vendas dos
+     * colegas são dados do gerente.
+     */
     public function get(string $slug): void
     {
         $storeId = $this->getStoreIdFromSlug($slug);
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
         }
-        $this->requireStorePanelAccess($storeId);
-        $period = $this->normalizePeriod($_GET['period'] ?? date('Y-m'));
-        $storeGoalRepo = new StoreGoalRepository();
-        $empGoalRepo = new EmployeeGoalRepository();
-        $userRepo = new UserRepository();
-        $reportService = new ReportService();
+        $period = $this->normalizePeriod((string) ($_GET['period'] ?? date('Y-m')));
+        // As vendas são as do mês da meta. Comparar a meta de um mês com outro
+        // intervalo daria um percentual sem sentido.
+        $from = $period . '-01';
+        $to = date('Y-m-t', (int) strtotime($from));
 
-        $storeGoal = $storeGoalRepo->getByStoreAndPeriod($storeId, $period);
-        $storeGoalAmount = $storeGoal ? (float) $storeGoal['goal_amount'] : 0.0;
+        $reports = new ReportService();
+        $vendas = [];
+        foreach ($reports->employeePerformance($storeId, $from, $to) as $p) {
+            $vendas[(int) $p['id']] = $p;
+        }
+        $metas = (new EmployeeGoalRepository())->getByStoreAndPeriod($storeId, $period);
+        $podeGerenciar = Permissions::can('store.goals.write', $storeId);
+        $eu = (int) ($_SESSION['logged_user_id'] ?? 0);
 
-        $employeeGoals = $empGoalRepo->getByStoreAndPeriod($storeId, $period);
-        // Vendas: mesmo intervalo De/Até do dashboard (parseReportDateRange). Meta em R$ continua do mês "period".
-        [$salesFrom, $salesTo] = $this->parseReportDateRange($_GET['from'] ?? null, $_GET['to'] ?? null);
-        $performance = $reportService->employeePerformance($storeId, $salesFrom, $salesTo);
-        $employees = (new \App\Repositories\StoreMemberRepository())->listMembers($storeId);
-        $byId = [];
-        foreach ($employees as $u) {
-            $byId[(int) $u['id']] = [
-                'user_id' => (int) $u['id'],
-                'name' => $u['name'] ?? '',
-                'goal_amount' => $employeeGoals[(int) $u['id']] ?? 0,
-                'orders_count' => 0,
-                'total_sales' => 0,
+        $linhas = [];
+        foreach ((new StoreMemberRepository())->listMembers($storeId, Permissions::FUNCIONARIO) as $u) {
+            $id = (int) $u['id'];
+            if (!$podeGerenciar && $id !== $eu) {
+                continue;
+            }
+            $meta = $metas[$id] ?? 0.0;
+            $vendido = (float) ($vendas[$id]['total_sales'] ?? 0);
+            $linhas[] = [
+                'user_id' => $id,
+                'name' => (string) ($u['name'] ?? ''),
+                'goal_amount' => $meta,
+                'orders_count' => (int) ($vendas[$id]['orders_count'] ?? 0),
+                'total_sales' => $vendido,
+                'percent' => AnalyzingBIService::goalPercent($vendido, $meta),
             ];
         }
-        foreach ($performance as $p) {
-            $id = (int) ($p['id'] ?? 0);
-            if (isset($byId[$id])) {
-                $byId[$id]['orders_count'] = (int) ($p['orders_count'] ?? 0);
-                $byId[$id]['total_sales'] = (float) ($p['total_sales'] ?? 0);
-            }
-        }
 
-        $this->json([
-            'period'     => $period,
-            'store_goal' => $storeGoalAmount,
-            'employees'  => array_values($byId),
-            'sales_from' => $salesFrom,
-            'sales_to'   => $salesTo,
-        ]);
+        $resposta = [
+            'period' => $period,
+            'can_manage' => $podeGerenciar,
+            'employees' => $linhas,
+        ];
+        if ($podeGerenciar) {
+            $metaLoja = (new StoreGoalRepository())->getByStoreAndPeriod($storeId, $period);
+            $valorMeta = $metaLoja ? (float) $metaLoja['goal_amount'] : 0.0;
+            $vendidoLoja = $reports->storeRevenueByType($storeId, $from, $to)['total'];
+            $resposta['store_goal'] = $valorMeta;
+            $resposta['store_sales'] = $vendidoLoja;
+            $resposta['store_percent'] = AnalyzingBIService::goalPercent($vendidoLoja, $valorMeta);
+        }
+        $this->json($resposta);
     }
 
     public function setStoreGoal(string $slug): void
@@ -63,35 +82,40 @@ class GoalsApiController extends Controller
         $storeId = $this->getStoreIdFromSlug($slug);
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
         }
         $this->requireGerenteOfStore($storeId);
         $input = $this->getJsonInput();
-        $period = $this->normalizePeriod($input['period'] ?? date('Y-m'));
-        $goalAmount = isset($input['goal_amount']) ? (float) $input['goal_amount'] : 0;
-        $distribute = !empty($input['distribute_to_employees']);
-
-        $storeGoalRepo = new StoreGoalRepository();
-        $storeGoalRepo->set($storeId, $period, $goalAmount);
-
-        if ($distribute && $goalAmount > 0) {
-            $userRepo = new UserRepository();
-            $employees = (new \App\Repositories\StoreMemberRepository())->listMembers($storeId);
-            $count = count($employees);
-            if ($count > 0) {
-                // Rateio em centavos: as partes somam exatamente a meta da loja.
-                // Antes cada parte era round(meta / n, 2) e R$ 1.000 entre 3
-                // fechava em R$ 999,99.
-                $partes = \App\Domain\Finance\Money::splitEvenly($goalAmount, $count);
-                $empGoalRepo = new EmployeeGoalRepository();
-                $userGoals = [];
-                foreach (array_values($employees) as $i => $u) {
-                    $userGoals[(int) $u['id']] = $partes[$i];
-                }
-                $empGoalRepo->setBulk($storeId, $period, $userGoals);
-            }
+        $period = $this->normalizePeriod((string) ($input['period'] ?? date('Y-m')));
+        $goalAmount = round((float) ($input['goal_amount'] ?? 0), 2);
+        if ($goalAmount < 0) {
+            $this->json(['error' => 'A meta não pode ser negativa.'], 400);
+            return;
         }
 
-        $this->json(['success' => true]);
+        // A meta é de vendas e o rateio é só entre funcionários: o gerente
+        // define a meta, não a recebe.
+        $funcionarios = !empty($input['distribute_to_employees']) && $goalAmount > 0
+            ? (new StoreMemberRepository())->listMembers($storeId, Permissions::FUNCIONARIO)
+            : [];
+
+        Database::transaction(function () use ($storeId, $period, $goalAmount, $funcionarios): void {
+            (new StoreGoalRepository())->set($storeId, $period, $goalAmount);
+            if ($funcionarios === []) {
+                return;
+            }
+            // Rateio em centavos: as partes somam exatamente a meta da loja.
+            // Antes cada parte era round(meta / n, 2) e R$ 1.000 entre 3
+            // fechava em R$ 999,99.
+            $partes = Money::splitEvenly($goalAmount, count($funcionarios));
+            $metas = [];
+            foreach (array_values($funcionarios) as $i => $u) {
+                $metas[(int) $u['id']] = $partes[$i];
+            }
+            (new EmployeeGoalRepository())->setBulk($storeId, $period, $metas);
+        });
+
+        $this->json(['success' => true, 'distributed_to' => count($funcionarios)]);
     }
 
     public function setEmployeeGoal(string $slug): void
@@ -99,26 +123,33 @@ class GoalsApiController extends Controller
         $storeId = $this->getStoreIdFromSlug($slug);
         if (!$storeId) {
             $this->json(['error' => 'Loja não encontrada'], 404);
+            return;
         }
         $this->requireGerenteOfStore($storeId);
         $input = $this->getJsonInput();
-        $userId = isset($input['user_id']) ? (int) $input['user_id'] : 0;
-        $period = $this->normalizePeriod($input['period'] ?? date('Y-m'));
-        $goalAmount = isset($input['goal_amount']) ? (float) $input['goal_amount'] : 0;
+        $userId = (int) ($input['user_id'] ?? 0);
+        $period = $this->normalizePeriod((string) ($input['period'] ?? date('Y-m')));
+        $goalAmount = round((float) ($input['goal_amount'] ?? 0), 2);
 
-        if ($userId < 1) {
-            $this->json(['error' => 'user_id inválido'], 400);
+        // Sem esta checagem, qualquer id de usuário da plataforma era aceito.
+        if ((new StoreMemberRepository())->role($userId, $storeId) !== Permissions::FUNCIONARIO) {
+            $this->json(['error' => 'Escolha um funcionário desta loja.'], 400);
+            return;
         }
-        $empGoalRepo = new EmployeeGoalRepository();
-        $empGoalRepo->set($storeId, $userId, $period, $goalAmount);
+        if ($goalAmount < 0) {
+            $this->json(['error' => 'A meta não pode ser negativa.'], 400);
+            return;
+        }
+        (new EmployeeGoalRepository())->set($storeId, $userId, $period, $goalAmount);
         $this->json(['success' => true]);
     }
 
     private function normalizePeriod(string $period): string
     {
-        if (preg_match('/^\d{4}-\d{2}$/', $period)) {
+        if (preg_match('/^(\d{4})-(\d{2})$/', $period, $m) && checkdate((int) $m[2], 1, (int) $m[1])) {
             return $period;
         }
+
         return date('Y-m');
     }
 }

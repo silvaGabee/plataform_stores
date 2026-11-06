@@ -49,10 +49,18 @@ class AnalyzingBIService
         $quantidadePedidos = $this->repo->countPaidOrders($storeId, null, null);
         $ticketMedio = $quantidadePedidos > 0 ? $valorTotal / $quantidadePedidos : 0.0;
         $lucroEstimado = $this->repo->sumEstimatedProfit($storeId, null, null);
+        // Mesmo intervalo do faturamento do mês e do lucro por produto: é o número
+        // que se compara com eles. O acumulado acima cobre todo o período.
+        $lucroMensal = $this->repo->sumEstimatedProfit($storeId, $currStart, $currEnd);
+        $metaMes = $this->repo->fetchStoreGoal($storeId, $now->format('Y-m'));
 
         $salesRows = $this->repo->fetchProductSalesCurrentVsPrevious($storeId, $currStart, $currEnd, $prevStart, $prevEnd);
         $lucroRows = $this->repo->fetchProductProfitByPeriod($storeId, $currStart, $currEnd);
         $critical = $this->repo->fetchCriticalStock($storeId);
+        $semVendaRows = $this->repo->fetchProductsWithoutSalesSince(
+            $storeId,
+            $now->modify('-' . self::DIAS_SEM_VENDA . ' days')->format('Y-m-d H:i:s')
+        );
 
         $lucroProdutos = [];
         foreach ($lucroRows as $row) {
@@ -123,38 +131,10 @@ class AnalyzingBIService
             ];
         }
 
-        $produtosParados = [];
-        foreach ($salesRows as $row) {
-            $qc = (float) $row['qty_curr'];
-            $qp = (float) $row['qty_prev'];
-            if ($qp < 1) {
-                continue;
-            }
-            $limite = max(1.0, $qp * 0.25);
-            if ($qc < $limite) {
-                $produtosParados[] = [
-                    'produto_id' => (int) $row['product_id'],
-                    'nome' => (string) $row['product_name'],
-                    'quantidade_mes_atual' => round($qc, 4),
-                    'quantidade_mes_anterior' => round($qp, 4),
-                    'alerta' => true,
-                ];
-            }
-        }
-        usort($produtosParados, static function (array $a, array $b): int {
-            return ($a['quantidade_mes_atual'] <=> $b['quantidade_mes_atual']) ?: strcmp($a['nome'], $b['nome']);
-        });
-        $produtosParados = array_slice($produtosParados, 0, 15);
+        $todosParados = self::montarProdutosParados($salesRows, $semVendaRows, $now);
+        $produtosParados = array_slice($todosParados, 0, 15);
 
-        $estoqueCritico = [];
-        foreach ($critical as $row) {
-            $estoqueCritico[] = [
-                'produto_id' => (int) $row['id'],
-                'nome' => (string) $row['name'],
-                'estoque_atual' => (float) $row['stock_quantity'],
-                'estoque_minimo' => (float) $row['min_stock'],
-            ];
-        }
+        $estoqueCritico = self::montarEstoqueCritico($critical, $this->repo->fetchZeroedVariants($storeId));
 
         $ideias = $this->buildIdeias(
             $valorMensal,
@@ -175,6 +155,7 @@ class AnalyzingBIService
                 'quantidade_pedidos' => $quantidadePedidos,
                 'ticket_medio' => round($ticketMedio, 2),
                 'lucro_estimado' => round($lucroEstimado, 2),
+                'lucro_mensal' => round($lucroMensal, 2),
             ],
             'faturamento_tempo' => [
                 'endpoint' => 'GET /api/loja/{slug}/analyzing-bi/faturamento?periodo=7d|30d|3m',
@@ -202,10 +183,17 @@ class AnalyzingBIService
             'quantidade_pedidos' => $quantidadePedidos,
             'ticket_medio' => round($ticketMedio, 2),
             'lucro_estimado' => round($lucroEstimado, 2),
+            'lucro_mensal' => round($lucroMensal, 2),
+            'meta_mes' => [
+                'meta' => $metaMes,
+                'realizado' => round($valorMensal, 2),
+                'percentual' => self::goalPercent($valorMensal, $metaMes),
+            ],
             'lucro_produtos' => $lucroTop,
             'produto_mais_vendido' => $produtoMais,
             'produto_menos_vendido' => $produtoMenos,
             'produtos_parados' => $produtosParados,
+            'produtos_parados_total' => count($todosParados),
             'estoque_critico' => $estoqueCritico,
             'ideias_investimento' => $ideias,
             'resumo_para_ia' => $resumoIa,
@@ -242,11 +230,20 @@ class AnalyzingBIService
         }
 
         foreach (array_slice($produtosParados, 0, 3) as $p) {
-            $ideias[] = '"' . ($p['nome'] ?? '') . '" está com pouca saída neste mês frente ao anterior. Considere promoção ou destaque na vitrine.';
+            $nome = '"' . ($p['nome'] ?? '') . '"';
+            if (($p['motivo'] ?? '') === self::PARADO_NUNCA_VENDEU) {
+                $ideias[] = $nome . ' nunca vendeu e está no cadastro há ' . (int) $p['dias_sem_venda'] . ' dias. Reveja o preço e a foto, ou faça uma promoção.';
+            } elseif (($p['motivo'] ?? '') === self::PARADO_SEM_VENDA) {
+                $ideias[] = $nome . ' está há ' . (int) $p['dias_sem_venda'] . ' dias sem vender. Considere promoção ou destaque na vitrine.';
+            } else {
+                $ideias[] = $nome . ' está com pouca saída neste mês frente ao anterior. Considere promoção ou destaque na vitrine.';
+            }
         }
 
         foreach (array_slice($estoqueCritico, 0, 3) as $e) {
-            $ideias[] = '"' . ($e['nome'] ?? '') . '" está com estoque crítico. Reposição recomendada.';
+            $ideias[] = (float) ($e['estoque_atual'] ?? 0) > (float) ($e['estoque_minimo'] ?? 0)
+                ? '"' . ($e['nome'] ?? '') . '" tem variações esgotadas: ' . implode(', ', $e['variacoes_esgotadas'] ?? []) . '. Reposição recomendada.'
+                : '"' . ($e['nome'] ?? '') . '" está com estoque crítico. Reposição recomendada.';
         }
 
         foreach (array_slice($lucroTop, 0, 3) as $lp) {
@@ -273,6 +270,120 @@ class AnalyzingBIService
         }
 
         return array_slice($out, 0, 12);
+    }
+
+    /** Dias sem nenhuma venda paga para um produto com estoque contar como parado. */
+    public const DIAS_SEM_VENDA = 30;
+
+    public const PARADO_NUNCA_VENDEU = 'nunca_vendeu';
+    public const PARADO_SEM_VENDA = 'sem_venda';
+    public const PARADO_QUEDA = 'queda';
+
+    /**
+     * Junta as três situações de produto parado, da pior para a menos grave:
+     *
+     *   nunca_vendeu  tem estoque, está no cadastro há 30 dias ou mais e nunca vendeu;
+     *   sem_venda     tem estoque e a última venda foi há 30 dias ou mais;
+     *   queda         vendeu no período anterior e, neste, menos de 25% daquilo.
+     *
+     * A regra da queda sozinha só via quem vendeu no mês anterior. Um produto
+     * entra uma vez só: se estiver em duas situações, vale a mais grave. Dentro de
+     * nunca_vendeu e sem_venda, vem primeiro o que prende mais dinheiro.
+     *
+     * @param list<array<string, mixed>> $salesRows de fetchProductSalesCurrentVsPrevious()
+     * @param list<array<string, mixed>> $semVendaRows de fetchProductsWithoutSalesSince()
+     * @return list<array<string, mixed>>
+     */
+    public static function montarProdutosParados(array $salesRows, array $semVendaRows, DateTimeImmutable $now): array
+    {
+        $porProduto = [];
+        foreach ($semVendaRows as $row) {
+            $id = (int) $row['id'];
+            $ultima = $row['ultima_venda'] ?? null;
+            $referencia = new DateTimeImmutable((string) ($ultima ?? $row['created_at']), $now->getTimezone());
+            $estoque = (float) $row['stock_quantity'];
+            $porProduto[$id] = [
+                'produto_id' => $id,
+                'nome' => (string) $row['name'],
+                'motivo' => $ultima === null ? self::PARADO_NUNCA_VENDEU : self::PARADO_SEM_VENDA,
+                'dias_sem_venda' => (int) floor(($now->getTimestamp() - $referencia->getTimestamp()) / 86400),
+                'estoque_atual' => $estoque,
+                'capital_parado' => round($estoque * (float) ($row['cost_price'] ?? 0), 2),
+                'quantidade_mes_atual' => 0.0,
+                'quantidade_mes_anterior' => 0.0,
+                'alerta' => true,
+            ];
+        }
+
+        foreach ($salesRows as $row) {
+            $id = (int) $row['product_id'];
+            $qc = (float) $row['qty_curr'];
+            $qp = (float) $row['qty_prev'];
+            if (isset($porProduto[$id]) || $qp < 1 || $qc >= max(1.0, $qp * 0.25)) {
+                continue;
+            }
+            $porProduto[$id] = [
+                'produto_id' => $id,
+                'nome' => (string) $row['product_name'],
+                'motivo' => self::PARADO_QUEDA,
+                'dias_sem_venda' => null,
+                'estoque_atual' => null,
+                'capital_parado' => null,
+                'quantidade_mes_atual' => round($qc, 4),
+                'quantidade_mes_anterior' => round($qp, 4),
+                'alerta' => true,
+            ];
+        }
+
+        $gravidade = [self::PARADO_NUNCA_VENDEU => 0, self::PARADO_SEM_VENDA => 1, self::PARADO_QUEDA => 2];
+        $lista = array_values($porProduto);
+        usort($lista, static function (array $a, array $b) use ($gravidade): int {
+            return ($gravidade[$a['motivo']] <=> $gravidade[$b['motivo']])
+                ?: ((float) $b['capital_parado'] <=> (float) $a['capital_parado'])
+                ?: ($a['quantidade_mes_atual'] <=> $b['quantidade_mes_atual'])
+                ?: strcmp($a['nome'], $b['nome']);
+        });
+
+        return $lista;
+    }
+
+    /**
+     * Estoque crítico: total no mínimo ou abaixo dele, ou alguma variação zerada.
+     *
+     * Quando o produto inteiro acabou, a lista de variações fica vazia: "esgotado"
+     * já diz tudo. Os produtos abaixo do mínimo vêm primeiro, na ordem recebida.
+     *
+     * @param list<array<string, mixed>> $abaixoDoMinimo de fetchCriticalStock()
+     * @param list<array<string, mixed>> $variacoesZeradas de fetchZeroedVariants()
+     * @return list<array{produto_id: int, nome: string, estoque_atual: float, estoque_minimo: float, variacoes_esgotadas: list<string>}>
+     */
+    public static function montarEstoqueCritico(array $abaixoDoMinimo, array $variacoesZeradas): array
+    {
+        $porProduto = [];
+        foreach (array_merge($abaixoDoMinimo, $variacoesZeradas) as $row) {
+            $id = (int) $row['id'];
+            if (!isset($porProduto[$id])) {
+                $porProduto[$id] = [
+                    'produto_id' => $id,
+                    'nome' => (string) $row['name'],
+                    'estoque_atual' => (float) $row['stock_quantity'],
+                    'estoque_minimo' => (float) $row['min_stock'],
+                    'variacoes_esgotadas' => [],
+                ];
+            }
+            if (isset($row['variant_value']) && (float) $row['stock_quantity'] > 0) {
+                // A matriz grava "Cor|Tamanho".
+                $porProduto[$id]['variacoes_esgotadas'][] = str_replace('|', ' · ', (string) $row['variant_value']);
+            }
+        }
+
+        return array_values($porProduto);
+    }
+
+    /** Percentual atingido da meta, ou null quando não há meta para comparar. */
+    public static function goalPercent(float $realizado, ?float $meta): ?float
+    {
+        return $meta !== null && $meta > 0 ? round($realizado / $meta * 100, 1) : null;
     }
 
     /**

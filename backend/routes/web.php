@@ -45,6 +45,7 @@ return [
     'GET /painel/{slug}/promocoes' => [PanelController::class, 'promotions', 'store.promotions.manage'],
     'GET /painel/{slug}/entregas' => [PanelController::class, 'entregas', 'store.orders.read'],
     'GET /painel/{slug}/pdv' => [PanelController::class, 'pdv', 'store.pdv.operate'],
+    'GET /painel/{slug}/metas' => [PanelController::class, 'goals', 'store.goals.read'],
     'GET /painel/{slug}/funcionarios' => [PanelController::class, 'employees', 'store.users.manage'],
     'GET /painel/{slug}/hierarquia' => [PanelController::class, 'hierarchy', 'store.roles.read'],
     'GET /painel/{slug}/analyzing-bi' => [AnalyzingBIController::class, 'panel', 'store.bi.read'],

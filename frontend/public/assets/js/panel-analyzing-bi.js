@@ -84,49 +84,67 @@
     return d.innerHTML;
   }
 
-  function renderStalled(list) {
+  function renderStalled(list, totalParados) {
     var el = document.getElementById('bi-card-stalled-body');
     if (!el) return;
     if (!list || !list.length) {
-      el.innerHTML = '<p class="bi-muted">Nenhum produto em situação de queda forte em relação ao mês anterior.</p>';
+      el.innerHTML = '<p class="bi-muted">Nenhum produto parado: todos venderam nos últimos 30 dias, sem queda forte em relação ao mês anterior.</p>';
       return;
     }
     var ul = document.createElement('ul');
     ul.className = 'bi-mini-list';
     list.slice(0, 8).forEach(function (p) {
+      var detalhe;
+      if (p.motivo === 'nunca_vendeu' || p.motivo === 'sem_venda') {
+        detalhe = (p.motivo === 'nunca_vendeu' ? 'nunca vendeu (cadastrado há ' + p.dias_sem_venda + ' dias)' : 'sem vender há ' + p.dias_sem_venda + ' dias') +
+          '; ' + formatQty(p.estoque_atual) + ' un. em estoque, ' + formatMoney(p.capital_parado) + ' em custo';
+      } else {
+        detalhe = 'este mês: ' + formatQty(p.quantidade_mes_atual) + ', mês anterior: ' + formatQty(p.quantidade_mes_anterior);
+      }
       var li = document.createElement('li');
-      li.innerHTML =
-        '<strong>' +
-        escapeHtml(p.nome || '') +
-        '</strong> — este mês: ' +
-        formatQty(p.quantidade_mes_atual) +
-        ', mês anterior: ' +
-        formatQty(p.quantidade_mes_anterior);
+      li.innerHTML = '<strong>' + escapeHtml(p.nome || '') + '</strong> — ' + escapeHtml(detalhe);
       ul.appendChild(li);
     });
     el.innerHTML = '';
     el.appendChild(ul);
+    var total = Number(totalParados) || list.length;
+    if (total > 8) {
+      var mais = document.createElement('p');
+      mais.className = 'bi-muted';
+      mais.textContent = 'E mais ' + (total - 8) + ' produto(s).';
+      el.appendChild(mais);
+    }
+  }
+
+  function renderGoal(m) {
+    if (!m || m.percentual === null || m.percentual === undefined) return;
+    var valor = document.getElementById('bi-kpi-goal');
+    var desc = document.getElementById('bi-kpi-goal-desc');
+    if (valor) valor.textContent = formatPct(m.percentual);
+    if (desc) desc.textContent = formatMoney(m.realizado) + ' de ' + formatMoney(m.meta) + ' vendidos';
   }
 
   function renderCritical(list) {
     var el = document.getElementById('bi-card-stock-body');
     if (!el) return;
     if (!list || !list.length) {
-      el.innerHTML = '<p class="bi-muted">Nenhum produto abaixo do mínimo definido.</p>';
+      el.innerHTML = '<p class="bi-muted">Nenhum produto abaixo do mínimo definido nem variação esgotada.</p>';
       return;
     }
     var ul = document.createElement('ul');
     ul.className = 'bi-mini-list';
     list.forEach(function (p) {
+      var esgotadas = p.variacoes_esgotadas || [];
       var li = document.createElement('li');
       li.innerHTML =
         '<strong>' +
         escapeHtml(p.nome || '') +
-        '</strong> — stock: ' +
+        '</strong> — estoque: ' +
         formatQty(p.estoque_atual) +
         ' (mín. ' +
         formatQty(p.estoque_minimo) +
-        ')';
+        ')' +
+        (esgotadas.length ? '. Esgotado: ' + escapeHtml(esgotadas.join(', ')) : '');
       ul.appendChild(li);
     });
     el.innerHTML = '';
@@ -640,6 +658,9 @@
     if (elOrd) elOrd.textContent = String(data.quantidade_pedidos != null ? data.quantidade_pedidos : 0);
     if (elTick) elTick.textContent = formatMoney(data.ticket_medio);
     if (elProf) elProf.textContent = formatMoney(data.lucro_estimado);
+    var elProfMonth = document.getElementById('bi-kpi-profit-month');
+    if (elProfMonth) elProfMonth.textContent = formatMoney(data.lucro_mensal);
+    renderGoal(data.meta_mes);
 
     bindRevenueFiltersOnce();
     var activeP = document.querySelector('.bi-revenue-filter--active');
@@ -649,7 +670,7 @@
     renderChart(data.lucro_produtos);
     renderProductCardBody('bi-card-top-body', data.produto_mais_vendido, 'crescimento_percentual', 'Variação vs. mesmo período do mês anterior');
     renderProductCardBody('bi-card-bottom-body', data.produto_menos_vendido, 'variacao_percentual', 'Variação vs. mesmo período do mês anterior');
-    renderStalled(data.produtos_parados);
+    renderStalled(data.produtos_parados, data.produtos_parados_total);
     renderCritical(data.estoque_critico);
     renderIdeas(data.ideias_investimento);
   }

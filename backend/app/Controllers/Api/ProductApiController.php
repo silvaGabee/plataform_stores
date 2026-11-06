@@ -29,7 +29,29 @@ class ProductApiController extends Controller
             (new \App\Services\OrderService(new OrderRepository(), new \App\Repositories\OrderItemRepository(), new ProductRepository(), new \App\Repositories\PaymentRepository(), new StockMovementRepository(), new \App\Repositories\CashRegisterRepository(), new \App\Repositories\CashMovementRepository()))->expirarPendentes($storeId);
             $list = array_map([\App\Services\StockReservation::class, 'applyTo'], $list);
         }
-        $this->json(['products' => $list]);
+        $this->json(['products' => $this->semCustoSemPermissao($list, $storeId)]);
+    }
+
+    /**
+     * Tira o custo dos produtos quando quem pede não pode vê-lo.
+     *
+     * O repositório lê com SELECT * porque a vitrine, o BI e a venda precisam
+     * de quase tudo; quem conhece o destino da resposta é o controller.
+     *
+     * @param list<array<string, mixed>> $produtos
+     * @return list<array<string, mixed>>
+     */
+    private function semCustoSemPermissao(array $produtos, int $storeId): array
+    {
+        if (\App\Auth\Permissions::can('store.costs.read', $storeId)) {
+            return $produtos;
+        }
+
+        return array_map(static function (array $p): array {
+            unset($p['cost_price']);
+
+            return $p;
+        }, $produtos);
     }
 
     public function get(string $slug, int $id): void
@@ -44,7 +66,7 @@ class ProductApiController extends Controller
         if (!$product) {
             $this->json(['error' => 'Produto não encontrado'], 404);
         }
-        $this->json($product);
+        $this->json($this->semCustoSemPermissao([$product], $storeId)[0]);
     }
 
     public function create(string $slug): void
@@ -149,7 +171,7 @@ class ProductApiController extends Controller
         $this->requireStorePanelAccess($storeId);
         $service = new ProductService(new ProductRepository(), new StockMovementRepository(), new ProductImageRepository());
         $list = $service->listLowStock($storeId);
-        $this->json(['products' => $list]);
+        $this->json(['products' => $this->semCustoSemPermissao($list, $storeId)]);
     }
 
     public function delete(string $slug, int $id): void

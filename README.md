@@ -153,9 +153,9 @@ Páginas em [backend/routes/web.php](backend/routes/web.php); API em [backend/ro
 | Pagamentos | `POST …/payments`, confirmação, pendentes |
 | Caixa e PDV | abrir/fechar turno, movimentos, resumo, `…/finance/installments` (tabela Price) |
 | Analyzing BI | `…/analyzing-bi`, `…/analyzing-bi/faturamento` |
-| Metas | `…/goals`, meta da loja e por funcionário |
+| Metas | `…/goals`, meta da loja e por funcionário (o funcionário recebe só a própria linha) |
 | Equipe | usuários, cargos, hierarquia |
-| Assistente de IA | `…/ai/*` |
+| Assistente de IA | `…/ai/chat`, `…/ai/descricao-produto` |
 
 Erros da API voltam em JSON com o campo `error`.
 
@@ -179,10 +179,11 @@ Erros da API voltam em JSON com o campo `error`.
 | Área | Gerente | Funcionário |
 |------|:-------:|:-----------:|
 | Dashboard, PDV, caixa, entregas | ✔ | ✔ |
-| Ver catálogo, estoque, pedidos, cargos, metas | ✔ | ✔ |
+| Ver catálogo, estoque, pedidos, cargos | ✔ | ✔ (sem o custo dos produtos) |
+| Ver metas | ✔ | só a própria |
 | Criar/editar produto, ajustar estoque, categorias | ✔ | — |
 | Equipe, gestão de cargos, definir metas | ✔ | — |
-| Analyzing BI, configurações, chave PIX | ✔ | — |
+| Analyzing BI, faturamento e lucro (também no assistente de IA), configurações, chave PIX | ✔ | — |
 | Confirmar pagamento | ✔ | só dinheiro no PDV |
 
 Toda rota declara a permissão no terceiro elemento do handler, e o `App\Http\Guard` decide antes do controller. **Rota sem declaração não executa.**

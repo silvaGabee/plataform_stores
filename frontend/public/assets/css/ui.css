@@ -152,6 +152,14 @@ body:not(.panel) > main .container,
 .ui-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; height: 1.5rem; padding: 0 .45rem; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-size: .75rem; font-weight: 700; }
 .ui-count:empty { display: none; }
 
+/* Metas: barra de progresso e campos próprios da tela. */
+.ui-progress { display: block; flex: 1 1 auto; min-width: 4rem; height: .5rem; border-radius: 999px; background: var(--bg-sunken); overflow: hidden; }
+.ui-progress > i { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.ui-progress.is-done > i { background: var(--success); }
+.goals-progress { display: flex; align-items: center; gap: .5rem; min-width: 8rem; font-variant-numeric: tabular-nums; }
+.goals-period input { width: 11rem; }
+.goals-check { display: flex; align-items: center; gap: .5rem; font-size: .9rem; cursor: pointer; }
+
 /* 5. Abas, avisos, diálogo e toasts ------------------------------------ */
 .ui-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
 .ui-tabs::-webkit-scrollbar { display: none; }

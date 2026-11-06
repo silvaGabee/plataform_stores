@@ -62,7 +62,12 @@ final class Permissions
         // Relatórios operacionais o funcionário vê; o BI é do gerente.
         'store.bi.read'         => [self::GERENTE],
 
+        // Custo do produto: só gerente. A rota de catálogo é aberta ao
+        // funcionário, então o controller retira o campo da resposta dele.
+        'store.costs.read'      => [self::GERENTE],
+
         // Metas: o funcionário vê as suas, só o gerente define.
+        // A resposta de GET /goals é filtrada em GoalsApiController.
         'store.goals.read'      => [self::GERENTE, self::FUNCIONARIO],
         'store.goals.write'     => [self::GERENTE],
 

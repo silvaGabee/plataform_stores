@@ -182,6 +182,11 @@ $confere('Lucro (custo congelado, desconto rateado)', $esperado['lucro_cent'] / 
 $confere('L = R − CMV', $faturamento - $esperado['cmv_cent'] / 100, $lucroAntes);
 $somaPorProduto = array_sum(array_map(static fn ($r) => (float) $r['lucro_total'], $repo->fetchProductProfitByPeriod(1, null, null)));
 $confere('Σ lucro por produto = lucro total', $lucroAntes, $somaPorProduto);
+// Lucro do mês: tem de fechar com o lucro por produto do mesmo intervalo.
+$mesIni = $agora->modify('first day of this month')->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+$mesFim = $agora->modify('last day of this month')->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+$somaMes = array_sum(array_map(static fn ($r) => (float) $r['lucro_total'], $repo->fetchProductProfitByPeriod(1, $mesIni, $mesFim)));
+$confere('Lucro do mês = Σ lucro por produto do mês', $repo->sumEstimatedProfit(1, $mesIni, $mesFim), $somaMes);
 
 // Muda TODOS os custos do cadastro. O lucro das vendas já feitas não pode mudar.
 $pdo->exec('UPDATE products SET cost_price = cost_price * 1.5');

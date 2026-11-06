@@ -14,17 +14,6 @@ class ReportService
         $this->pdo = Database::getConnection();
     }
 
-    public function salesByPeriod(int $storeId, string $dateFrom, string $dateTo): array
-    {
-        $stmt = $this->pdo->prepare(
-            "SELECT DATE(created_at) as date, COUNT(*) as total_orders, SUM(total - shipping_fee) as revenue
-             FROM orders WHERE store_id = ? AND status = 'pago' AND created_at BETWEEN ? AND ? 
-             GROUP BY DATE(created_at) ORDER BY date"
-        );
-        $stmt->execute([$storeId, $dateFrom . ' 00:00:00', $dateTo . ' 23:59:59']);
-        return $stmt->fetchAll();
-    }
-
     public function topProducts(int $storeId, string $dateFrom, string $dateTo, int $limit = 10): array
     {
         // LIMIT com placeholder falha em várias versões do MySQL/MariaDB com PDO (erro perto do número).

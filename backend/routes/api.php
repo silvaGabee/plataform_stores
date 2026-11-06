@@ -185,8 +185,6 @@ return [
     // O assistente consome uma API paga: nunca pode ficar aberto.
     'POST /api/loja/{slug}/ai/chat' => [AiController::class, 'chat', 'store.ai.use'],
     'POST /api/loja/{slug}/ai/descricao-produto' => [AiController::class, 'descricaoProduto', 'store.ai.use'],
-    'GET /api/loja/{slug}/ai/reports/last30' => [AiController::class, 'last30Report', 'store.ai.use'],
-    'GET /api/loja/{slug}/ai/snapshot' => [AiController::class, 'storeSnapshot', 'store.ai.use'],
     // A loja vem no corpo, não na URL, então o Guard não consegue resolvê-la:
     // a permissão é verificada dentro do controller, depois de ler o slug.
     'POST /api/ai/chat' => [AiController::class, 'chatGlobal', Guard::AUTENTICADO],

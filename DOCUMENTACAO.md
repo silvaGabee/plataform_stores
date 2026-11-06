@@ -376,7 +376,7 @@ Também corrigimos o período comparado. O mês atual, ainda incompleto, era com
 
 ### 3.3.6 Produtos parados: regra por proporção
 
-Um produto é sinalizado como parado quando vendeu pelo menos uma unidade no mês anterior e, no mês atual, vendeu menos de 25% daquele volume. A comparação usa o mesmo período decorrido do mês anterior, e não o mês inteiro. O limite mínimo de uma unidade evita que a regra dependa de frações sem sentido para quantidades pequenas:
+Um produto é sinalizado como parado em três situações, da mais grave para a menos grave. As duas primeiras valem para produtos com estoque: nunca vendeu e está no cadastro há pelo menos 30 dias, ou está há pelo menos 30 dias sem vender. A terceira é a queda: vendeu pelo menos uma unidade no mês anterior e, no mês atual, vendeu menos de 25% daquele volume. A comparação usa o mesmo período decorrido do mês anterior, e não o mês inteiro. O limite mínimo de uma unidade evita que a regra dependa de frações sem sentido para quantidades pequenas:
 
 ```php
 if ($qp < 1) { continue; }            // só produtos que venderam no mês anterior
@@ -384,9 +384,11 @@ $limite = max(1.0, $qp * 0.25);
 if ($qc < $limite) { /* sinaliza como parado */ }
 ```
 
+Só a regra da queda deixaria de fora justamente o pior caso, o produto que nunca vendeu. Nas duas primeiras situações, o sistema também mostra o capital parado, isto é, o estoque multiplicado pelo custo do cadastro (C = q × pc), e lista primeiro os produtos que prendem mais dinheiro. Um produto em mais de uma situação aparece só uma vez, na mais grave.
+
 ### 3.3.7 Repartição das metas
 
-A meta da loja pode ser dividida igualmente entre os membros da equipe, aplicando P = T / n. Dividir R$ 1.000,00 entre 3 com arredondamento dá 3 × 333,33 = R$ 999,99, e um centavo some. Por isso a divisão é feita em centavos (`Money::splitEvenly`): o resto vai, um centavo por vez, para as primeiras partes:
+A meta da loja pode ser dividida igualmente entre os funcionários, aplicando P = T / n. O gerente define a meta e não entra na divisão. Dividir R$ 1.000,00 entre 3 com arredondamento dá 3 × 333,33 = R$ 999,99, e um centavo some. Por isso a divisão é feita em centavos (`Money::splitEvenly`): o resto vai, um centavo por vez, para as primeiras partes:
 
 ```
 base    = floor(T / n)        // em centavos
@@ -459,11 +461,11 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 
 | Item | Quantidade |
 |---|---|
-| Telas | 23 (6 da plataforma, 8 da vitrine, 9 do painel) |
+| Telas | 24 (6 da plataforma, 8 da vitrine, 10 do painel) |
 | Tabelas no banco | 23 |
 | Migrações de banco versionadas | 20 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 82, todos passando |
+| Testes automatizados | 108, todos passando |
 
 Fonte: os autores (2026).
 
@@ -479,15 +481,15 @@ A vitrine (`/loja/{slug}`) tem catálogo com banner, categorias e busca, página
 
 ### 4.1.3 Painel
 
-O painel (`/painel/{slug}`) reúne dashboard do dia, cadastro de produtos com preço de venda e de custo, estoque por variação com histórico, quadro de entregas em formato Kanban, PDV, funcionários, hierarquia de cargos, configurações (identidade visual e chave PIX) e o Analyzing BI. PDV e vitrine usam o mesmo estoque e a mesma tabela de pedidos: uma venda no balcão reduz na hora a quantidade disponível na loja virtual.
+O painel (`/painel/{slug}`) reúne dashboard do dia, cadastro de produtos com preço de venda e de custo, estoque por variação com histórico, quadro de entregas em formato Kanban, PDV, metas de venda, funcionários, hierarquia de cargos, configurações (identidade visual e chave PIX) e o Analyzing BI. PDV e vitrine usam o mesmo estoque e a mesma tabela de pedidos: uma venda no balcão reduz na hora a quantidade disponível na loja virtual.
 
 O PDV foi refeito para o ritmo do balcão: tem atalhos de teclado, desconto no pedido (em reais ou em porcentagem), cálculo de troco e emissão de cupom. No pagamento com cartão, há um simulador de parcelamento pela tabela Price que mostra a parcela, o total, os juros e a tabela de amortização mês a mês.
 
-O funcionário opera a loja (PDV, caixa e entregas), mas não a gerencia. Catálogo, equipe, configurações e BI são do gerente. Essa regra fica no servidor, em uma matriz de permissões consultada antes de qualquer controlador. Esconder botões na tela não basta, porque qualquer um pode chamar o endereço da API diretamente.
+O funcionário opera a loja (PDV, caixa e entregas), mas não a gerencia. Catálogo, equipe, configurações e BI são do gerente, e o funcionário também não recebe o custo dos produtos nem o faturamento da loja, seja nas respostas da API, seja no contexto do assistente de IA. Essa regra fica no servidor, em uma matriz de permissões consultada antes de qualquer controlador. Esconder botões na tela não basta, porque qualquer um pode chamar o endereço da API diretamente.
 
 ### 4.1.4 Analyzing BI
 
-É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, número de pedidos, ticket médio e lucro estimado; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
+É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, lucro acumulado, lucro do mês, número de pedidos, ticket médio e percentual atingido da meta do mês; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico, que avisa quando o total chega ao mínimo e também quando uma variação zera, como o tamanho M acabar enquanto ainda há P e G; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
 
 ## 4.2 Testes realizados
 
@@ -544,6 +546,8 @@ Testamos também as situações em que a fórmula não tem resposta matemática,
 | Produto sem custo | Margem indeterminada | Usa o custo gravado na venda; se não houver, o do cadastro; se não houver, zero |
 | Dia sem venda no gráfico | Lacuna na série | Ponto com R$ 0,00 |
 | Vendeu no mesmo período do mês passado e não vende neste | Queda de 100% | Aparece como produto parado |
+| Tem estoque e nunca vendeu | Sem base para calcular a queda | Aparece como produto parado depois de 30 dias no cadastro |
+| Meta do mês não definida | Realizado ÷ meta sem divisor | Mostra "sem meta", sem percentual |
 
 Fonte: os autores (2026).
 
@@ -563,7 +567,7 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 
 Fonte: os autores (2026).
 
-Além disso, o projeto tem uma suíte própria de 82 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas e as fórmulas financeiras (rateio, regressão, tabela Price, variação percentual e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
+Além disso, o projeto tem uma suíte própria de 108 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas e as fórmulas financeiras (rateio, regressão, tabela Price, variação percentual, produtos parados, estoque crítico, meta e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
 
 ### 4.2.4 Conferência com grande volume
 

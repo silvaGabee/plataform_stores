@@ -24,6 +24,16 @@ ob_start();
                 <p class="bi-kpi-value" id="bi-kpi-month">—</p>
                 <p class="bi-kpi-desc">Faturamento só deste mês, sem o frete</p>
             </article>
+            <article class="bi-kpi bi-kpi--hero bi-kpi--accent">
+                <h2 class="bi-kpi-label">Lucro total estimado</h2>
+                <p class="bi-kpi-value" id="bi-kpi-profit">—</p>
+                <p class="bi-kpi-desc">Lucro de todas as vendas da loja</p>
+            </article>
+            <article class="bi-kpi bi-kpi--hero bi-kpi--accent">
+                <h2 class="bi-kpi-label">Lucro estimado do mês</h2>
+                <p class="bi-kpi-value" id="bi-kpi-profit-month">—</p>
+                <p class="bi-kpi-desc">Lucro só deste mês: faturamento do mês menos o custo do que foi vendido</p>
+            </article>
         </div>
         <div class="bi-kpis-row bi-kpis-row--stats">
             <article class="bi-kpi">
@@ -36,10 +46,10 @@ ob_start();
                 <p class="bi-kpi-value" id="bi-kpi-ticket">—</p>
                 <p class="bi-kpi-desc">Valor médio de cada pedido, sem o frete</p>
             </article>
-            <article class="bi-kpi bi-kpi--accent">
-                <h2 class="bi-kpi-label">Lucro estimado</h2>
-                <p class="bi-kpi-value" id="bi-kpi-profit">—</p>
-                <p class="bi-kpi-desc">Lucro aproximado das vendas</p>
+            <article class="bi-kpi">
+                <h2 class="bi-kpi-label">Meta do mês</h2>
+                <p class="bi-kpi-value" id="bi-kpi-goal">—</p>
+                <p class="bi-kpi-desc" id="bi-kpi-goal-desc"><a href="<?= base_url("painel/{$store['slug']}/metas") ?>">Definir meta</a></p>
             </article>
         </div>
     </section>

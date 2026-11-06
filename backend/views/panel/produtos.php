@@ -108,6 +108,7 @@
                         <div class="panel-config-field">
                             <label for="product-min-stock">Estoque mínimo</label>
                             <input type="number" id="product-min-stock" value="0" min="0" step="1">
+                            <p class="panel-field-hint">Com um mínimo definido, o BI avisa quando o total chega a ele ou quando alguma variação zera.</p>
                         </div>
                     </div>
                 </section>

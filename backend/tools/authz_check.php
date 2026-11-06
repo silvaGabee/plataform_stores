@@ -161,6 +161,10 @@ $casos = [
 
     // Público:
     ['categorias públicas', 'GET',  "/api/loja/{$slug}/vitrine-categories/public", 200, 200, 200],
+
+    // Removidas: nenhuma tela as usava, e entregavam receita e e-mails da equipe.
+    ['ai/reports/last30',   'GET',  "/api/loja/{$slug}/ai/reports/last30",   404, 404, 404],
+    ['ai/snapshot',         'GET',  "/api/loja/{$slug}/ai/snapshot",         404, 404, 404],
 ];
 
 echo PHP_EOL . 'Leitura' . PHP_EOL;
@@ -170,6 +174,54 @@ foreach ($casos as [$rotulo, $metodo, $caminho, $espGer, $espFun, $espAnon]) {
     $a = http($metodo, $base . $caminho, null)['status'];
     $ok(sprintf('%-22s gerente=%d funcionário=%d anônimo=%d', $rotulo, $g, $f, $a),
         $g === $espGer && $f === $espFun && $a === $espAnon);
+}
+
+// -------------------------------------- dados financeiros na resposta
+// Status 200 não basta aqui: a rota é aberta ao funcionário, o que importa é o
+// que vem dentro dela.
+echo PHP_EOL . 'Dados financeiros fora do alcance do funcionário' . PHP_EOL;
+
+$jsonDe = static fn (string $caminho, string $jar): array => json_decode(http('GET', $base . $caminho, $jar)['body'], true) ?: [];
+$temCusto = static fn (array $lista): bool => $lista !== [] && array_key_exists('cost_price', $lista[0]);
+
+$prodGer = $jsonDe("/api/loja/{$slug}/products", $jarGerente)['products'] ?? [];
+$prodFun = $jsonDe("/api/loja/{$slug}/products", $jarFunc)['products'] ?? [];
+$ok('gerente recebe o custo em GET /products', $temCusto($prodGer));
+$ok('funcionário não recebe o custo em GET /products', $prodFun !== [] && !$temCusto($prodFun));
+
+$idProduto = (int) ($prodFun[0]['id'] ?? 0);
+$um = $jsonDe("/api/loja/{$slug}/products/{$idProduto}", $jarFunc);
+$ok('funcionário não recebe o custo em GET /products/{id}', isset($um['id']) && !array_key_exists('cost_price', $um));
+
+$baixo = $jsonDe("/api/loja/{$slug}/products/low-stock", $jarFunc)['products'] ?? [];
+$ok('funcionário não recebe o custo em GET /products/low-stock', $baixo !== [] && !$temCusto($baixo));
+
+$metasGer = $jsonDe("/api/loja/{$slug}/goals", $jarGerente);
+$metasFun = $jsonDe("/api/loja/{$slug}/goals", $jarFunc);
+$ok('gerente vê a meta e o faturamento da loja', array_key_exists('store_goal', $metasGer) && array_key_exists('store_sales', $metasGer));
+$ok('funcionário não vê a meta nem o faturamento da loja', !array_key_exists('store_goal', $metasFun) && !array_key_exists('store_sales', $metasFun));
+$ok('funcionário vê só a própria linha de metas', count($metasFun['employees'] ?? []) === 1);
+$idGerente = (int) (\App\Database\Database::getConnection()->query("SELECT id FROM users WHERE email = 'gerente@loja.test'")->fetchColumn());
+$ok('o gerente não entra na lista de metas da equipe', !in_array($idGerente, array_column($metasGer['employees'] ?? [], 'user_id'), true));
+
+// Item de pedido guarda o custo congelado da venda. Cria uma venda de balcão,
+// confere a resposta e cancela, para não deixar reserva de estoque para trás.
+$semVariacao = null;
+foreach ($prodFun as $p) {
+    if (empty($p['variants']) && (int) $p['stock_quantity'] > 0) {
+        $semVariacao = (int) $p['id'];
+        break;
+    }
+}
+$venda = json_decode(http('POST', "{$base}/api/loja/{$slug}/orders", $jarFunc, [
+    'json' => ['order_type' => 'pdv', 'customer_name' => '__authz_teste__', 'items' => [['product_id' => $semVariacao, 'quantity' => 1]]],
+    'csrf' => $csrfFunc,
+])['body'], true) ?: [];
+$idVenda = (int) ($venda['order']['id'] ?? 0);
+$pedido = $jsonDe("/api/loja/{$slug}/orders/{$idVenda}", $jarFunc);
+$ok('item de pedido não traz o custo', !empty($pedido['items']) && !array_key_exists('cost_price', $pedido['items'][0]));
+if ($idVenda > 0) {
+    http('POST', "{$base}/api/loja/{$slug}/orders/{$idVenda}/cancel", $jarGerente, ['json' => [], 'csrf' => $csrfGerente]);
 }
 
 // ---------------------------------------------- escrita: o furo da Fase 2
@@ -187,6 +239,8 @@ $escritas = [
     ['mudar nome da loja', 'POST', "/api/loja/{$slug}/store/name", ['name' => 'Nome Novo']],
     ['definir meta', 'POST', "/api/loja/{$slug}/goals/store",
         ['period' => date('Y-m'), 'goal_amount' => 1000]],
+    ['definir meta individual', 'POST', "/api/loja/{$slug}/goals/employee",
+        ['period' => date('Y-m'), 'user_id' => 1, 'goal_amount' => 1000]],
     ['criar cargo', 'POST', "/api/loja/{$slug}/roles", ['name' => '__authz_teste__']],
 ];
 
@@ -214,6 +268,7 @@ $paginas = [
     ['dashboard',    "/painel/{$slug}",                200, 200],
     ['produtos',     "/painel/{$slug}/produtos",       200, 200],
     ['PDV',          "/painel/{$slug}/pdv",            200, 200],
+    ['metas',        "/painel/{$slug}/metas",          200, 200],
     ['funcionários', "/painel/{$slug}/funcionarios",   200, 302],
     ['configurações', "/painel/{$slug}/configuracoes", 200, 302],
     ['Analyzing BI', "/painel/{$slug}/analyzing-bi",   200, 302],

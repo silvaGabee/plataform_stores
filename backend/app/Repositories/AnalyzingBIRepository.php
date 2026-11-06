@@ -245,6 +245,73 @@ class AnalyzingBIRepository
     }
 
     /**
+     * Variações zeradas dos produtos com estoque mínimo definido.
+     *
+     * O total do produto esconde a falta de um tamanho: com P e G sobrando, o M
+     * pode acabar sem o total chegar ao mínimo. Só entram produtos com mínimo
+     * definido porque a matriz cor × tamanho grava todas as combinações, inclusive
+     * as que a loja nunca teve; sem esse filtro, todo produto com grade incompleta
+     * ficaria em alerta para sempre.
+     *
+     * @return list<array{id: int|string, name: string, stock_quantity: int|string, min_stock: int|string, variant_type: string, variant_value: string}>
+     */
+    public function fetchZeroedVariants(int $storeId): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT p.id, p.name, p.stock_quantity, p.min_stock, v.variant_type, v.variant_value
+             FROM product_variants v
+             INNER JOIN products p ON p.id = v.product_id
+             WHERE p.store_id = ? AND p.min_stock > 0 AND v.variant_type <> '_meta' AND v.stock_quantity <= 0
+             ORDER BY p.name ASC, v.sort_order ASC, v.id ASC"
+        );
+        $stmt->execute([$storeId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Produtos com estoque e sem venda paga desde $cutoff, incluindo os que nunca
+     * venderam. Quem foi cadastrado depois de $cutoff ainda não teve tempo de
+     * vender e fica de fora.
+     *
+     * Primeiro exclui quem vendeu desde $cutoff, olhando só os pedidos recentes.
+     * Assim a última venda é buscada apenas para os candidatos, e o custo da
+     * consulta não cresce com o histórico inteiro da loja.
+     *
+     * @return list<array{id: int|string, name: string, stock_quantity: int|string, cost_price: float|string|null, created_at: string, ultima_venda: ?string}>
+     */
+    public function fetchProductsWithoutSalesSince(int $storeId, string $cutoff): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT p.id, p.name, p.stock_quantity, p.cost_price, p.created_at,
+                (SELECT MAX(o.created_at) FROM order_items oi
+                 INNER JOIN orders o ON o.id = oi.order_id
+                 WHERE oi.product_id = p.id AND o.store_id = p.store_id AND o.status = 'pago') AS ultima_venda
+             FROM products p
+             WHERE p.store_id = ? AND p.stock_quantity > 0
+               AND p.id NOT IN (
+                 SELECT oi.product_id FROM orders o
+                 INNER JOIN order_items oi ON oi.order_id = o.id
+                 WHERE o.store_id = ? AND o.status = 'pago' AND o.created_at >= ?
+               )
+             HAVING ultima_venda IS NOT NULL OR p.created_at < ?"
+        );
+        $stmt->execute([$storeId, $storeId, $cutoff, $cutoff]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Meta de faturamento da loja no mês (YYYY-MM), ou null se não foi definida. */
+    public function fetchStoreGoal(int $storeId, string $period): ?float
+    {
+        $stmt = $this->pdo->prepare('SELECT goal_amount FROM store_goals WHERE store_id = ? AND period = ?');
+        $stmt->execute([$storeId, $period]);
+        $valor = $stmt->fetchColumn();
+
+        return $valor === false ? null : (float) $valor;
+    }
+
+    /**
      * Faturamento agregado por dia ou mês (só pedidos pagos / enviados da loja),
      * sem o frete, como em sumPaidOrdersTotal().
      *

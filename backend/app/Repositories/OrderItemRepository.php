@@ -16,8 +16,12 @@ class OrderItemRepository
 
     public function getByOrder(int $orderId): array
     {
+        // Colunas explícitas: oi.* trazia o custo congelado da venda, e este
+        // resultado vai para o funcionário em GET /orders/{id}. Quem precisa do
+        // custo (o BI) lê direto da tabela.
         $stmt = $this->pdo->prepare(
-            "SELECT oi.*, p.name as product_name FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?"
+            "SELECT oi.id, oi.order_id, oi.product_id, oi.variant_key, oi.quantity, oi.price, p.name as product_name
+             FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?"
         );
         $stmt->execute([$orderId]);
         return $stmt->fetchAll();
