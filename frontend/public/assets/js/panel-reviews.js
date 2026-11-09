@@ -19,7 +19,9 @@
   function cartao(a) {
     var badge = a.hidden
       ? '<span class="ui-badge ui-badge--muted">Removida da vitrine</span>'
-      : (a.reply ? '<span class="ui-badge ui-badge--ok">Respondida</span>' : '<span class="ui-badge ui-badge--warn">Sem resposta</span>');
+      : a.edited_after_reply
+        ? '<span class="ui-badge ui-badge--warn" title="A resposta foi escrita para o texto anterior.">Cliente editou depois da resposta</span>'
+        : (a.reply ? '<span class="ui-badge ui-badge--ok">Respondida</span>' : '<span class="ui-badge ui-badge--warn">Sem resposta</span>');
     return '<article class="reviews-mod-item' + (a.hidden ? ' is-hidden' : '') + '" data-id="' + a.id + '">' +
       '<header>' + estrelas(a.rating) + ' <strong>' + UI.esc(a.product_name) + '</strong> ' + badge +
         '<time>' + UI.esc(UI.dateTime(a.updated_at)) + '</time></header>' +

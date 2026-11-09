@@ -37,6 +37,10 @@ class ReviewApiController extends Controller
                 'reply' => $r['reply'],
                 'replied_at' => $r['replied_at'],
                 'hidden' => $r['hidden_at'] !== null,
+                // Responder e remover não mexem em updated_at; só a edição do
+                // cliente muda. Então a resposta pode estar falando de um texto
+                // que não existe mais, e o gerente precisa saber.
+                'edited_after_reply' => $r['replied_at'] !== null && (string) $r['updated_at'] > (string) $r['replied_at'],
                 'updated_at' => (string) $r['updated_at'],
                 'customer_name' => (string) $r['customer_name'],
                 'customer_email' => (string) $r['customer_email'],
