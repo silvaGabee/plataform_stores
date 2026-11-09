@@ -15,7 +15,7 @@
             <h2 class="ui-card-title">Avaliações dos clientes</h2>
             <div class="ui-seg" role="group" aria-label="Mostrar">
                 <button type="button" class="ui-seg-btn is-active" data-filtro="todas">Todas</button>
-                <button type="button" class="ui-seg-btn" data-filtro="sem_resposta">Sem resposta</button>
+                <button type="button" class="ui-seg-btn" data-filtro="sem_resposta">A responder</button>
                 <button type="button" class="ui-seg-btn" data-filtro="negativas">1 e 2 estrelas</button>
                 <button type="button" class="ui-seg-btn" data-filtro="removidas">Removidas</button>
             </div>

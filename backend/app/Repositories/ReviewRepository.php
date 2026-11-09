@@ -42,8 +42,16 @@ class ReviewRepository
     public function save(int $storeId, int $productId, int $userId, int $rating, ?string $comment): void
     {
         $st = $this->pdo->prepare(
+            // updated_at só muda se a nota ou o texto mudarem: salvar de novo sem
+            // alterar nada não pode marcar a avaliação como "editada depois da
+            // resposta". Ele vem PRIMEIRO porque o MySQL aplica as atribuições da
+            // esquerda para a direita — depois de rating = VALUES(rating), a
+            // comparação já veria o valor novo. <=> compara NULL com NULL.
             'INSERT INTO product_reviews (store_id, product_id, user_id, rating, comment) VALUES (?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment), updated_at = CURRENT_TIMESTAMP'
+             ON DUPLICATE KEY UPDATE
+                updated_at = IF(rating <=> VALUES(rating) AND comment <=> VALUES(comment), updated_at, CURRENT_TIMESTAMP),
+                rating = VALUES(rating),
+                comment = VALUES(comment)'
         );
         $st->execute([$storeId, $productId, $userId, $rating, $comment]);
     }
@@ -133,12 +141,15 @@ class ReviewRepository
      * nome inteiro e o e-mail: o gerente precisa saber quem escreveu.
      *
      * @param string $filtro 'todas' | 'sem_resposta' | 'removidas' | 'negativas'
+     *
+     * 'sem_resposta' é "a responder": sem resposta, ou com uma resposta escrita
+     * antes de o cliente editar o texto.
      */
     public function listForStore(int $storeId, string $filtro = 'todas', int $limit = 200): array
     {
         $limit = max(1, min(500, $limit));
         $onde = match ($filtro) {
-            'sem_resposta' => ' AND r.hidden_at IS NULL AND r.reply IS NULL',
+            'sem_resposta' => ' AND r.hidden_at IS NULL AND (r.reply IS NULL OR r.updated_at > r.replied_at)',
             'removidas' => ' AND r.hidden_at IS NOT NULL',
             'negativas' => ' AND r.hidden_at IS NULL AND r.rating <= 2',
             default => '',
@@ -162,7 +173,7 @@ class ReviewRepository
     {
         $st = $this->pdo->prepare(
             'SELECT COUNT(*) AS todas,
-                    COALESCE(SUM(hidden_at IS NULL AND reply IS NULL), 0) AS sem_resposta,
+                    COALESCE(SUM(hidden_at IS NULL AND (reply IS NULL OR updated_at > replied_at)), 0) AS sem_resposta,
                     COALESCE(SUM(hidden_at IS NOT NULL), 0) AS removidas,
                     COALESCE(SUM(hidden_at IS NULL AND rating <= 2), 0) AS negativas
              FROM product_reviews WHERE store_id = ?'

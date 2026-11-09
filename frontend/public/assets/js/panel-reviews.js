@@ -44,12 +44,12 @@
       var c = r.contagens;
       document.getElementById('reviews-stats').innerHTML =
         stat('Avaliações', String(c.todas)) +
-        stat('Sem resposta', String(c.sem_resposta), c.sem_resposta ? 'warn' : 'ok') +
+        stat('A responder', String(c.sem_resposta), c.sem_resposta ? 'warn' : 'ok') +
         stat('1 e 2 estrelas', String(c.negativas), c.negativas ? 'warn' : '') +
         stat('Removidas', String(c.removidas));
       var vazio = {
         todas: 'Nenhum cliente avaliou um produto ainda.',
-        sem_resposta: 'Todas as avaliações já têm resposta.',
+        sem_resposta: 'Nada a responder: toda avaliação tem resposta, escrita depois da última edição do cliente.',
         negativas: 'Nenhuma avaliação de 1 ou 2 estrelas.',
         removidas: 'Nenhuma avaliação removida.'
       };
