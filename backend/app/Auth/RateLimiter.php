@@ -26,13 +26,23 @@ final class RateLimiter
      */
     public static function tentar(string $acao, string $alvo, int $limite, int $janelaSegundos): bool
     {
-        return self::restantes($acao, $alvo, $limite, $janelaSegundos) > 0;
+        // A tentativa atual já entrou no contador: com limite 20, a 20ª passa e
+        // a 21ª é barrada. Antes a conta era "sobra alguma DEPOIS desta?", e
+        // todo limite permitia uma tentativa a menos (o login barrava na 8ª).
+        return self::registrar($acao, $alvo, $janelaSegundos) <= $limite;
     }
 
     /**
-     * Incrementa e devolve quantas tentativas ainda restam (0 = bloqueado).
+     * Incrementa e devolve quantas tentativas ainda restam depois desta
+     * (0 = esta foi a última permitida, ou já passou do limite).
      */
     public static function restantes(string $acao, string $alvo, int $limite, int $janelaSegundos): int
+    {
+        return max(0, $limite - self::registrar($acao, $alvo, $janelaSegundos));
+    }
+
+    /** Conta mais uma tentativa e devolve o total na janela, já com esta. */
+    private static function registrar(string $acao, string $alvo, int $janelaSegundos): int
     {
         $pdo = Database::getConnection();
         $bucket = self::bucket($acao, $alvo);
@@ -59,7 +69,7 @@ final class RateLimiter
 
         self::limparVencidos($pdo);
 
-        return max(0, $limite - $hits);
+        return $hits;
     }
 
     /** Zera o contador — chamado após uma tentativa bem-sucedida. */

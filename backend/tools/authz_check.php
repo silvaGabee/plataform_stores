@@ -25,6 +25,12 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/bootstrap.php';
 
+// Domínio dos e-mails do seed (gerente@…, funcionario@…). Um banco montado
+// antes do seed atual pode ter outro, como loja.teste: SEED_EMAIL_DOMAIN=loja.teste
+$dominio = getenv('SEED_EMAIL_DOMAIN') ?: 'loja.test';
+$emailGerente = 'gerente@' . $dominio;
+$emailFunc = 'funcionario@' . $dominio;
+
 $argumentos = array_slice($argv, 1);
 $forcar = in_array('--force', $argumentos, true);
 $urlInformada = array_values(array_filter($argumentos, static fn (string $a): bool => strncmp($a, '--', 2) !== 0))[0] ?? null;
@@ -130,8 +136,8 @@ $ok = static function (string $nome, bool $passou) use (&$falhas, &$total): void
 $jarGerente = sys_get_temp_dir() . '/authz_gerente.txt';
 $jarFunc = sys_get_temp_dir() . '/authz_func.txt';
 
-$csrfGerente = login($base, 'gerente@loja.test', 'gerente123', $jarGerente);
-$csrfFunc = login($base, 'funcionario@loja.test', 'gerente123', $jarFunc);
+$csrfGerente = login($base, $emailGerente, 'gerente123', $jarGerente);
+$csrfFunc = login($base, $emailFunc, 'gerente123', $jarFunc);
 
 if ($csrfGerente === null || $csrfFunc === null) {
     fwrite(STDERR, "Não foi possível autenticar. Rode: php backend/scripts/seed.php\n");
@@ -231,7 +237,7 @@ $rateio = static fn (array $corpo): int => http('POST', "{$base}/api/loja/{$slug
 ])['status'];
 $ok('dividir sem informar o valor é recusado', $rateio([]) === 400);
 $ok('dividir mais que a meta da loja é recusado', $rateio(['distribute_amount' => 1000.01]) === 400);
-$idGerente = (int) (\App\Database\Database::getConnection()->query("SELECT id FROM users WHERE email = 'gerente@loja.test'")->fetchColumn());
+$idGerente = (int) ((function () use ($emailGerente) { $q = \App\Database\Database::getConnection()->prepare('SELECT id FROM users WHERE email = ?'); $q->execute([$emailGerente]); return $q->fetchColumn(); })());
 $ok('o gerente não entra na lista de metas da equipe', !in_array($idGerente, array_column($metasGer['employees'] ?? [], 'user_id'), true));
 
 // Item de pedido guarda o custo congelado da venda. Cria uma venda de balcão,

@@ -15,6 +15,12 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__) . '/bootstrap.php';
+
+// Domínio dos e-mails do seed (gerente@…, funcionario@…). Um banco montado
+// antes do seed atual pode ter outro, como loja.teste: SEED_EMAIL_DOMAIN=loja.teste
+$dominio = getenv('SEED_EMAIL_DOMAIN') ?: 'loja.test';
+$emailGerente = 'gerente@' . $dominio;
+$emailFunc = 'funcionario@' . $dominio;
 require PLATAFORM_BACKEND . '/app/Helpers/functions.php';
 
 use App\Database\Database;
@@ -100,7 +106,7 @@ $ok('users.email é UNIQUE global', $idx !== []);
 $duplicouEmail = false;
 try {
     $pdo->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)')
-        ->execute(['Dup', 'gerente@loja.test', 'x']);
+        ->execute(['Dup', $emailGerente, 'x']);
     $duplicouEmail = true;
     $pdo->exec("DELETE FROM users WHERE name = 'Dup'");
 } catch (PDOException $e) {
@@ -112,13 +118,13 @@ $ok('banco recusa segundo registro com o mesmo e-mail', !$duplicouEmail);
 echo PHP_EOL . 'O gerente mantém o painel depois de sair e entrar' . PHP_EOL;
 
 $jar = sys_get_temp_dir() . '/ident.txt';
-$entrou = entrar($base, 'gerente@loja.test', 'gerente123', $jar);
+$entrou = entrar($base, $emailGerente, 'gerente123', $jar);
 $ok('login do gerente', $entrou);
 $antes = req('GET', $base . '/painel/teste', $jar)['status'];
 $ok('painel acessível na 1a sessão (200)', $antes === 200);
 
 req('GET', $base . '/sair', $jar);
-entrar($base, 'gerente@loja.test', 'gerente123', $jar);
+entrar($base, $emailGerente, 'gerente123', $jar);
 $depois = req('GET', $base . '/painel/teste', $jar)['status'];
 // Antes, o login escolhia a linha "de plataforma", que não tinha cargo em loja
 // nenhuma — e o gerente perdia o próprio painel até acertar por acidente.
@@ -136,11 +142,11 @@ $lojaA = (int) $pdo->lastInsertId();
 $pdo->prepare('INSERT INTO stores (name, slug) VALUES (?, ?)')->execute(['Ident B', '__ident__b']);
 $lojaB = (int) $pdo->lastInsertId();
 
-$gerente = $userRepo->findByEmail('gerente@loja.test');
+$gerente = $userRepo->findByEmail($emailGerente);
 $memberRepo->upsert((int) $gerente['id'], $lojaA, 'gerente');
 $memberRepo->upsert((int) $gerente['id'], $lojaB, 'funcionario');
 
-$contas = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE email = 'gerente@loja.test'")->fetchColumn();
+$contas = (int) (function () use ($pdo, $emailGerente) { $q = $pdo->prepare('SELECT COUNT(*) FROM users WHERE email = ?'); $q->execute([$emailGerente]); return $q->fetchColumn(); })();
 $ok('continua sendo UMA conta com 3 vínculos', $contas === 1
     && count($memberRepo->storeIdsForUser((int) $gerente['id'])) === 3);
 
@@ -148,7 +154,7 @@ $ok('cargos independentes por loja',
     $memberRepo->role((int) $gerente['id'], $lojaA) === 'gerente'
     && $memberRepo->role((int) $gerente['id'], $lojaB) === 'funcionario');
 
-entrar($base, 'gerente@loja.test', 'gerente123', $jar);
+entrar($base, $emailGerente, 'gerente123', $jar);
 $a = req('GET', $base . '/painel/__ident__a/configuracoes', $jar)['status'];
 $b = req('GET', $base . '/painel/__ident__b/configuracoes', $jar)['status'];
 // Mesma sessão, mesma senha, permissões diferentes conforme a loja.
@@ -158,7 +164,7 @@ $ok('funcionário NÃO entra em Configurações da loja B (302)', $b === 302);
 // ------------------------------------------ remover da equipe ≠ apagar pessoa
 echo PHP_EOL . 'Remover da equipe preserva a pessoa' . PHP_EOL;
 
-$func = $userRepo->findByEmail('funcionario@loja.test');
+$func = $userRepo->findByEmail($emailFunc);
 $funcId = (int) $func['id'];
 $memberRepo->upsert($funcId, $lojaA, 'funcionario');
 $memberRepo->remove($funcId, $lojaA);
