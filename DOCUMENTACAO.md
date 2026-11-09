@@ -568,7 +568,7 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 | Tabelas no banco | 28 |
 | Migrações de banco versionadas | 26 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 138, todos passando |
+| Testes automatizados | 161, todos passando |
 
 Fonte: os autores (2026).
 
