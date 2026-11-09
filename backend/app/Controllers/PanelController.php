@@ -78,6 +78,13 @@ class PanelController extends Controller
         $this->render('panel/clientes', ['store' => $store, 'title' => 'Clientes']);
     }
 
+    public function reviews(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $this->requireGerenteOrRedirect($store, $slug);
+        $this->render('panel/avaliacoes', ['store' => $store, 'title' => 'Avaliações']);
+    }
+
     public function employees(string $slug): void
     {
         $store = $this->getStore($slug);

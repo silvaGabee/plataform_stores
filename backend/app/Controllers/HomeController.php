@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Repositories\StoreRepository;
 use App\Services\StoreService;
 use App\Repositories\StorePixConfigRepository;
+use App\Auth\PasswordPolicy;
 use App\Auth\RateLimiter;
 use App\Repositories\StoreMemberRepository;
 use App\Repositories\UserRepository;
@@ -287,6 +288,11 @@ class HomeController extends Controller
         if (!$name || !$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha todos os campos.';
+            redirect(base_url('?auth=cadastro'));
+        }
+        if (($problema = PasswordPolicy::problema($password)) !== null) {
+            $_SESSION['_old'] = $_POST;
+            $_SESSION['_error'] = $problema;
             redirect(base_url('?auth=cadastro'));
         }
         // Limita criação de contas em massa a partir do mesmo IP.

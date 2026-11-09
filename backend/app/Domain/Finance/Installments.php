@@ -44,15 +44,7 @@ final class Installments
      */
     public static function price(float $principal, float $taxaMensal, int $parcelas): array
     {
-        if ($principal <= 0) {
-            throw new \InvalidArgumentException('O valor financiado deve ser maior que zero.');
-        }
-        if ($parcelas < 1 || $parcelas > self::MAX_PARCELAS) {
-            throw new \InvalidArgumentException('O número de parcelas deve estar entre 1 e ' . self::MAX_PARCELAS . '.');
-        }
-        if ($taxaMensal < 0 || $taxaMensal > self::MAX_TAXA_MENSAL) {
-            throw new \InvalidArgumentException('A taxa mensal deve estar entre 0% e ' . self::MAX_TAXA_MENSAL . '%.');
-        }
+        self::validar($principal, $taxaMensal, $parcelas);
 
         $i = $taxaMensal / 100;
         $principalCent = Money::toCents($principal);
@@ -92,6 +84,105 @@ final class Installments
         }
 
         return self::resultado($principal, $taxaMensal, $parcelas, Money::fromCents($pmtCent), $coef, $tabela);
+    }
+
+    /**
+     * Sistema de Amortização Constante (SAC).
+     *
+     * A amortização é a mesma em toda parcela, A = P / n; os juros incidem
+     * sobre o saldo, que cai A por mês. Então a parcela começa mais alta que a
+     * da Price e diminui A · i a cada mês:
+     *
+     *     amortização_k = P / n
+     *     juros_k       = saldo_(k−1) · i
+     *     parcela_k     = P / n + juros_k
+     *
+     * As amortizações são divididas em centavos (Money::splitEvenly), então
+     * Σ amortizações = P exatamente e o saldo zera na última.
+     *
+     * @return array{
+     *   principal: float, taxa_mensal: float, parcelas: int,
+     *   primeira_parcela: float, ultima_parcela: float, amortizacao: float,
+     *   total: float, juros_total: float,
+     *   tabela: list<array{n: int, parcela: float, juros: float, amortizacao: float, saldo: float}>
+     * }
+     */
+    public static function sac(float $principal, float $taxaMensal, int $parcelas): array
+    {
+        self::validar($principal, $taxaMensal, $parcelas);
+        $i = $taxaMensal / 100;
+        $amortizacoes = Money::splitEvenly($principal, $parcelas);
+        $saldo = Money::toCents($principal);
+        $totalCent = 0;
+        $tabela = [];
+        foreach ($amortizacoes as $k => $a) {
+            $amortCent = Money::toCents($a);
+            $jurosCent = (int) round($saldo * $i);
+            $saldo -= $amortCent;
+            $totalCent += $amortCent + $jurosCent;
+            $tabela[] = [
+                'n' => $k + 1,
+                'parcela' => Money::fromCents($amortCent + $jurosCent),
+                'juros' => Money::fromCents($jurosCent),
+                'amortizacao' => $a,
+                'saldo' => Money::fromCents($saldo),
+            ];
+        }
+
+        return [
+            'principal' => round($principal, 2),
+            'taxa_mensal' => $taxaMensal,
+            'parcelas' => $parcelas,
+            'primeira_parcela' => $tabela[0]['parcela'],
+            'ultima_parcela' => $tabela[count($tabela) - 1]['parcela'],
+            'amortizacao' => $amortizacoes[0],
+            'total' => Money::fromCents($totalCent),
+            'juros_total' => Money::fromCents($totalCent - Money::toCents($principal)),
+            'tabela' => $tabela,
+        ];
+    }
+
+    /**
+     * Price × SAC para o mesmo valor, taxa e prazo.
+     *
+     * O SAC paga menos juros no total porque devolve o principal mais cedo:
+     * o saldo médio é menor. Isso não o torna "mais barato" por si: trazidas a
+     * valor presente pela própria taxa do financiamento, as duas séries valem
+     * exatamente P. A diferença só aparece quando a loja desconta as parcelas
+     * pela sua TMA (o quanto o dinheiro dela rende em outro uso): se a TMA é
+     * maior que a taxa do financiamento, pagar depois (Price) vale menos hoje;
+     * se é menor, adiantar o principal (SAC) compensa.
+     *
+     * @return array{price: array, sac: array, tma: ?float, valor_presente_price: ?float, valor_presente_sac: ?float}
+     */
+    public static function compare(float $principal, float $taxaMensal, int $parcelas, ?float $tmaPercent = null): array
+    {
+        $price = self::price($principal, $taxaMensal, $parcelas);
+        $sac = self::sac($principal, $taxaMensal, $parcelas);
+        $vp = static fn (array $plano): ?float => $tmaPercent === null
+            ? null
+            : Investment::npv($tmaPercent, array_merge([0.0], array_column($plano['tabela'], 'parcela')));
+
+        return [
+            'price' => $price,
+            'sac' => $sac,
+            'tma' => $tmaPercent,
+            'valor_presente_price' => $vp($price),
+            'valor_presente_sac' => $vp($sac),
+        ];
+    }
+
+    private static function validar(float $principal, float $taxaMensal, int $parcelas): void
+    {
+        if ($principal <= 0) {
+            throw new \InvalidArgumentException('O valor financiado deve ser maior que zero.');
+        }
+        if ($parcelas < 1 || $parcelas > self::MAX_PARCELAS) {
+            throw new \InvalidArgumentException('O número de parcelas deve estar entre 1 e ' . self::MAX_PARCELAS . '.');
+        }
+        if ($taxaMensal < 0 || $taxaMensal > self::MAX_TAXA_MENSAL) {
+            throw new \InvalidArgumentException('A taxa mensal deve estar entre 0% e ' . self::MAX_TAXA_MENSAL . '%.');
+        }
     }
 
     /**

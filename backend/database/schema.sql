@@ -137,7 +137,7 @@ CREATE TABLE `orders` (
   `address_id` int(10) unsigned DEFAULT NULL,
   `delivery_stage` enum('solicitado','empacotando','entregue_transportadora','em_rota','entregue') NOT NULL DEFAULT 'solicitado',
   `tracking_code` varchar(100) DEFAULT NULL,
-  `status` enum('pendente','pago','cancelado','enviado','estornado') NOT NULL DEFAULT 'pendente',
+  `status` enum('pendente','pago','cancelado','estornado') NOT NULL DEFAULT 'pendente',
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
   `pix_discount` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -206,6 +206,11 @@ CREATE TABLE `product_reviews` (
   `user_id` int(10) unsigned NOT NULL,
   `rating` tinyint(3) unsigned NOT NULL,
   `comment` varchar(1000) DEFAULT NULL,
+  `reply` varchar(1000) DEFAULT NULL,
+  `replied_at` datetime DEFAULT NULL,
+  `replied_by` int(10) unsigned DEFAULT NULL,
+  `hidden_at` datetime DEFAULT NULL,
+  `hidden_by` int(10) unsigned DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -458,3 +463,5 @@ INSERT INTO schema_migrations (version) VALUES ('0021_vendas_reservas_descontos.
 INSERT INTO schema_migrations (version) VALUES ('0022_pdv_vendas_entregues.sql');
 INSERT INTO schema_migrations (version) VALUES ('0023_vitrine_whatsapp_pix_frete_avaliacoes.php');
 INSERT INTO schema_migrations (version) VALUES ('0024_estorno_codigo_barras.php');
+INSERT INTO schema_migrations (version) VALUES ('0025_remove_status_enviado.sql');
+INSERT INTO schema_migrations (version) VALUES ('0026_avaliacoes_moderacao.php');

@@ -294,6 +294,12 @@ $content = ob_start();
                         <?php if ($rv['comment'] !== null): ?>
                             <p><?= nl2br(htmlspecialchars($rv['comment'])) ?></p>
                         <?php endif; ?>
+                        <?php if (!empty($rv['reply'])): ?>
+                            <div class="product-review-reply">
+                                <strong>Resposta da <?= htmlspecialchars($store['name']) ?></strong>
+                                <p><?= nl2br(htmlspecialchars($rv['reply'])) ?></p>
+                            </div>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>

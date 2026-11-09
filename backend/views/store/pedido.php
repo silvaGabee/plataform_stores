@@ -28,7 +28,7 @@ $paymentMethodLabels = [
 // Linha do tempo: as mesmas etapas do quadro de Entregas do painel, com o
 // pagamento no meio. Pedido cancelado não tem linha do tempo (há o aviso).
 $stage = (string) ($order['delivery_stage'] ?? 'solicitado');
-$pagoOuEnviado = in_array($statusKey, ['pago', 'enviado'], true);
+$pago = $statusKey === 'pago';
 if ($deliveryType === 'entrega') {
     $timeline = [
         ['Pedido feito', 'package'],
@@ -48,7 +48,7 @@ if ($deliveryType === 'entrega') {
     ];
     $porEstagio = ['solicitado' => 2, 'entregue' => 3];
 }
-$etapaAtual = $pagoOuEnviado ? ($porEstagio[$stage] ?? 1) : 0;
+$etapaAtual = $pago ? ($porEstagio[$stage] ?? 1) : 0;
 $itensSubtotal = 0.0;
 foreach ($order['items'] as $__it) {
     $itensSubtotal += (float) $__it['quantity'] * (float) $__it['price'];

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Domain\Finance\Installments;
+use App\Domain\Finance\Investment;
 use App\Domain\Finance\ProductMetrics;
 use App\Domain\Finance\Trend;
 use App\Repositories\AnalyzingBIRepository;
@@ -403,10 +405,7 @@ class AnalyzingBIService
             $minimo = max(0, (int) $l['min_stock']);
             $custo = (float) ($l['cost_price'] ?? 0);
             $vendido = (float) $l['quantidade_janela'];
-            $inicio = min(array_filter([(string) $l['created_at'], (string) ($l['primeira_venda'] ?? '')]));
-            $criado = new DateTimeImmutable($inicio, $now->getTimezone());
-            $idade = (int) floor(($now->getTimestamp() - $criado->getTimestamp()) / 86400);
-            $janela = max(1, min(self::DIAS_JANELA_COBERTURA, $idade));
+            $janela = self::janelaDeVenda($l, $now);
             $diasRepor = ProductMetrics::daysUntil($estoque, $minimo, $vendido, $janela);
             $itens[] = [
                 'produto_id' => (int) $l['id'],
@@ -423,6 +422,150 @@ class AnalyzingBIService
         }
 
         return $itens;
+    }
+
+    /**
+     * Dias da janela do ritmo de venda: 90, ou a idade do produto se for mais
+     * novo (contada da venda mais antiga, se ela vier antes do cadastro).
+     *
+     * @param array<string, mixed> $l linha de fetchProductIndicators()
+     */
+    private static function janelaDeVenda(array $l, DateTimeImmutable $now): int
+    {
+        $inicio = min(array_filter([(string) $l['created_at'], (string) ($l['primeira_venda'] ?? '')]));
+        $criado = new DateTimeImmutable($inicio, $now->getTimezone());
+        $idade = (int) floor(($now->getTimestamp() - $criado->getTimestamp()) / 86400);
+
+        return max(1, min(self::DIAS_JANELA_COBERTURA, $idade));
+    }
+
+    /**
+     * O que o simulador de compra precisa saber de cada produto.
+     *
+     * venda_mensal: ritmo da cobertura (janela de até 90 dias) levado a 30 dias.
+     * preco: o preço médio realmente recebido em 12 meses, já com desconto e
+     * sem frete — o de cadastro só quando o produto nunca vendeu, porque o
+     * preço de etiqueta superestima a entrada de caixa.
+     *
+     * @param list<array<string, mixed>> $linhas de fetchProductIndicators()
+     * @return list<array{produto_id: int, nome: string, custo: float, preco: float, preco_origem: string, venda_mensal: float, estoque: int}>
+     */
+    public static function montarOpcoesCompra(array $linhas, DateTimeImmutable $now): array
+    {
+        $out = [];
+        foreach ($linhas as $l) {
+            $qtd = (float) $l['quantidade'];
+            $etiqueta = (float) ($l['promo_price'] ?? 0) > 0 ? (float) $l['promo_price'] : (float) ($l['sale_price'] ?? 0);
+            $out[] = [
+                'produto_id' => (int) $l['id'],
+                'nome' => (string) $l['name'],
+                'custo' => round((float) ($l['cost_price'] ?? 0), 2),
+                'preco' => $qtd > 0 ? round((float) $l['receita'] / $qtd, 2) : round($etiqueta, 2),
+                'preco_origem' => $qtd > 0 ? 'media_vendida' : 'cadastro',
+                'venda_mensal' => round((float) $l['quantidade_janela'] / self::janelaDeVenda($l, $now) * 30, 2),
+                'estoque' => max(0, (int) $l['stock_quantity']),
+            ];
+        }
+        usort($out, static fn (array $a, array $b): int => strcmp($a['nome'], $b['nome']));
+
+        return $out;
+    }
+
+    /**
+     * Simula comprar $quantidade peças de um produto: fluxo de caixa, VPL à TMA,
+     * TIR, paybacks e, se $parcelas > 0, o financiamento da compra pela Price e
+     * pelo SAC. Sem $produtoId, devolve só a lista de produtos.
+     *
+     * @return array<string, mixed>
+     */
+    public function simulateStockPurchase(
+        int $storeId,
+        int $produtoId,
+        float $quantidade,
+        float $tmaPercent,
+        bool $considerarEstoque,
+        float $taxaFinanciamento,
+        int $parcelas
+    ): array {
+        $tz = new DateTimeZone((string) (config('app.timezone') ?: 'America/Sao_Paulo'));
+        $now = new DateTimeImmutable('now', $tz);
+        $opcoes = self::montarOpcoesCompra($this->repo->fetchProductIndicators(
+            $storeId,
+            $now->modify('-' . self::MESES_INDICADORES . ' months')->format('Y-m-d H:i:s'),
+            $now->modify('-' . self::DIAS_JANELA_COBERTURA . ' days')->format('Y-m-d H:i:s')
+        ), $now);
+        $resposta = ['produtos' => $opcoes, 'max_meses' => Investment::MAX_MESES];
+        if ($produtoId < 1) {
+            return $resposta;
+        }
+        $produto = null;
+        foreach ($opcoes as $o) {
+            if ($o['produto_id'] === $produtoId) {
+                $produto = $o;
+            }
+        }
+        if ($produto === null) {
+            throw new \InvalidArgumentException('Produto não encontrado nesta loja.');
+        }
+        if ($tmaPercent < 0 || $tmaPercent > Installments::MAX_TAXA_MENSAL) {
+            throw new \InvalidArgumentException('A TMA deve estar entre 0% e ' . Installments::MAX_TAXA_MENSAL . '% ao mês.');
+        }
+
+        return $resposta + self::analisarCompra($produto, $quantidade, $tmaPercent, $considerarEstoque, $taxaFinanciamento, $parcelas);
+    }
+
+    /**
+     * A conta do simulador, sem banco: separada para ser testada.
+     *
+     * @param array{custo: float, preco: float, venda_mensal: float, estoque: int} $produto
+     * @return array<string, mixed>
+     */
+    public static function analisarCompra(
+        array $produto,
+        float $quantidade,
+        float $tmaPercent,
+        bool $considerarEstoque,
+        float $taxaFinanciamento = 0.0,
+        int $parcelas = 0
+    ): array {
+        $f = Investment::stockPurchaseFlows(
+            $quantidade,
+            (float) $produto['custo'],
+            (float) $produto['preco'],
+            (float) $produto['venda_mensal'],
+            $considerarEstoque ? (float) $produto['estoque'] : 0.0
+        );
+        $investimento = -$f['fluxos'][0];
+        $vpl = Investment::npv($tmaPercent, $f['fluxos']);
+        $tir = Investment::irr($f['fluxos']);
+
+        $out = [
+            'produto' => $produto,
+            'premissas' => [
+                'quantidade' => $quantidade,
+                'tma' => $tmaPercent,
+                'considerar_estoque' => $considerarEstoque,
+            ],
+            'investimento' => $investimento,
+            'fluxos' => $f['fluxos'],
+            'meses' => $f['meses'],
+            'meses_ate_comecar' => $f['meses_ate_comecar'],
+            'sobra' => $f['sobra'],
+            'entradas' => round(array_sum(array_slice($f['fluxos'], 1)), 2),
+            'lucro_nominal' => round(array_sum($f['fluxos']), 2),
+            'vpl' => $vpl,
+            'tir' => $tir,
+            'payback_simples' => Investment::payback($f['fluxos']),
+            'payback_descontado' => Investment::payback($f['fluxos'], $tmaPercent),
+            // VPL ≥ 0 ⇔ TIR ≥ TMA (fluxo convencional): as duas regras concordam.
+            'decisao' => $vpl >= 0 ? 'compensa' : 'nao_compensa',
+            'financiamento' => null,
+        ];
+        if ($parcelas > 0) {
+            $out['financiamento'] = Installments::compare($investimento, $taxaFinanciamento, $parcelas, $tmaPercent);
+        }
+
+        return $out;
     }
 
     /**
@@ -652,8 +795,8 @@ class AnalyzingBIService
             'serie' => $serie,
             'serie_previsao' => $previsao['serie'],
             'meta' => [
-                'status_pedidos' => ['pago', 'enviado'],
-                'observacao_status' => 'No modelo atual, “concluído” no fluxo de venda corresponde a pedidos já pagos ou enviados; não há valor ENUM “concluido” na tabela.',
+                'status_pedidos' => ['pago'],
+                'observacao_status' => '“Concluído” no fluxo de venda é o pedido pago; o andamento da entrega fica em delivery_stage, não no status.',
                 'previsao' => $previsao['meta'],
             ],
         ];

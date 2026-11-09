@@ -93,7 +93,7 @@ jobs:
         run: php backend/tools/identity_check.php http://127.0.0.1:8080
 
       - name: Permissões e CSRF
-        run: php backend/tools/authz_check.php http://127.0.0.1:8080
+        run: php backend/tools/authz_check.php --force http://127.0.0.1:8080
 
   # Análise estática. Só aqui o Composer é necessário — a aplicação não depende
   # dele para rodar.

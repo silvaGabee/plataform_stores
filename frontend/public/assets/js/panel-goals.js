@@ -49,7 +49,8 @@
       hint.textContent = 'Sem vendas nos últimos meses para sugerir um valor.';
       return;
     }
-    var sugestao = Math.round(meta * historico.percent) / 100;
+    // Mesma conta de TeamGoal::suggestedSplit: nunca passa da meta.
+    var sugestao = Math.min(Math.round(meta * historico.percent), Math.round(meta * 100)) / 100;
     hint.textContent = 'Nos últimos ' + historico.months + ' meses, os funcionários fizeram ' + pctText(historico.percent) +
       ' das vendas da loja. Para esta meta, isso dá ' + UI.money(sugestao) + '.';
     if (!splitEditado) form.elements.distribute_amount.value = sugestao > 0 ? sugestao.toFixed(2) : '';

@@ -749,7 +749,7 @@
     msgEl.classList.remove('is-error', 'is-success');
     if (kind === 'error') msgEl.classList.add('is-error');
     else if (kind === 'success') msgEl.classList.add('is-success');
-    msgEl.style.color = isError ? 'var(--danger, #ef4444)' : '';
+    msgEl.style.color = kind === 'error' ? 'var(--danger, #ef4444)' : '';
   }
 
   if (showBtn && confirmBox) {
@@ -775,9 +775,9 @@
 
   if (confirmBtn) {
     confirmBtn.addEventListener('click', function () {
-      var v = input ? input.value.trim() : '';
-      if (v !== 'Excluir') {
-        setMsg('Digite Excluir exatamente como mostrado para confirmar.', 'error');
+      var senha = input ? input.value : '';
+      if (senha === '') {
+        setMsg('Digite a sua senha para confirmar.', 'error');
         if (input) {
           input.focus();
         }
@@ -789,7 +789,7 @@
       confirmBtn.textContent = 'Excluindo...';
       api('api/loja/' + encodeURIComponent(storeSlug) + '/store/delete', {
         method: 'POST',
-        body: JSON.stringify({ confirmation: 'Excluir' })
+        body: JSON.stringify({ password: senha })
       })
         .then(function (res) {
           window.location.href = res.redirect || (base ? base + '/lojas' : '/lojas');
@@ -797,6 +797,10 @@
         .catch(function (err) {
           confirmBtn.disabled = false;
           confirmBtn.textContent = prev;
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
           setMsg(err.message || String(err), 'error');
         });
     });

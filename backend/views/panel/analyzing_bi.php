@@ -59,7 +59,7 @@ ob_start();
         <div class="bi-revenue-head">
             <div class="bi-revenue-head-text">
                 <h2 id="bi-revenue-title" class="bi-section-title">Faturamento ao longo do tempo</h2>
-                <p class="bi-section-desc bi-revenue-desc">Evolução do faturamento da loja (pedidos pagos ou enviados, sem o frete), só desta loja. Útil para ver crescimento, quedas e tendências.</p>
+                <p class="bi-section-desc bi-revenue-desc">Evolução do faturamento da loja (pedidos pagos, sem o frete), só desta loja. Útil para ver crescimento, quedas e tendências.</p>
             </div>
             <div class="bi-revenue-filters" role="group" aria-label="Período do gráfico">
                 <button type="button" class="bi-revenue-filter" data-periodo="7d">7 dias</button>
@@ -153,6 +153,29 @@ ob_start();
         </div>
     </section>
 
+    <section id="bi-sim" class="bi-ideas hidden" aria-labelledby="bi-sim-title">
+        <h2 id="bi-sim-title" class="bi-section-title">Vale a pena comprar este estoque? <span class="bi-badge">VPL · TIR · Price × SAC</span></h2>
+        <p class="bi-section-desc">Simula a compra de um lote: o dinheiro sai hoje e volta conforme as peças vendem, no ritmo dos últimos 90 dias e pelo preço médio que a loja de fato recebeu. A TMA é quanto o dinheiro da loja renderia em outro uso, ao mês. Nada é gravado.</p>
+        <form class="bi-sim-form" id="bi-sim-form" autocomplete="off">
+            <label class="ui-field bi-sim-produto"><span>Produto</span><select name="produto" required></select></label>
+            <label class="ui-field"><span>Quantidade</span><input name="quantidade" type="number" min="1" step="1" required></label>
+            <label class="ui-field"><span>TMA (% ao mês)</span><input name="tma" type="number" min="0" max="20" step="0.01" value="1.5" required></label>
+            <label class="bi-sim-check"><input type="checkbox" name="estoque" checked> <span>O estoque atual vende primeiro</span></label>
+            <fieldset class="bi-sim-fin">
+                <legend>Financiar a compra (opcional)</legend>
+                <label class="ui-field"><span>Parcelas</span>
+                    <select name="parcelas">
+                        <option value="0">Não, pagar à vista</option>
+                        <?php foreach ([2, 3, 4, 6, 10, 12, 18, 24] as $n): ?><option value="<?= $n ?>"><?= $n ?>x</option><?php endforeach; ?>
+                    </select>
+                </label>
+                <label class="ui-field"><span>Juros (% ao mês)</span><input name="taxa" type="number" min="0" max="20" step="0.01" value="2"></label>
+            </fieldset>
+        </form>
+        <p class="bi-muted" id="bi-sim-produto-info"></p>
+        <div id="bi-sim-result" aria-live="polite"></div>
+    </section>
+
     <section id="bi-ideas" class="bi-ideas hidden" aria-labelledby="bi-ideas-title">
         <h2 id="bi-ideas-title" class="bi-section-title">Ideias de investimento</h2>
         <p class="bi-section-desc">Sugestões automáticas com base nos números.</p>
@@ -164,5 +187,6 @@ $content = ob_get_clean();
 $panel_main_extra_class = 'panel-main--bi-immersive';
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug'], JSON_UNESCAPED_UNICODE) . ';</script>'
     . '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>'
-    . '<script src="' . asset('js/panel-analyzing-bi.js') . '"></script>';
+    . '<script src="' . asset('js/panel-analyzing-bi.js') . '"></script>'
+    . '<script src="' . asset('js/panel-bi-simulator.js') . '"></script>';
 require __DIR__ . '/layout_panel.php';

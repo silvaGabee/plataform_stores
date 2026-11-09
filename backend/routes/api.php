@@ -12,6 +12,7 @@ use App\Controllers\Api\StockMovementApiController;
 use App\Controllers\Api\CartApiController;
 use App\Controllers\Api\CheckoutApiController;
 use App\Controllers\Api\CustomerApiController;
+use App\Controllers\Api\ReviewApiController;
 use App\Controllers\Api\GoalsApiController;
 use App\Controllers\Api\AnalyzingBIApiController;
 use App\Controllers\Api\VitrineCategoryApiController;
@@ -138,6 +139,12 @@ return [
     'POST /api/loja/{slug}/favoritos/{id}' => [VitrineExtrasApiController::class, 'toggleFavorite', Guard::AUTENTICADO],
     'POST /api/loja/{slug}/produtos/{id}/avaliacao' => [VitrineExtrasApiController::class, 'saveReview', Guard::AUTENTICADO],
 
+    // Moderação das avaliações: só gerente.
+    'GET /api/loja/{slug}/avaliacoes' => [ReviewApiController::class, 'list', 'store.reviews.manage'],
+    'POST /api/loja/{slug}/avaliacoes/{id}/responder' => [ReviewApiController::class, 'reply', 'store.reviews.manage'],
+    'POST /api/loja/{slug}/avaliacoes/{id}/remover' => [ReviewApiController::class, 'hide', 'store.reviews.manage'],
+    'POST /api/loja/{slug}/avaliacoes/{id}/restaurar' => [ReviewApiController::class, 'restore', 'store.reviews.manage'],
+
     // Pagamento do cliente: o controller exige posse do pedido (ver Fase 0).
     'POST /api/loja/{slug}/payments' => [PaymentApiController::class, 'create', Guard::AUTENTICADO],
     'GET /api/loja/{slug}/payments/pending' => [PaymentApiController::class, 'listPending', 'store.payments.read'],
@@ -162,6 +169,7 @@ return [
     // qualquer caminho de um segmento sob /api/.
     'GET /api/loja/{slug}/analyzing-bi/faturamento' => [AnalyzingBIApiController::class, 'faturamento', 'store.bi.read'],
     'GET /api/loja/{slug}/analyzing-bi/indicadores' => [AnalyzingBIApiController::class, 'indicadores', 'store.bi.read'],
+    'GET /api/loja/{slug}/analyzing-bi/simulador-compra' => [AnalyzingBIApiController::class, 'simuladorCompra', 'store.bi.read'],
     'GET /api/loja/{slug}/analyzing-bi' => [AnalyzingBIApiController::class, 'index', 'store.bi.read'],
 
     'GET /api/loja/{slug}/goals' => [GoalsApiController::class, 'get', 'store.goals.read'],

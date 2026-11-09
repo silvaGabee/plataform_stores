@@ -159,6 +159,10 @@ class PromotionApiController extends Controller
     public function validateCoupon(string $slug): void
     {
         $storeId = $this->storeOr404($slug);
+        if (!self::cupomDentroDoLimite($storeId)) {
+            $this->json(['error' => 'Muitas tentativas de cupom. Tente de novo em alguns minutos.'], 429);
+            return;
+        }
         $in = $this->getJsonInput();
         $subtotal = $this->subtotalDosItens($storeId, is_array($in['items'] ?? null) ? $in['items'] : []);
         try {
@@ -178,6 +182,19 @@ class PromotionApiController extends Controller
             'discount' => $r['discount'],
             'total' => round($subtotal - $r['discount'], 2),
         ]);
+    }
+
+    /**
+     * 20 códigos por IP e loja a cada 15 minutos.
+     *
+     * A rota é pública e respondia na hora se o código existia: um script
+     * testava "PROMO1", "PROMO2"... até acertar um cupom que a loja só deu a
+     * alguns clientes. Quem compra de verdade digita um ou dois códigos. O
+     * checkout usa o mesmo contador, senão bastaria testar por lá.
+     */
+    public static function cupomDentroDoLimite(int $storeId): bool
+    {
+        return \App\Auth\RateLimiter::tentar('cupom', (string) $storeId, 20, 900);
     }
 
     // ------------------------------------------------------------ promoção por produto

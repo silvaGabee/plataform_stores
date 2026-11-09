@@ -91,12 +91,12 @@ Desenvolver uma aplicação web multi-loja de gestão comercial que registre com
 4. Garantir a integridade do estoque com transações e bloqueio de linha, impedindo que vendas simultâneas deixem o estoque negativo.
 5. Implementar controle de acesso por cargo, separando quem vê os indicadores financeiros de quem só opera a loja.
 6. Implementar no módulo Analyzing BI os cálculos de receita, lucro, preço médio ponderado, ticket médio, variação percentual, produtos parados, série temporal de faturamento com linha de tendência e metas.
-7. Aplicar juros compostos no PDV por meio de um simulador de parcelamento pela tabela Price.
+7. Aplicar juros compostos no PDV, por meio de um simulador de parcelamento pela tabela Price, e no BI, por meio do VPL, da TIR e da comparação entre Price e SAC na decisão de comprar estoque.
 8. Validar os cálculos com teste de mesa feito à mão, testes automatizados e uma conferência com grande volume de dados.
 
 ## 1.5 Delimitação
 
-Três limites marcam o escopo deste trabalho. O pagamento é simulado: o sistema registra, confirma e dá baixa no estoque, mas não movimenta dinheiro de verdade. E o valor do dinheiro no tempo foi aplicado apenas ao parcelamento (tabela Price no PDV); desconto à vista, VPL e TIR ficaram no referencial teórico. A projeção de tendência é linear, sem tratar sazonalidade.
+Três limites marcam o escopo deste trabalho. O pagamento é simulado: o sistema registra, confirma e dá baixa no estoque, mas não movimenta dinheiro de verdade. O valor do dinheiro no tempo foi aplicado ao parcelamento (tabela Price no PDV), ao desconto do PIX (convertido em taxa de juros) e à decisão de compra de estoque (VPL, TIR, payback e Price × SAC no BI); essa decisão é uma simulação, que não é gravada nem integrada a um pedido de compra. A projeção de tendência é linear, sem tratar sazonalidade.
 
 ---
 
@@ -175,7 +175,31 @@ No parcelamento pela tabela Price (sistema francês de amortização), as parcel
 PMT = P · i / (1 − (1 + i)⁻ⁿ)
 ```
 
-A cada mês, os juros são saldo × i, a amortização é PMT − juros e o saldo diminui; por isso os juros caem e a amortização cresce até o saldo zerar. Com R$ 1.000,00 a 2% ao mês em 12 vezes, a parcela é R$ 94,56 e o total pago, R$ 1.134,72. É esse o parcelamento implementado no PDV. Desconto à vista, VPL e TIR, que vêm do mesmo princípio, ficaram para trabalhos futuros.
+A cada mês, os juros são saldo × i, a amortização é PMT − juros e o saldo diminui; por isso os juros caem e a amortização cresce até o saldo zerar. Com R$ 1.000,00 a 2% ao mês em 12 vezes, a parcela é R$ 94,56 e o total pago, R$ 1.134,72. É esse o parcelamento implementado no PDV.
+
+No Sistema de Amortização Constante (SAC), a parte do principal devolvida em cada parcela é sempre a mesma, A = P / n, e os juros continuam incidindo sobre o saldo (ASSAF NETO, 2016):
+
+```
+amortização = P / n
+juros_k     = saldo_(k−1) · i
+parcela_k   = P / n + juros_k
+```
+
+Como o saldo cai A por mês, os juros caem A · i por mês, e a parcela começa mais alta que a da Price e diminui até o fim. Com R$ 1.000,00 a 2% ao mês em 4 vezes, a amortização é R$ 250,00, os juros são R$ 20,00, R$ 15,00, R$ 10,00 e R$ 5,00, e as parcelas, R$ 270,00, R$ 265,00, R$ 260,00 e R$ 255,00: total de R$ 1.050,00. Pela Price, no mesmo caso, a parcela é R$ 262,62 e o total, R$ 1.050,48. O SAC paga menos juros porque devolve o principal mais cedo, e não por ser mais barato: trazidas a valor presente pela própria taxa do contrato, as duas séries valem exatamente R$ 1.000,00. Qual das duas convém depende da taxa com que a loja desconta o dinheiro, assunto da próxima seção.
+
+### 2.1.7 Análise de investimento: VPL, TIR e payback
+
+Uma decisão de investimento é descrita por um fluxo de caixa: os valores que saem e entram em cada período, começando em t = 0. Para comparar valores de datas diferentes, cada um é trazido a valor presente por uma taxa de desconto. Essa taxa é a **taxa mínima de atratividade (TMA)**, o quanto o dinheiro renderia na melhor alternativa disponível (PUCCINI, 2011).
+
+O **valor presente líquido** é a soma dos fluxos descontados:
+
+```
+VPL = Σ FCₜ / (1 + i)ᵗ ,   t = 0, 1, …, n
+```
+
+Se VPL > 0, o investimento rende mais que a TMA e compensa; se VPL < 0, o dinheiro renderia mais na alternativa. A **taxa interna de retorno** é a taxa que zera o VPL. Para um fluxo convencional (uma saída seguida de entradas), as duas regras sempre concordam: VPL ≥ 0 exatamente quando TIR ≥ TMA. Para n > 2 a TIR não tem fórmula fechada e é calculada numericamente (HAZZAN; POMPEO, 2014). Com dois períodos ela sai pela fórmula de Bhaskara: no fluxo −100, 60, 60, fazendo x = 1/(1 + r), vem 60x² + 60x − 100 = 0, x = 0,8844 e r = 13,07% por período.
+
+O **payback** é o tempo até as entradas acumuladas cobrirem o investimento. O simples soma os valores nominais; o descontado soma os valores presentes. Com −1.000 e três entradas de 400, o payback simples é de 2,5 períodos: depois de dois, faltam 200 dos 400 do terceiro. A 10% por período, as entradas valem 363,64, 330,58 e 300,53, que somam 994,75: com o valor do dinheiro no tempo, o investimento não se paga nos três períodos.
 
 ## 2.2 Fundamentação tecnológica
 
@@ -491,7 +515,42 @@ Para cada cupom, o BI mostra pedidos, desconto, receita, lucro e margem dos últ
 
 O estorno muda a situação do pedido para "estornado". Como todas as consultas somam apenas pedidos pagos, a venda sai da receita, do lucro e das metas sem nenhuma fórmula nova. A consequência é que o valor sai do mês em que a venda aconteceu, e um mês já encerrado pode mudar: estornar em novembro uma venda de agosto reduz o faturamento e o lucro de agosto e altera a comparação de agosto com os outros meses. Um relatório de agosto emitido antes do estorno deixa, portanto, de bater com o que o sistema mostra depois. A contabilidade costuma registrar a devolução no mês em que ela ocorre; aqui, a escolha mantém L = R − CMV válido em qualquer período.
 
-### 3.3.16 Do número à decisão
+### 3.3.16 Comprar estoque: VPL, TIR e payback
+
+Comprar um lote de mercadoria é um investimento: o dinheiro sai inteiro hoje e volta aos poucos, conforme as peças vendem. A seção "Vale a pena comprar este estoque?" do BI monta esse fluxo de caixa a partir de dados que a loja já tem, sem cadastro novo:
+
+- **saída em t = 0:** quantidade × custo atual do produto;
+- **ritmo de venda:** o mesmo da cobertura de estoque (seção 3.3.14), ou seja, o vendido na janela de até 90 dias, levado a 30 dias;
+- **preço de cada peça vendida:** o preço médio que a loja de fato recebeu em 12 meses, já com descontos e sem frete. O preço de etiqueta só é usado quando o produto nunca vendeu, porque superestima a entrada de caixa.
+
+Se ainda há estoque do produto na prateleira, ele vende primeiro, e o lote novo só começa a virar dinheiro depois. Com venda de v peças por mês e E peças em estoque, o total de peças do lote novo vendidas até o fim do mês k é:
+
+```
+S(k) = mín( máx(v·k − E, 0), quantidade )
+entrada do mês k = (S(k) − S(k−1)) × preço
+```
+
+Com 10 peças de custo R$ 50,00, vendendo 4 por mês a R$ 100,00, o fluxo é −500, 400, 400 e 200. Se ainda houver 6 peças na prateleira, passa a ser −500, 0, 200, 400 e 400: o lucro nominal é o mesmo, R$ 500,00, mas o VPL é menor, porque o dinheiro volta mais tarde. É esse o custo de comprar cedo demais, que a soma simples não mostra. O horizonte é de 36 meses; o que não vender nesse prazo fica fora do fluxo, e a tela avisa quantas peças sobram.
+
+Sobre o fluxo, o sistema calcula o VPL à TMA informada pelo gerente, a TIR, o payback simples e o descontado (`App\Domain\Finance\Investment`). A TIR é achada por bissecção: o VPL é contínuo na taxa, então entre uma taxa com VPL positivo e outra com VPL negativo existe uma raiz, e cortar o intervalo ao meio 200 vezes chega a ela com precisão muito menor que um centavo. Sem nenhuma entrada (produto sem vendas em 90 dias), nenhuma taxa zera o VPL, e a tela diz que a TIR não existe.
+
+```php
+for ($k = 0; $k < 200; $k++) {
+    $meio = ($lo + $hi) / 2;
+    $fMeio = $vpl($meio);
+    if ($fLo * $fMeio < 0) { $hi = $meio; } else { $lo = $meio; $fLo = $fMeio; }
+}
+```
+
+### 3.3.17 Financiar a compra: Price × SAC
+
+Na mesma seção, o gerente pode simular o financiamento do valor da compra em até 24 parcelas. O sistema calcula as duas tabelas (`Installments::price()` e `Installments::sac()`) e mostra lado a lado a parcela, o total, os juros e o valor presente das parcelas à TMA da loja. O SAC usa a mesma divisão em centavos do rateio de metas, de modo que as amortizações somam exatamente o valor financiado.
+
+O valor presente à TMA é o que decide, e não o total de juros. Se a TMA é maior que a taxa do financiamento, as duas séries valem menos hoje do que pagar à vista, e a Price, que deixa mais dinheiro para depois, vale menos que o SAC. Se a TMA é menor, financiar sai mais caro que pagar à vista, e adiantar o principal pelo SAC reduz o prejuízo. Os testes automatizados conferem as duas situações e também a propriedade da seção 2.1.6: descontadas pela taxa do contrato, as duas séries valem o principal, com diferença de no máximo dois centavos de arredondamento.
+
+Há uma diferença em relação ao livro. Na Price, cada juro é arredondado ao centavo, como numa fatura, e a última parcela quita o saldo restante (seção 3.3.10). No exemplo de R$ 1.000,00 a 2% em 4 vezes, os juros são R$ 20,00, R$ 15,15, R$ 10,20 e R$ 5,15, e a última parcela é R$ 262,64. O total fica em R$ 1.050,50, dois centavos acima dos R$ 1.050,48 da conta teórica (4 × 262,62).
+
+### 3.3.18 Do número à decisão
 
 Os indicadores chegam ao navegador em JSON. O faturamento vira gráfico de linha (Chart.js); o lucro por produto vira gráfico de barras feito em HTML e CSS, em que a altura de cada barra é a razão entre o lucro do item e o maior lucro do conjunto. Por fim, o sistema gera frases de recomendação: se o faturamento do mês cresceu mais de 1% em relação ao anterior, sugere reforçar o estoque dos campeões; se caiu mais de 1%, sugere rever campanhas ou o mix de produtos.
 
@@ -505,11 +564,11 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 
 | Item | Quantidade |
 |---|---|
-| Telas | 29 (6 da plataforma, 9 da vitrine, 14 do painel) |
+| Telas | 30 (6 da plataforma, 9 da vitrine, 15 do painel) |
 | Tabelas no banco | 28 |
-| Migrações de banco versionadas | 24 |
+| Migrações de banco versionadas | 26 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 125, todos passando |
+| Testes automatizados | 138, todos passando |
 
 Fonte: os autores (2026).
 
@@ -535,7 +594,7 @@ Na tela de vendas, o gerente estorna um pedido pago informando o motivo e se as 
 
 ### 4.1.4 Analyzing BI
 
-É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, lucro acumulado, lucro do mês, número de pedidos, ticket médio e percentual atingido da meta do mês, além da margem e do markup do mês; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico, que avisa quando o total chega ao mínimo e também quando uma variação zera, como o tamanho M acabar enquanto ainda há P e G; o capital em estoque; a Curva ABC com margem e markup por produto; o giro e a cobertura de estoque, com a data de reposição; o resultado dos cupons; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
+É a tela que concretiza o objetivo do trabalho. Ela mostra cartões com faturamento acumulado, faturamento do mês, lucro acumulado, lucro do mês, número de pedidos, ticket médio e percentual atingido da meta do mês, além da margem e do markup do mês; o gráfico de faturamento ao longo do tempo, com a projeção de tendência em linha tracejada; o lucro por produto no mês, com custo unitário, preço médio ponderado, margem unitária e lucro total; o produto mais e o menos vendido com a variação percentual (ou "sem base de comparação", quando o produto não vendeu no mês anterior); os produtos parados; o estoque crítico, que avisa quando o total chega ao mínimo e também quando uma variação zera, como o tamanho M acabar enquanto ainda há P e G; o capital em estoque; a Curva ABC com margem e markup por produto; o giro e a cobertura de estoque, com a data de reposição; o resultado dos cupons; o simulador de compra de estoque, com VPL, TIR, payback e a comparação entre Price e SAC para financiar a compra; e as ideias de investimento, como: "As vendas do mês cresceram 21,4% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões."
 
 ## 4.2 Testes realizados
 
@@ -617,7 +676,7 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 
 Fonte: os autores (2026).
 
-Além disso, o projeto tem uma suíte própria de 125 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas e as fórmulas financeiras (rateio, regressão, tabela Price, variação percentual, produtos parados, estoque crítico, meta, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
+Além disso, o projeto tem uma suíte própria de 161 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas, a regra de senha mínima e as fórmulas financeiras (rateio, regressão, tabela Price, SAC, VPL, TIR, payback, fluxo de caixa da compra de estoque, variação percentual, produtos parados, estoque crítico, meta, divisão da meta entre a equipe e de onde veio o vendido, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
 
 ### 4.2.4 Conferência com grande volume
 
@@ -640,7 +699,7 @@ Fonte: os autores (2026).
 
 ## 4.3 Análise dos resultados
 
-Retomando o problema da Introdução: faturamento e lucro aparecem separados no painel; a margem é calculada automaticamente a partir do custo gravado no momento da venda; o preço médio usa média ponderada; a comparação entre meses é feita sozinha, no total e por produto; e produtos parados, estoque crítico e ranking de lucro viram recomendações. Do lado operacional, a base única com transação resolve a divergência de estoque, o caixa por turno organiza o controle do dinheiro e a matriz de permissões separa quem gerencia de quem opera. A linha de tendência e o simulador de parcelamento levaram a Matemática Financeira além dos valores nominais. O único ponto não atendido é o pagamento real, que já estava fora do escopo.
+Retomando o problema da Introdução: faturamento e lucro aparecem separados no painel; a margem é calculada automaticamente a partir do custo gravado no momento da venda; o preço médio usa média ponderada; a comparação entre meses é feita sozinha, no total e por produto; e produtos parados, estoque crítico e ranking de lucro viram recomendações. Do lado operacional, a base única com transação resolve a divergência de estoque, o caixa por turno organiza o controle do dinheiro e a matriz de permissões separa quem gerencia de quem opera. A linha de tendência, o simulador de parcelamento e a análise da compra de estoque por VPL e TIR levaram a Matemática Financeira além dos valores nominais. O único ponto não atendido é o pagamento real, que já estava fora do escopo.
 
 Sobre o entendimento da Matemática Financeira, percebemos quatro coisas durante o desenvolvimento:
 
@@ -675,10 +734,11 @@ O objetivo geral foi alcançado, com ressalvas. O sistema registra as vendas pel
 6. **O estorno é sempre do pedido inteiro.** Para devolver só uma peça, é preciso estornar e registrar a venda de novo. O valor também sai do mês da venda, não do mês da devolução.
 7. **A venda de balcão não identifica o cliente.** O relatório de clientes considera apenas as compras da vitrine, e os cupons não são vinculados a um cliente específico.
 8. **O giro e a data de reposição são aproximações.** O giro usa o estoque atual, porque o sistema não guarda o estoque médio, e a data não considera o prazo do fornecedor.
+9. **O simulador de compra simplifica o fluxo de caixa.** Supõe que o ritmo de venda dos últimos 90 dias se mantém, conta como entrada a receita da venda (sem impostos, comissões nem taxa do cartão), considera que a loja paga o fornecedor no ato e ignora o que não vender em 36 meses. A TMA é informada pelo gerente, não calculada.
 
 ## 5.3 Sugestões de trabalhos futuros
 
-1. Valor do dinheiro no tempo além do parcelamento: comparação entre pagamento à vista e a prazo, VPL e TIR na compra de estoque, gravação do parcelamento junto com o pagamento e comparação com o SAC.
+1. Gravar o parcelamento junto com o pagamento e levar a análise de investimento ao pedido de compra real, com prazo de pagamento do fornecedor e sazonalidade no ritmo de venda.
 2. Sazonalidade na projeção de tendência, por exemplo comparando cada período com o mesmo período do ciclo anterior.
 3. Novos indicadores: ponto de equilíbrio e medição do efeito dos cupons com grupo de controle.
 4. Integração com um provedor de pagamento real, o que traria a diferença entre venda registrada e dinheiro efetivamente recebido.

@@ -62,6 +62,7 @@ function static_serve(string $file, bool $versionado): void
     $etag = '"' . dechex($mtime) . '-' . dechex($size) . '"';
 
     header('Content-Type: ' . $mime);
+    header('X-Content-Type-Options: nosniff');
     header('ETag: ' . $etag);
     header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
     header('Cache-Control: ' . ($versionado

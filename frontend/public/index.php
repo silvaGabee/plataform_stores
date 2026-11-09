@@ -21,6 +21,33 @@ if ($__prefixo !== '' && strpos($__uri, $__prefixo) === 0) {
 }
 static_try('/' . ltrim($__uri, '/'));
 
+/*
+ * Cabeçalhos de segurança, em toda resposta dinâmica.
+ *
+ *   X-Frame-Options / frame-ancestors — outro site não consegue carregar o
+ *       painel num iframe invisível e induzir o gerente a clicar em "Excluir"
+ *       ou "Aprovar desconto" achando que clica em outra coisa (clickjacking).
+ *   X-Content-Type-Options — o navegador não "adivinha" o tipo: um upload
+ *       servido como imagem não é executado como script.
+ *   Referrer-Policy — o link do pedido leva o token de acesso na URL; sem
+ *       isto ele vazaria inteiro para qualquer site externo aberto dali.
+ *   Permissions-Policy — a aplicação não usa câmera, microfone nem GPS (o
+ *       leitor de código de barras do PDV funciona como teclado).
+ *
+ * Não há Content-Security-Policy completa porque as views ainda têm scripts
+ * inline; com 'unsafe-inline' ela não protegeria contra XSS de verdade.
+ */
+header('X-Frame-Options: SAMEORIGIN');
+header("Content-Security-Policy: frame-ancestors 'self'");
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')) {
+    // Só sob HTTPS: em HTTP o navegador ignora, e no XAMPP local não há TLS.
+    header('Strict-Transport-Security: max-age=15552000');
+}
+
 ob_start();
 
 // Cookie de sessão endurecido. Precisa vir ANTES de session_start().

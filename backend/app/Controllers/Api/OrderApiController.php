@@ -275,6 +275,10 @@ class OrderApiController extends Controller
             $me = $this->requireLogin();
             $customerId = (int) $me['id'];
             $cupom = trim((string) ($input['coupon_code'] ?? ''));
+            if ($cupom !== '' && !PromotionApiController::cupomDentroDoLimite($storeId)) {
+                $this->json(['error' => 'Muitas tentativas de cupom. Tente de novo em alguns minutos.'], 429);
+                return;
+            }
             $online = ['coupon_code' => $cupom !== '' ? $cupom : null];
         }
         $items = $input['items'] ?? [];

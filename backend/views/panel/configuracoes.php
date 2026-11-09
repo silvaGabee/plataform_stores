@@ -265,11 +265,11 @@ $content = ob_start();
                 </div>
                 <div id="store-delete-confirm" class="panel-config-form--split panel-config-delete-confirm hidden">
                     <p class="panel-config-delete-prompt">
-                        Digite <strong>Excluir</strong> no campo abaixo para confirmar.
+                        Para confirmar, digite a <strong>sua senha</strong> de login.
                     </p>
                     <div class="panel-config-field panel-config-field--narrow">
-                        <label for="store-delete-confirmation-input">Confirmação</label>
-                        <input type="text" id="store-delete-confirmation-input" autocomplete="off" placeholder="Excluir" spellcheck="false">
+                        <label for="store-delete-confirmation-input">Sua senha</label>
+                        <input type="password" id="store-delete-confirmation-input" autocomplete="current-password">
                     </div>
                     <div class="panel-config-actions">
                         <button type="button" id="btn-confirm-delete-store" class="btn btn-danger btn-sm">Confirmar exclusão</button>

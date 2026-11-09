@@ -117,7 +117,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <label for="modal-register-email">E-mail</label>
                             <input type="email" id="modal-register-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
                             <label for="modal-register-password">Senha</label>
-                            <input type="password" id="modal-register-password" name="password" required autocomplete="new-password" placeholder="Mínimo 6 caracteres">
+                            <input type="password" id="modal-register-password" name="password" required autocomplete="new-password" minlength="8" maxlength="72" placeholder="Mínimo 8 caracteres">
                             <div class="form-actions">
                                 <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
                             </div>

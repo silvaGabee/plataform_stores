@@ -309,7 +309,7 @@ class AnalyzingBIRepository
      */
     public function fetchProductIndicators(int $storeId, string $inicioAno, string $inicioJanela): array
     {
-        $sql = 'SELECT p.id, p.name, p.stock_quantity, p.min_stock, p.cost_price, p.created_at,
+        $sql = 'SELECT p.id, p.name, p.stock_quantity, p.min_stock, p.cost_price, p.sale_price, p.promo_price, p.created_at,
                 COALESCE(s.quantidade, 0) AS quantidade,
                 COALESCE(s.receita, 0) AS receita,
                 COALESCE(s.cmv, 0) AS cmv,
@@ -399,7 +399,7 @@ class AnalyzingBIRepository
             $sql = 'SELECT DATE_FORMAT(o.created_at, \'%Y-%m-01\') AS `data`,
                 COALESCE(SUM(o.total - o.shipping_fee), 0) AS valor
                 FROM orders o
-                WHERE o.store_id = ? AND o.status IN (\'pago\', \'enviado\')
+                WHERE o.store_id = ? AND o.status = \'pago\'
                 AND o.created_at >= ? AND o.created_at <= ?
                 GROUP BY DATE_FORMAT(o.created_at, \'%Y-%m\')
                 ORDER BY `data` ASC';
@@ -407,7 +407,7 @@ class AnalyzingBIRepository
             $sql = 'SELECT DATE(o.created_at) AS `data`,
                 COALESCE(SUM(o.total - o.shipping_fee), 0) AS valor
                 FROM orders o
-                WHERE o.store_id = ? AND o.status IN (\'pago\', \'enviado\')
+                WHERE o.store_id = ? AND o.status = \'pago\'
                 AND o.created_at >= ? AND o.created_at <= ?
                 GROUP BY DATE(o.created_at)
                 ORDER BY `data` ASC';

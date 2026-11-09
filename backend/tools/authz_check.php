@@ -2,13 +2,20 @@
 /**
  * Exercita a matriz de permissões e o CSRF por HTTP, como um cliente real.
  *
- *   php backend/tools/authz_check.php [url-base]
+ *   php backend/tools/authz_check.php --force [url-base]
  *
  * Faz login de verdade (formulário + token), guarda o cookie de sessão e chama
  * cada endpoint como gerente, como funcionário e sem sessão, comparando o
  * status HTTP com o esperado.
  *
  * Depende do seed: php backend/scripts/seed.php
+ *
+ * SÓ EM BANCO DE TESTE. O script escreve no banco: cria pedidos na loja
+ * "teste", marca-os como pagos por alguns instantes e troca o vendedor de um
+ * deles, direto por SQL. Tudo é desfeito no fim (bloco finally, e também se o
+ * script morrer no meio por exceção, exit ou erro fatal), mas um Ctrl+C ou a
+ * máquina desligando no meio deixam um pedido "pago" que nunca existiu — e
+ * isso entra no faturamento, no BI e na meta. Por isso exige --force.
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -18,7 +25,16 @@ if (PHP_SAPI !== 'cli') {
 
 require dirname(__DIR__) . '/bootstrap.php';
 
-$base = rtrim($argv[1] ?? (getenv('APP_URL') ?: 'http://localhost/plataform_stores/public'), '/');
+$argumentos = array_slice($argv, 1);
+$forcar = in_array('--force', $argumentos, true);
+$urlInformada = array_values(array_filter($argumentos, static fn (string $a): bool => strncmp($a, '--', 2) !== 0))[0] ?? null;
+if (!$forcar) {
+    fwrite(STDERR, "ATENÇÃO: este script escreve no banco (cria pedidos e muda status por alguns instantes).\n"
+        . "Rode só em banco de teste, com o seed aplicado:\n"
+        . "  php backend/tools/authz_check.php --force [url-base]\n");
+    exit(2);
+}
+$base = rtrim($urlInformada ?? (getenv('APP_URL') ?: 'http://localhost/plataform_stores/public'), '/');
 $slug = 'teste';
 $falhas = 0;
 $total = 0;
@@ -161,8 +177,10 @@ $casos = [
 
     // Só gerente: receita, clientes e estorno.
     ['indicadores do BI',   'GET',  "/api/loja/{$slug}/analyzing-bi/indicadores", 200, 403, 401],
+    ['simulador de compra', 'GET',  "/api/loja/{$slug}/analyzing-bi/simulador-compra", 200, 403, 401],
     ['vendas e estornos',   'GET',  "/api/loja/{$slug}/orders/vendas",       200, 403, 401],
     ['clientes',            'GET',  "/api/loja/{$slug}/clientes",            200, 403, 401],
+    ['avaliações (moderar)','GET',  "/api/loja/{$slug}/avaliacoes",          200, 403, 401],
 
     // Público:
     ['categorias públicas', 'GET',  "/api/loja/{$slug}/vitrine-categories/public", 200, 200, 200],
@@ -225,6 +243,34 @@ foreach ($prodFun as $p) {
         break;
     }
 }
+// Tudo o que este trecho muda no banco é desfeito por $desfazer: no finally
+// e, se o script morrer no meio (exit, erro fatal), no shutdown.
+$idVenda = 0;
+$idCompra = 0;
+$desfeito = false;
+$desfazer = static function () use (&$idVenda, &$idCompra, &$desfeito, $base, $slug, $jarGerente, $csrfGerente): void {
+    if ($desfeito) {
+        return;
+    }
+    $desfeito = true;
+    $ids = array_filter([$idVenda, $idCompra]);
+    if ($ids === []) {
+        return;
+    }
+    $pdo = \App\Database\Database::getConnection();
+    // Volta ao estado em que a API criou os pedidos: pendentes, e a compra
+    // da vitrine sem vendedor. Só então o cancelamento devolve a reserva.
+    $pdo->prepare("UPDATE orders SET status = 'pendente' WHERE id IN (" . implode(',', array_map('intval', $ids)) . ") AND status = 'pago'")->execute();
+    if ($idCompra > 0) {
+        $pdo->prepare('UPDATE orders SET created_by = NULL WHERE id = ?')->execute([$idCompra]);
+    }
+    foreach ($ids as $id) {
+        http('POST', "{$base}/api/loja/{$slug}/orders/{$id}/cancel", $jarGerente, ['json' => [], 'csrf' => $csrfGerente]);
+    }
+};
+register_shutdown_function($desfazer);
+
+try {
 $venda = json_decode(http('POST', "{$base}/api/loja/{$slug}/orders", $jarFunc, [
     'json' => ['order_type' => 'pdv', 'customer_name' => '__authz_teste__', 'items' => [['product_id' => $semVariacao, 'quantity' => 1]]],
     'csrf' => $csrfFunc,
@@ -262,12 +308,8 @@ $pagar($idVenda, 'pendente');
 $pdo->prepare('UPDATE orders SET created_by = ? WHERE id = ?')->execute([$idFunc, $idCompra]);
 $pagar($idCompra, 'pago');
 $ok('compra antiga na vitrine não conta para a meta', abs($vendidoFunc() - $antes) < 0.01);
-$pagar($idCompra, 'pendente');
-
-foreach ([$idVenda, $idCompra] as $id) {
-    if ($id > 0) {
-        http('POST', "{$base}/api/loja/{$slug}/orders/{$id}/cancel", $jarGerente, ['json' => [], 'csrf' => $csrfGerente]);
-    }
+} finally {
+    $desfazer();
 }
 
 // ---------------------------------------------- escrita: o furo da Fase 2
@@ -290,6 +332,7 @@ $escritas = [
     ['definir meta individual', 'POST', "/api/loja/{$slug}/goals/employee",
         ['period' => date('Y-m'), 'user_id' => 1, 'goal_amount' => 1000]],
     ['criar cargo', 'POST', "/api/loja/{$slug}/roles", ['name' => '__authz_teste__']],
+    ['remover avaliação', 'POST', "/api/loja/{$slug}/avaliacoes/1/remover", []],
 ];
 
 foreach ($escritas as [$rotulo, $metodo, $caminho, $corpo]) {
@@ -319,6 +362,7 @@ $paginas = [
     ['metas',        "/painel/{$slug}/metas",          200, 200],
     ['vendas',       "/painel/{$slug}/vendas",         200, 302],
     ['clientes',     "/painel/{$slug}/clientes",       200, 302],
+    ['avaliações',   "/painel/{$slug}/avaliacoes",     200, 302],
     ['funcionários', "/painel/{$slug}/funcionarios",   200, 302],
     ['configurações', "/painel/{$slug}/configuracoes", 200, 302],
     ['Analyzing BI', "/painel/{$slug}/analyzing-bi",   200, 302],

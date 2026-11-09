@@ -53,6 +53,8 @@ final class Permissions
         'store.stock.history'   => [self::GERENTE],
         'store.discounts.approve' => [self::GERENTE],
         'store.promotions.manage' => [self::GERENTE],
+        // Responder e remover avaliações: é a voz pública da loja.
+        'store.reviews.manage'  => [self::GERENTE],
 
         // Frente de caixa.
         'store.pdv.operate'     => [self::GERENTE, self::FUNCIONARIO],

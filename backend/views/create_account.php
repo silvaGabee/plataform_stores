@@ -20,7 +20,7 @@ ob_start();
             <label>E-mail *</label>
             <input type="email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email">
             <label>Senha *</label>
-            <input type="password" name="password" required autocomplete="new-password">
+            <input type="password" name="password" required minlength="8" maxlength="72" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Criar conta</button>
             </div>

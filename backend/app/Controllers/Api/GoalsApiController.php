@@ -6,6 +6,7 @@ use App\Auth\Permissions;
 use App\Controllers\Controller;
 use App\Database\Database;
 use App\Domain\Finance\Money;
+use App\Domain\Goals\TeamGoal;
 use App\Repositories\EmployeeGoalRepository;
 use App\Repositories\StoreGoalRepository;
 use App\Repositories\StoreMemberRepository;
@@ -80,23 +81,13 @@ class GoalsApiController extends Controller
             $resposta['store_sales'] = $vendidoLoja;
             $resposta['store_percent'] = AnalyzingBIService::goalPercent($vendidoLoja, $valorMeta);
 
-            // De onde veio o vendido. A vitrine e as vendas de quem saiu da equipe
-            // não têm funcionário, então são o que sobra: as três partes sempre
-            // fecham com o total da loja.
-            $vendidoEquipe = 0.0;
-            $vendidoGerentes = 0.0;
-            foreach ($vendas as $id => $p) {
-                if (in_array($id, $idsFuncionarios, true)) {
-                    $vendidoEquipe += (float) $p['total_sales'];
-                } else {
-                    $vendidoGerentes += (float) $p['total_sales'];
-                }
-            }
-            $resposta['sales_by_source'] = [
-                'employees' => round($vendidoEquipe, 2),
-                'managers' => round($vendidoGerentes, 2),
-                'others' => round($vendidoLoja - $vendidoEquipe - $vendidoGerentes, 2),
-            ];
+            // De onde veio o vendido: equipe, gerente e o resto (vitrine e quem
+            // saiu da equipe). As três partes fecham com o total da loja.
+            $resposta['sales_by_source'] = TeamGoal::salesBySource(
+                array_map(static fn (array $p): float => (float) $p['total_sales'], $vendas),
+                $idsFuncionarios,
+                $vendidoLoja
+            );
             $resposta['team_history'] = $this->participacaoDaEquipe($storeId, $from, $idsFuncionarios);
         }
         $this->json($resposta);
@@ -188,9 +179,7 @@ class GoalsApiController extends Controller
     private function participacaoDaEquipe(int $storeId, string $inicioDoPeriodo, array $idsFuncionarios): array
     {
         $reports = new ReportService();
-        $base = (int) strtotime($inicioDoPeriodo);
-        $de = date('Y-m-d', (int) strtotime('-' . self::MESES_HISTORICO . ' months', $base));
-        $ate = date('Y-m-d', (int) strtotime('-1 day', $base));
+        [$de, $ate] = TeamGoal::historyRange($inicioDoPeriodo, self::MESES_HISTORICO);
         $equipe = 0.0;
         foreach ($reports->employeePerformance($storeId, $de, $ate) as $p) {
             if (in_array((int) $p['id'], $idsFuncionarios, true)) {

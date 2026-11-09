@@ -77,6 +77,10 @@ class UserApiController extends Controller
             $this->json(['error' => 'Informe uma senha para a nova conta.'], 400);
             return;
         }
+        if ($existente === null && ($problema = \App\Auth\PasswordPolicy::problema($password)) !== null) {
+            $this->json(['error' => $problema], 400);
+            return;
+        }
 
         try {
             $userId = Database::transaction(function () use ($existente, $userRepo, $memberRepo, $name, $email, $password, $storeId, $role): int {
@@ -142,6 +146,10 @@ class UserApiController extends Controller
             $dados['email'] = $novoEmail;
         }
         if (!empty($input['password'])) {
+            if (($problema = \App\Auth\PasswordPolicy::problema((string) $input['password'])) !== null) {
+                $this->json(['error' => $problema], 400);
+                return;
+            }
             $dados['password'] = password_hash((string) $input['password'], PASSWORD_DEFAULT);
         }
 

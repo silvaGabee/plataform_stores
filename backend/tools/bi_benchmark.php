@@ -102,7 +102,7 @@ $flush = static function (array &$pedidosSql, array &$itensSql) use ($pdo): void
 
 for ($o = 1; $o <= $nPedidos; $o++) {
     $r = mt_rand(1, 100);
-    $status = $r <= 85 ? 'pago' : ($r <= 90 ? 'enviado' : ($r <= 96 ? 'pendente' : 'cancelado'));
+    $status = $r <= 90 ? 'pago' : ($r <= 96 ? 'pendente' : 'cancelado');
     $tipo = mt_rand(0, 1) ? 'pdv' : 'online';
     $quando = date('Y-m-d H:i:s', mt_rand($inicioJanela, $fimJanela));
 

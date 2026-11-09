@@ -22,7 +22,7 @@
                 <label for="user-email">E-mail *</label>
                 <input type="email" id="user-email" required autocomplete="email">
                 <label for="user-password">Senha <span class="panel-label-optional">(deixe em branco para não alterar)</span></label>
-                <input type="password" id="user-password" autocomplete="new-password">
+                <input type="password" id="user-password" autocomplete="new-password" minlength="8" maxlength="72">
                 <label for="user-type">Tipo</label>
                 <select id="user-type">
                     <option value="funcionario">Funcionário</option>

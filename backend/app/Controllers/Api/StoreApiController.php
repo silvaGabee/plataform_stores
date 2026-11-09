@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Api;
 
+use App\Auth\RateLimiter;
 use App\Controllers\Controller;
 use App\Database\Database;
 use App\Services\StoreService;
@@ -321,7 +322,12 @@ class StoreApiController extends Controller
 
     /**
      * Exclui a loja e todos os dados vinculados (irreversível). Apenas gerente.
-     * Corpo JSON: { "confirmation": "Excluir" } (texto exato).
+     * Corpo JSON: { "password": "<senha do gerente logado>" }.
+     *
+     * Antes bastava mandar o texto "Excluir": uma sessão esquecida aberta, ou
+     * roubada, apagava a loja com todo o histórico de vendas num clique. A
+     * senha prova que é o próprio gerente, e as tentativas erradas têm limite
+     * para que a sessão roubada não vire um teste de senhas.
      */
     public function deleteStore(string $slug): void
     {
@@ -331,11 +337,24 @@ class StoreApiController extends Controller
             return;
         }
         $this->requireGerenteOfStore($storeId);
+        $me = $this->requireLogin();
         $input = $this->getJsonInput();
-        if (trim((string) ($input['confirmation'] ?? '')) !== 'Excluir') {
-            $this->json(['error' => 'Digite Excluir para confirmar.'], 400);
+        $senha = (string) ($input['password'] ?? '');
+        if ($senha === '') {
+            $this->json(['error' => 'Digite a sua senha para confirmar.'], 400);
             return;
         }
+        $alvo = $me['id'] . ':' . $storeId;
+        if (!RateLimiter::tentar('excluir-loja', $alvo, 5, 900)) {
+            $espera = max(1, (int) ceil(RateLimiter::esperaSegundos('excluir-loja', $alvo) / 60));
+            $this->json(['error' => "Muitas tentativas. Tente de novo em {$espera} min."], 429);
+            return;
+        }
+        if (!password_verify($senha, (string) $me['password'])) {
+            $this->json(['error' => 'Senha incorreta.'], 400);
+            return;
+        }
+        RateLimiter::limpar('excluir-loja', $alvo);
         $userRepo = new UserRepository();
         // Apagar a loja não mexe mais em quem está logado: as pessoas
         // continuam existindo e apenas perdem o vínculo, removido em cascata

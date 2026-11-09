@@ -229,7 +229,7 @@ O XAMPP não tem `log_bin` ligado: **não há como desfazer um `DROP`**. Faça b
 | `php backend/tests/run.php [filtro]` | Testes de unidade (carrinho, cartão, PIX, QR, estoque, fórmulas financeiras). Não precisa de banco |
 | `php backend/tools/routes_check.php` | Toda rota declara uma permissão válida |
 | `php backend/tools/concurrency_check.php` | Estoque e confirmação de pagamento sob concorrência, contra o banco |
-| `php backend/tools/authz_check.php [url]` | Matriz de permissões e CSRF por HTTP (precisa do seed e do servidor no ar) |
+| `php backend/tools/authz_check.php --force [url]` | Matriz de permissões e CSRF por HTTP (precisa do seed e do servidor no ar). **Só em banco de teste:** cria pedidos e muda status por alguns instantes |
 | `php backend/tools/identity_check.php [url]` | Identidade única e vínculos por loja |
 | `php backend/tools/bi_benchmark.php` | Gera 50 mil pedidos num banco separado, confere o BI e mede o tempo das consultas |
 | `php backend/tools/seed_bi_demo.php --loja=slug` | Histórico de vendas de demonstração para o BI (`--remover` desfaz) |
