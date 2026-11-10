@@ -251,7 +251,11 @@ foreach ($prodFun as $p) {
 }
 // Tudo o que este trecho muda no banco é desfeito por $desfazer: no finally
 // e, se o script morrer no meio (exit, erro fatal), no shutdown.
+// O @var int evita que o PHPStan fixe o tipo em `0` dentro da closure: ela
+// captura as variáveis por referência, e os ids só são atribuídos depois.
+/** @var int $idVenda */
 $idVenda = 0;
+/** @var int $idCompra */
 $idCompra = 0;
 $desfeito = false;
 $desfazer = static function () use (&$idVenda, &$idCompra, &$desfeito, $base, $slug, $jarGerente, $csrfGerente): void {
