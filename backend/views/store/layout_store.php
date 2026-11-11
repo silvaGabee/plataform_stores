@@ -19,6 +19,7 @@ $__storeTheme = ($__storeBg !== null && hex_color_is_dark($__storeBg)) ? 'dark' 
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/vitrine.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
     <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
@@ -60,7 +61,7 @@ if ($storeBackgroundColor) {
     $bodyStyle .= ' --store-bg: ' . htmlspecialchars($storeBackgroundColor, ENT_QUOTES, 'UTF-8') . ';';
 }
 ?>
-<body class="store-front<?= $storeBackgroundColor ? ' store-custom-bg' : '' ?><?= $storeSurfaceClass ?>"<?= $bodyStyle ? ' style="' . $bodyStyle . '"' : '' ?>>
+<body class="store-front<?= $storeBackgroundColor ? ' store-custom-bg' : '' ?><?= $storeSurfaceClass ?><?= !empty($store_header_search) ? ' store-has-search' : '' ?>"<?= $bodyStyle ? ' style="' . $bodyStyle . '"' : '' ?>>
     <?php $storeSlogan = trim((string) ($store['slogan'] ?? '')); ?>
     <header class="store-header">
         <div class="container store-header-inner">
@@ -75,6 +76,9 @@ if ($storeBackgroundColor) {
                     <span class="store-brand-text"><?= htmlspecialchars($store['name']) ?></span>
                 <?php endif; ?>
             </a>
+            <?php if (!empty($store_header_search)): ?>
+                <?php require __DIR__ . '/_vitrine_search.php'; ?>
+            <?php endif; ?>
             <nav class="store-header-links" aria-label="Menu da loja">
                 <?php if (!empty($can_see_panel)): ?>
                     <a href="<?= base_url("painel/{$store['slug']}") ?>" class="store-nav-link panel-link">Painel da Loja</a>
@@ -135,6 +139,8 @@ if ($storeBackgroundColor) {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
           var open = popup.classList.toggle('hidden') === false;
+          // No celular o menu é fixo na tela (vitrine.css): abre logo abaixo do botão.
+          if (open) popup.style.setProperty('--store-user-popup-top', btn.getBoundingClientRect().bottom + 'px');
           btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
         document.addEventListener('click', function() {

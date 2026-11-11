@@ -1,7 +1,7 @@
 <?php if (!empty($vitrine_categories)): ?>
-    <nav class="store-vitrine-categories-wrap" aria-label="Categorias da loja">
-        <div class="store-vitrine-categories-inner">
-            <h2 class="store-vitrine-categories-title">Categorias</h2>
+    <nav class="store-vitrine-categories-wrap" aria-labelledby="store-vitrine-categories-title">
+        <div class="container store-vitrine-categories-inner">
+            <h2 class="store-vitrine-categories-title" id="store-vitrine-categories-title">Compre por categoria</h2>
             <div class="h-scroll-mask h-scroll-mask--store-vitrine">
                 <div class="store-vitrine-categories-scroll h-scroll-mask__track">
                 <ul class="store-vitrine-categories">

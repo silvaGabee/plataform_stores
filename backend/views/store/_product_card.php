@@ -16,7 +16,7 @@ $precoPix = \App\Services\OrderPricing::pixPrice($store, $precoEfetivo);
 $avaliacao = storefront_review_summary((int) $store['id'])[(int) $p['id']] ?? null;
 $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
 ?>
-<article class="product-card product-card--v2" data-product-search="<?= htmlspecialchars($productSearchBlob, ENT_QUOTES, 'UTF-8') ?>">
+<article class="product-card product-card--v2<?= $stockTotal <= 0 ? ' product-card--soldout' : '' ?>" data-product-search="<?= htmlspecialchars($productSearchBlob, ENT_QUOTES, 'UTF-8') ?>">
     <button type="button" class="product-fav-btn js-fav<?= $favorito ? ' is-active' : '' ?>" data-product-id="<?= (int) $p['id'] ?>" aria-pressed="<?= $favorito ? 'true' : 'false' ?>" aria-label="<?= $favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos' ?>: <?= htmlspecialchars($p['name']) ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg>
     </button>
@@ -34,8 +34,17 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
                 </span>
             <?php endif; ?>
         </div>
-        <?php if ($descontoPct > 0): ?>
-            <span class="product-card-badge product-card-badge--sale">-<?= $descontoPct ?>%</span>
+        <?php if ($descontoPct > 0 || $stockTotal <= 5): ?>
+            <span class="product-card-badges">
+                <?php if ($descontoPct > 0): ?>
+                    <span class="product-card-badge product-card-badge--sale">-<?= $descontoPct ?>%</span>
+                <?php endif; ?>
+                <?php if ($stockTotal <= 0): ?>
+                    <span class="product-card-badge product-card-badge--out">Esgotado</span>
+                <?php elseif ($stockTotal <= 5): ?>
+                    <span class="product-card-badge product-card-badge--low">Últimas unidades</span>
+                <?php endif; ?>
+            </span>
         <?php endif; ?>
     </a>
     <div class="product-card-content">
@@ -54,7 +63,7 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
             <?php if ($matrixColors !== []): ?>
                 <div class="product-card-variants-preview product-card-variants-preview--colors" aria-label="Cores disponíveis">
                     <div class="product-card-variant-group">
-                        <span class="product-card-variant-label">Cores</span>
+                        <span class="product-card-variant-label visually-hidden">Cores</span>
                         <div class="product-card-variant-pills product-card-variant-pills--swatches">
                             <?php foreach ($matrixColors as $colorName):
                                 $hex = product_variant_matrix_color_hex($matrixForCard, $colorName);
@@ -91,10 +100,12 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
             <?php endif; ?>
             <div class="product-card-price-row">
                 <div class="product-card-prices">
-                    <?php if ($descontoPct > 0): ?>
-                        <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
-                    <?php endif; ?>
-                    <p class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></p>
+                    <p class="product-card-price-line">
+                        <span class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></span>
+                        <?php if ($descontoPct > 0): ?>
+                            <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
+                        <?php endif; ?>
+                    </p>
                     <?php if ($precoPix !== null): ?>
                         <p class="product-card-pix"><strong>R$ <?= number_format($precoPix, 2, ',', '.') ?></strong> no PIX</p>
                     <?php endif; ?>
@@ -102,11 +113,6 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
                         <p class="product-card-installments"><?= htmlspecialchars($parcelasTexto) ?></p>
                     <?php endif; ?>
                 </div>
-                <?php if ($stockTotal <= 0): ?>
-                    <span class="product-card-stock-badge product-card-stock-badge--out">Esgotado</span>
-                <?php elseif ($stockTotal <= 5): ?>
-                    <span class="product-card-stock-badge product-card-stock-badge--low">Últimas unidades</span>
-                <?php endif; ?>
             </div>
         </a>
         <div class="product-card-actions">

@@ -1,6 +1,6 @@
 <?php if (!empty($products)): ?>
     <?php
-    $catalog_title = 'Catálogo';
+    $catalog_title = 'Todos os produtos';
     $catalog_desc = count($products) === 1 ? '1 produto disponível' : count($products) . ' produtos disponíveis';
     require __DIR__ . '/_product_grid.php';
     ?>

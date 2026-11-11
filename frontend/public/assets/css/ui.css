@@ -360,15 +360,10 @@ body:not(.panel) > main .container,
 #checkout-order-link { margin-top: .75rem; }
 
 /* 9. Vitrine ------------------------------------------------------------ */
-.store-vitrine-catalog-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
 .ui-sort { display: inline-flex; align-items: center; gap: .5rem; font-size: .82rem; font-weight: 600; color: var(--text-muted); }
 .ui-sort select { width: auto; min-width: 11rem; min-height: 2.35rem; padding: .35rem 2rem .35rem .7rem; cursor: pointer; }
-.product-card-prices { display: flex; flex-direction: column; gap: .05rem; min-width: 0; }
-.product-card-price-old { font-size: .78rem; color: var(--text-muted); }
-.product-card-price { color: var(--price) !important; }
-.product-card-installments { margin: 0; font-size: .72rem; color: var(--text-muted); line-height: 1.3; }
-.product-card-badge--sale { background: #dc2626 !important; color: #fff !important; font-weight: 800; letter-spacing: .02em; }
-.product-card-stock-badge--low { background: var(--warning-bg) !important; color: var(--warning) !important; }
+
 .product-detail-price { color: var(--price) !important; }
 .product-detail-price-old { margin: 0 0 .15rem; color: var(--text-muted); display: flex; align-items: center; gap: .5rem; }
 .product-detail-sale-badge { background: #dc2626; color: #fff; font-size: .75rem; font-weight: 800; padding: .15rem .45rem; border-radius: 6px; }
@@ -411,17 +406,10 @@ html[data-theme="dark"] .store-front .store-user-btn { color: #f8fafc; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* Largura da vitrine: os contêineres internos tinham max-width próprio (960px). */
-.store-front .container.store-vitrine-body,
+/* Largura do cabeçalho e do rodapé da loja (a da vitrine fica em vitrine.css). */
 .store-front .store-header .container,
 .store-front .store-footer .container { max-width: min(1440px, 100%) !important; }
 .store-front .store-subpage-inner.container { max-width: min(1100px, 100%) !important; }
-/* Busca → conteúdo: somavam 62px (folga da busca + margem + topo do corpo),
-   um vão maior que qualquer outro da página. Fica em ~36px. */
-.store-front .store-vitrine-search-wrap { margin-bottom: 0; }
-.store-front .store-vitrine-page #store-vitrine-dynamic.store-vitrine-body { padding-top: 1rem; }
-.store-front .products-grid--v2 { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
-@media (max-width: 560px) { .store-front .products-grid--v2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* Campos com ícone (filtros, busca): mesmo visual dos demais campos. */
 .ui-input-icon > input {
@@ -564,22 +552,7 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
    11. Vitrine: WhatsApp, PIX, avaliações, favoritos, frete e pedido
    ========================================================================== */
 
-/* Favorito: coração sobre a foto do card (fora do link, para não aninhar botões). */
-.product-card--v2 { position: relative; }
-.product-fav-btn {
-  position: absolute; top: .55rem; right: .55rem; z-index: 2;
-  display: grid; place-items: center; width: 2.15rem; height: 2.15rem; padding: 0;
-  border: 0; border-radius: 999px; cursor: pointer;
-  background: rgba(255, 255, 255, .92); color: #475569;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, .18);
-  transition: transform .15s ease, color .15s ease, background-color .15s ease;
-}
-.product-fav-btn svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
-.product-fav-btn:hover { transform: scale(1.08); color: #e11d48; }
-.product-fav-btn.is-active { color: #e11d48; }
-.product-fav-btn.is-active svg { fill: currentColor; }
 .product-fav-btn--inline { position: static; flex-shrink: 0; width: 2.5rem; height: 2.5rem; background: var(--bg-card); border: 1px solid var(--border); box-shadow: none; }
-@media (max-width: 639px) { .product-fav-btn { top: .4rem; right: .4rem; width: 1.9rem; height: 1.9rem; } }
 
 /* Estrelas */
 .ui-stars { display: inline-flex; gap: 1px; color: #f59e0b; vertical-align: -2px; }
@@ -587,16 +560,7 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .ui-star--full { fill: currentColor; }
 .ui-star--half { fill: url(#ui-star-half); stroke: currentColor; stroke-width: 1.5; }
 .ui-star--empty { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: .45; }
-.product-card-rating { display: flex; align-items: center; gap: .3rem; margin: .1rem 0 0; font-size: .72rem; color: var(--text-muted); }
 
-/* Preço no PIX */
-.product-card-pix { margin: 0; font-size: .74rem; color: var(--text-muted); }
-.product-card-pix strong { color: var(--price); font-weight: 700; }
-.product-detail-pix { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .1rem 0 .35rem; font-size: .95rem; color: var(--text-muted); }
-.product-detail-pix strong { color: var(--price); font-size: 1.1rem; }
-.product-detail-pix-badge { padding: .1rem .45rem; border-radius: 999px; background: var(--success-bg); color: var(--success); font-size: .72rem; font-weight: 700; }
-/* No resumo do carrinho (flex com quebra): o frete ocupa a linha de cima e o
-   preço no PIX fica colado ao total, com o botão empurrado para a direita. */
 .store-cart-summary .store-cart-shipping { flex: 1 1 100%; }
 .store-cart-pix { margin: 0 auto 0 0; font-size: .9rem; color: var(--text-muted); }
 @media (max-width: 639px) { .store-cart-pix { margin: -.5rem 0 0; text-align: right; } }
