@@ -110,7 +110,19 @@ class RoleApiController extends Controller
         if (!$role || (int) $role['store_id'] !== $storeId) {
             $this->json(['error' => 'Cargo não encontrado'], 404);
         }
-        $newParentId = isset($input['parent_role_id']) ? (trim((string) $input['parent_role_id']) === '' ? null : (int) $input['parent_role_id']) : $role['parent_role_id'];
+        if (!is_array($input)) {
+            $input = [];
+        }
+        // array_key_exists, e não isset: "Nenhum" chega como null e precisa remover o superior.
+        if (array_key_exists('parent_role_id', $input)) {
+            $parentRaw = $input['parent_role_id'];
+            $newParentId = ($parentRaw === null || trim((string) $parentRaw) === '') ? null : (int) $parentRaw;
+            if ($newParentId !== null && $newParentId < 1) {
+                $newParentId = null;
+            }
+        } else {
+            $newParentId = $role['parent_role_id'] !== null ? (int) $role['parent_role_id'] : null;
+        }
         if ($newParentId !== null && $newParentId === (int) $id) {
             $this->json(['error' => 'Um cargo não pode ser superior de si mesmo. Escolha outro cargo ou deixe sem superior.'], 400);
         }
@@ -118,6 +130,15 @@ class RoleApiController extends Controller
             $parent = $repo->find($newParentId);
             if (!$parent || (int) $parent['store_id'] !== $storeId) {
                 $this->json(['error' => 'Cargo superior inválido'], 400);
+            }
+            // Sobe a partir do novo superior: se passar por este cargo, ele viraria subordinado de si mesmo.
+            $cursor = $parent;
+            $guard = 0;
+            while ($cursor && !empty($cursor['parent_role_id']) && $guard++ < 100) {
+                if ((int) $cursor['parent_role_id'] === (int) $id) {
+                    $this->json(['error' => 'O cargo escolhido como superior é subordinado deste cargo. Escolha outro ou deixe sem superior.'], 400);
+                }
+                $cursor = $repo->find((int) $cursor['parent_role_id']);
             }
         }
         $repo->update($id, [
