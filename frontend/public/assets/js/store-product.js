@@ -435,7 +435,8 @@
   var addBtn = document.getElementById('product-add-cart');
   if (!bar || !barBtn || !buy || !addBtn || !('IntersectionObserver' in window)) return;
 
-  var mobile = window.matchMedia('(max-width: 760px)');
+  // Também em telas baixas (celular deitado): ali a foto ocupava a tela toda.
+  var mobile = window.matchMedia('(max-width: 760px), (max-height: 500px)');
   var chooseLabel = bar.getAttribute('data-choose-label') || 'Escolher opção';
   var buyVisible = true;
 

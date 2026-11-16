@@ -98,10 +98,19 @@ class StoreApiController extends Controller
             delete_store_banner_file($old);
         }
         $repo->updateBannerPath($storeId, $path);
+        // GIF animado não é reduzido (perderia a animação). Se for pesado, o
+        // painel avisa: cada cliente baixa o arquivo inteiro ao abrir a vitrine.
+        $abs = PLATAFORM_ROOT . '/frontend/public/uploads/' . $path;
+        $kb = is_file($abs) ? (int) round(filesize($abs) / 1024) : 0;
+        $aviso = null;
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'gif' && $kb > 800) {
+            $aviso = 'O GIF animado tem ' . number_format($kb, 0, ',', '.') . ' KB e deixa a vitrine lenta no celular. Prefira uma imagem parada (JPG ou PNG), que é reduzida automaticamente.';
+        }
         $this->json([
             'success' => true,
             'banner_path' => $path,
             'banner_url' => base_url('uploads/' . str_replace('\\', '/', $path)),
+            'aviso' => $aviso,
         ]);
     }
 

@@ -33,6 +33,7 @@ function static_mime(string $ext): ?string
         'jpeg' => 'image/jpeg',
         'gif' => 'image/gif',
         'webp' => 'image/webp',
+        'avif' => 'image/avif',
         'ico' => 'image/x-icon',
         'svg' => 'image/svg+xml',
         'woff' => 'font/woff',

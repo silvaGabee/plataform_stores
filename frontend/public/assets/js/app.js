@@ -52,19 +52,37 @@
     }
     let qty = 1;
     const qtyEl = document.getElementById('qty');
-    if (qtyEl) qty = parseInt(qtyEl.value, 10) || 1;
-    const max = btn.dataset.max;
-    if (max && qty > parseInt(max, 10)) qty = parseInt(max, 10);
+    if (qtyEl) qty = Math.max(1, parseInt(qtyEl.value, 10) || 1);
+    const pedido = qty;
+    const max = parseInt(btn.dataset.max, 10) || 0;
     if (!storeId || !productId) return;
     const lineKey = storeCartLineKey(productId, variantKey);
     let cart = JSON.parse(sessionStorage.getItem('cart') || '{}');
     if (!cart[storeId]) cart[storeId] = {};
-    cart[storeId][lineKey] = (cart[storeId][lineKey] || 0) + qty;
+    const noCarrinho = parseInt(cart[storeId][lineKey], 10) || 0;
+    // O limite vale para o total da linha, somando o que já estava no
+    // carrinho. Antes só a quantidade nova era limitada, e adicionar duas
+    // vezes passava do estoque; o corte também acontecia sem aviso.
+    let total = noCarrinho + qty;
+    if (max > 0 && total > max) total = max;
+    const adicionados = total - noCarrinho;
+    if (adicionados <= 0) {
+      const msgCheio = 'Você já tem as ' + max + ' unidades disponíveis no carrinho';
+      if (window.StoreUI) window.StoreUI.notify(msgCheio, window.StoreUI.cartUrl ? { href: window.StoreUI.cartUrl, label: 'Ver carrinho' } : null);
+      else showStoreToast(msgCheio);
+      return;
+    }
+    cart[storeId][lineKey] = total;
     sessionStorage.setItem('cart', JSON.stringify(cart));
     if (typeof window.syncCartToSession === 'function') window.syncCartToSession();
+    let msg = 'Adicionado ao carrinho';
+    if (adicionados < pedido) {
+      msg = max === 1 ? 'Só 1 disponível: adicionamos 1' : 'Só ' + max + ' disponíveis: seu carrinho ficou com ' + total;
+      if (qtyEl) qtyEl.value = String(Math.max(1, Math.min(parseInt(qtyEl.value, 10) || 1, max)));
+    }
     // Na loja, o aviso traz "Ver carrinho" e o ícone do cabeçalho ganha o número.
-    if (window.StoreUI) window.StoreUI.cartAdded();
-    else showStoreToast('Adicionado ao carrinho');
+    if (window.StoreUI) window.StoreUI.cartAdded(msg);
+    else showStoreToast(msg);
   });
 
   /**

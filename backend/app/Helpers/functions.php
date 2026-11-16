@@ -1209,32 +1209,68 @@ if (!function_exists('product_image_make_thumb')) {
     }
 }
 
+if (!function_exists('image_extension_from_bytes')) {
+    /**
+     * Extensão certa da imagem pelo conteúdo, não pelo nome nem pelo tipo que
+     * o navegador declarou: jpg, png, gif, webp ou avif. Null se não for uma
+     * imagem aceita.
+     *
+     * Antes o envio confiava no nome (ou no cabeçalho do data URL) quando o
+     * tipo detectado não estava na lista: 10 fotos AVIF ficaram salvas como
+     * .png, foram servidas com o tipo errado e não ganharam miniatura.
+     */
+    function image_extension_from_bytes(string $bytes): ?string
+    {
+        if (strlen($bytes) < 12) {
+            return null;
+        }
+        // AVIF primeiro: o finfo do PHP 8.0 nem sempre o reconhece.
+        if (substr($bytes, 4, 4) === 'ftyp' && in_array(substr($bytes, 8, 4), ['avif', 'avis'], true)) {
+            return 'avif';
+        }
+        $mime = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = $finfo !== false ? (string) finfo_buffer($finfo, $bytes) : '';
+            if ($finfo !== false) {
+                finfo_close($finfo);
+            }
+        }
+        $porMime = [
+            'image/jpeg' => 'jpg', 'image/pjpeg' => 'jpg', 'image/png' => 'png',
+            'image/gif' => 'gif', 'image/webp' => 'webp', 'image/avif' => 'avif',
+        ];
+        if (isset($porMime[$mime])) {
+            return $porMime[$mime];
+        }
+        // Sem finfo: assinaturas dos formatos aceitos.
+        if (strncmp($bytes, "\xFF\xD8\xFF", 3) === 0) {
+            return 'jpg';
+        }
+        if (strncmp($bytes, "\x89PNG", 4) === 0) {
+            return 'png';
+        }
+        if (strncmp($bytes, 'GIF8', 4) === 0) {
+            return 'gif';
+        }
+        if (strncmp($bytes, 'RIFF', 4) === 0 && substr($bytes, 8, 4) === 'WEBP') {
+            return 'webp';
+        }
+
+        return null;
+    }
+}
+
 /** Salva um arquivo de upload de imagem de produto. Retorna path relativo (ex: products/abc.jpg) ou null. */
 if (!function_exists('upload_product_image')) {
     function upload_product_image(array $file): ?string {
         if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
             return null;
         }
-        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/pjpeg'];
-        $mime = '';
-        if (function_exists('finfo_open')) {
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mime = (string) finfo_file($finfo, $file['tmp_name']);
-            finfo_close($finfo);
-        }
-        if (!$mime) {
-            $mime = $file['type'] ?? '';
-        }
-        $name = $file['name'] ?? '';
-        $ext = 'jpg';
-        if (in_array($mime, $allowed, true)) {
-            if ($mime === 'image/png') $ext = 'png';
-            elseif ($mime === 'image/gif') $ext = 'gif';
-            elseif ($mime === 'image/webp') $ext = 'webp';
-        } elseif (preg_match('/\.(jpe?g|png|gif|webp)$/i', $name, $m)) {
-            $ext = strtolower($m[1]);
-            if ($ext === 'jpeg') $ext = 'jpg';
-        } else {
+        // A extensão vem do conteúdo do arquivo, nunca do nome enviado.
+        $inicio = (string) @file_get_contents($file['tmp_name'], false, null, 0, 4096);
+        $ext = image_extension_from_bytes($inicio);
+        if ($ext === null) {
             return null;
         }
         $dir = PLATAFORM_ROOT . '/frontend/public/uploads/products';
@@ -1263,10 +1299,12 @@ if (!function_exists('save_product_image_from_base64')) {
         if ($data === false || $data === '') {
             return null;
         }
-        $ext = 'jpg';
-        if (strpos($header, 'image/png') !== false) $ext = 'png';
-        elseif (strpos($header, 'image/gif') !== false) $ext = 'gif';
-        elseif (strpos($header, 'image/webp') !== false) $ext = 'webp';
+        // O cabeçalho "data:image/png" é o que o navegador declarou; vale o conteúdo.
+        unset($header);
+        $ext = image_extension_from_bytes($data);
+        if ($ext === null) {
+            return null;
+        }
         $dir = PLATAFORM_ROOT . '/frontend/public/uploads/products';
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);
@@ -1281,6 +1319,96 @@ if (!function_exists('save_product_image_from_base64')) {
         }
         product_image_make_thumb('products/' . $filename);
         return 'products/' . $filename;
+    }
+}
+
+if (!function_exists('image_is_animated_gif')) {
+    /** GIF com mais de um quadro (animado). Converter perderia a animação. */
+    function image_is_animated_gif(string $absPath): bool
+    {
+        $dados = @file_get_contents($absPath);
+        if ($dados === false || strncmp($dados, 'GIF8', 4) !== 0) {
+            return false;
+        }
+
+        return preg_match_all('#\x00\x21\xF9\x04.{4}\x00[\x2C\x21]#s', $dados) > 1;
+    }
+}
+
+if (!function_exists('store_image_optimize')) {
+    /**
+     * Reduz uma imagem da loja (banner ou ícone) depois do envio.
+     *
+     * Banner e ícone iam para a vitrine do jeito que o lojista enviou: na Loja
+     * Teste, um PNG de 341 KB aparecia com 36 px. Aqui a imagem é reduzida ao
+     * tamanho máximo em que aparece e salva em $formato (webp ou png, que
+     * mantêm a transparência). O arquivo original é apagado.
+     *
+     * GIF animado e ICO ficam como estão. Sem a extensão GD, também.
+     *
+     * @return string caminho relativo final (o novo, ou o mesmo se nada mudou)
+     */
+    function store_image_optimize(string $relPath, int $maxLargura, int $maxAltura, string $formato = 'webp'): string
+    {
+        $uploads = PLATAFORM_ROOT . '/frontend/public/uploads/';
+        $abs = $uploads . $relPath;
+        $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
+        if (!is_file($abs) || $ext === 'ico' || !function_exists('imagecreatefromstring') || image_is_animated_gif($abs)) {
+            return $relPath;
+        }
+        $dados = @file_get_contents($abs);
+        $img = $dados !== false ? @imagecreatefromstring($dados) : false;
+        if ($img === false) {
+            return $relPath;
+        }
+        if (!imageistruecolor($img)) {
+            imagepalettetotruecolor($img);
+        }
+        imagealphablending($img, false);
+        imagesavealpha($img, true);
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $escala = min(1, $maxLargura / $w, $maxAltura / $h);
+        if ($escala < 1) {
+            $nw = max(1, (int) round($w * $escala));
+            $nh = max(1, (int) round($h * $escala));
+            $menor = imagecreatetruecolor($nw, $nh);
+            imagealphablending($menor, false);
+            imagesavealpha($menor, true);
+            imagecopyresampled($menor, $img, 0, 0, 0, 0, $nw, $nh, $w, $h);
+            imagedestroy($img);
+            $img = $menor;
+        }
+        $novoRel = preg_replace('/\.[a-z0-9]+$/i', '', $relPath) . '.' . $formato;
+        // Grava num temporário: com o mesmo formato o nome não muda, e gravar
+        // direto apagaria o original antes de saber se a versão nova é menor.
+        $tmp = $uploads . $novoRel . '.tmp';
+        $ok = $formato === 'png'
+            ? imagepng($img, $tmp, 9)
+            : (function_exists('imagewebp') && imagewebp($img, $tmp, 82));
+        imagedestroy($img);
+        if (!$ok || !is_file($tmp)) {
+            @unlink($tmp);
+
+            return $relPath;
+        }
+        // Sem redução de tamanho, só vale trocar se o arquivo ficar menor.
+        if ($escala >= 1 && filesize($tmp) >= filesize($abs)) {
+            @unlink($tmp);
+
+            return $relPath;
+        }
+        if ($novoRel !== $relPath) {
+            @unlink($abs);
+        }
+        if (!@rename($tmp, $uploads . $novoRel)) {
+            @unlink($tmp);
+
+            return $relPath;
+        }
+        clearstatcache();
+
+        return $novoRel;
     }
 }
 
@@ -1329,7 +1457,8 @@ if (!function_exists('upload_store_banner')) {
         if (!move_uploaded_file($file['tmp_name'], $path)) {
             return null;
         }
-        return 'store-banners/' . $storeId . '/' . $filename;
+        // O banner aparece com no máximo 1920 px de largura (proporção 15:4).
+        return store_image_optimize('store-banners/' . $storeId . '/' . $filename, 1920, 1080, 'webp');
     }
 }
 
@@ -1403,7 +1532,9 @@ if (!function_exists('upload_store_icon')) {
         if (!move_uploaded_file($file['tmp_name'], $path)) {
             return null;
         }
-        return 'store-icons/' . $storeId . '/' . $filename;
+        // O ícone aparece com 36 a 48 px (e é o favicon): 128 px sobra para telas
+        // de alta densidade. PNG, e não WebP, porque vira favicon.
+        return store_image_optimize('store-icons/' . $storeId . '/' . $filename, 128, 128, 'png');
     }
 }
 

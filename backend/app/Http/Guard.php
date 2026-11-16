@@ -126,9 +126,56 @@ final class Guard
             // e aí a resposta chegaria como erro de servidor. O cabeçalho abaixo
             // é o que permite ao JavaScript distinguir "token vencido"
             // (recarregar resolve) de "sem permissão" (recarregar não resolve).
+            if (!$isApi) {
+                self::voltarComSessaoExpirada();
+            }
             header('X-CSRF-Retry: 1');
             self::recusar($isApi, 403, 'Sessão expirada ou pedido inválido. Recarregue a página e tente novamente.');
         }
+    }
+
+    /**
+     * Formulário de página enviado com o token vencido.
+     *
+     * A sessão do PHP expira depois de um tempo sem uso. Quem deixava a tela
+     * de entrar aberta e enviava depois recebia uma página crua de 403, e
+     * "recarregar" dava 404 (o /login só aceita POST). Agora a pessoa volta
+     * para o formulário de onde veio, com um aviso e o e-mail ou nome já
+     * preenchidos. A senha nunca é guardada.
+     *
+     * Nada do que foi enviado é processado: só o redirecionamento acontece,
+     * então a proteção contra CSRF continua igual.
+     *
+     * @return never
+     */
+    private static function voltarComSessaoExpirada(): void
+    {
+        $_SESSION['_error'] = 'Sua sessão expirou. Confira os dados e tente de novo.';
+        $guardar = [];
+        foreach (['email', 'name'] as $campo) {
+            if (isset($_POST[$campo]) && is_string($_POST[$campo])) {
+                $guardar[$campo] = mb_substr(trim($_POST[$campo]), 0, 190);
+            }
+        }
+        $_SESSION['_old'] = $guardar;
+        $cadastro = ($_POST['auth_intent'] ?? '') === 'register';
+
+        // 1. Formulário de entrada de uma loja: volta para a tela dela.
+        $origem = (string) ($_POST['origem'] ?? '');
+        if ($origem !== '' && preg_match('/^[a-z0-9-]+$/', $origem) === 1 && (new StoreRepository())->findBySlug($origem)) {
+            redirect(base_url('loja/' . $origem . '/entrar' . ($cadastro ? '?modo=cadastro' : '')));
+        }
+        // 2. Entrada ou cadastro da plataforma: reabre a janela certa.
+        if (isset($_POST['auth_intent'])) {
+            redirect(base_url('?auth=' . ($cadastro ? 'cadastro' : 'login')));
+        }
+        // 3. Outro formulário de página: volta para onde estava, se for deste site.
+        $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+        $base = rtrim(base_url(), '/') . '/';
+        if ($referer !== '' && strpos($referer, $base) === 0) {
+            redirect($referer);
+        }
+        redirect(base_url());
     }
 
     private static function tokenRecebido(): string

@@ -125,7 +125,7 @@ $can_add_address = true;
                             </div>
                             <div class="checkout-field">
                                 <label for="meus-addr-state">UF *</label>
-                                <input type="text" id="meus-addr-state" required placeholder="SC" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
+                                <input type="text" id="meus-addr-state" required placeholder="UF" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
                             </div>
                         </div>
                         <p id="meus-enderecos-form-msg" class="meus-enderecos-form-msg text-muted" role="status"></p>

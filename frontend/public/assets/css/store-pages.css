@@ -1033,3 +1033,55 @@ body.store-front .product-detail-title-row .product-fav-btn--inline {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Correções da terceira auditoria
+   ========================================================================== */
+
+/* M2 · Celular deitado (tela baixa): a barra de compra aparece (store-product.js),
+   o cabeçalho deixa de ficar fixo e a foto não passa de 70% da altura. */
+@media (max-height: 500px) {
+  body.store-front .store-header {
+    position: static;
+  }
+  body.store-front .product-gallery-carousel--v2 .carousel-slide img {
+    max-height: 70vh;
+    object-fit: contain;
+    margin-inline: auto;
+  }
+  .store-notice {
+    top: auto;
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* B3 · No celular, 52 px vazios (32 do main + 20 do contêiner) separavam o
+   cabeçalho das migalhas na página do produto. */
+@media (max-width: 760px), (max-height: 500px) {
+  body.store-front .store-main:has(.product-page--v2) {
+    padding-top: 0;
+  }
+  body.store-front .container--product-page {
+    padding-top: 0.75rem;
+  }
+}
+
+/* B2 · Em campos lado a lado (Número e Complemento), a mensagem de erro de um
+   esticava a linha e desalinhava o vizinho; o campo seguinte encostava nela. */
+.checkout-address-row {
+  align-items: start;
+}
+.checkout-field .ui-field-error {
+  margin-top: 0.1rem;
+}
+.checkout-address-row + .checkout-field,
+.checkout-field + .checkout-address-row {
+  margin-top: 0.85rem;
+}
+/* O espaçamento entre campos empilhados (.checkout-field + .checkout-field)
+   também pegava o segundo campo de cada linha dupla: Complemento e UF ficavam
+   mais baixos que Número e Cidade, com ou sem erro. */
+.checkout-address-row > .checkout-field,
+.checkout-address-row > .checkout-field + .checkout-field {
+  margin-top: 0;
+}

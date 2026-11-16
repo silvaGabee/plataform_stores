@@ -146,9 +146,9 @@
 
   window.StoreUI = {
     notify: notify,
-    cartAdded: function () {
+    cartAdded: function (message) {
       document.dispatchEvent(new CustomEvent('store:cart-changed'));
-      notify('Adicionado ao carrinho', slug ? { href: base + '/loja/' + encodeURIComponent(slug) + '/carrinho', label: 'Ver carrinho' } : null);
+      notify(message || 'Adicionado ao carrinho', slug ? { href: base + '/loja/' + encodeURIComponent(slug) + '/carrinho', label: 'Ver carrinho' } : null);
     },
     cartUrl: slug ? base + '/loja/' + encodeURIComponent(slug) + '/carrinho' : null,
     entrarUrl: function (volta) {

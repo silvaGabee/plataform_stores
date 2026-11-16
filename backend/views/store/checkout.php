@@ -149,7 +149,7 @@ $content = ob_start();
                                 </div>
                                 <div class="checkout-field">
                                     <label for="addr-state">UF *</label>
-                                    <input type="text" id="addr-state" data-required name="addr_state" placeholder="SC" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
+                                    <input type="text" id="addr-state" data-required name="addr_state" placeholder="UF" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
                                 </div>
                             </div>
                         </div>

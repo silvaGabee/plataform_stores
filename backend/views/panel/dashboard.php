@@ -479,7 +479,7 @@ ob_start();
           setMsg(res.error, 'error');
           return;
         }
-        setMsg('Banner guardado — já está visível na vitrine.', 'success');
+        setMsg(res.aviso ? 'Banner salvo. ' + res.aviso : 'Banner salvo. Ele já aparece na vitrine.', res.aviso ? 'error' : 'success');
         if (fileInput) fileInput.value = '';
         pendingBannerFile = null;
         setFilenameLabel();
@@ -712,7 +712,7 @@ ob_start();
             setMsg(res.error, 'error');
             return;
           }
-          setMsg('Banner guardado — já está visível na vitrine.', 'success');
+          setMsg(res.aviso ? 'Banner salvo. ' + res.aviso : 'Banner salvo. Ele já aparece na vitrine.', res.aviso ? 'error' : 'success');
           fileInput.value = '';
           pendingBannerFile = null;
           setFilenameLabel();
