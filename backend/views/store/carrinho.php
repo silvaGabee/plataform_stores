@@ -29,13 +29,25 @@ ob_start();
                             <?php foreach ($cartItems as $item):
                                 $p = $item['product'];
                                 $sub = product_effective_price($p) * $item['quantity'];
+                                $__img = product_cover_image($p);
+                                $__imgUrl = $__img['thumb_url'] ?? ($__img['url'] ?? null);
+                                $__pUrl = base_url("loja/{$store['slug']}/produto/{$p['id']}");
                                 ?>
                                 <tr data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">
-                                    <td data-label="Produto">
-                                        <?= htmlspecialchars($p['name']) ?>
-                                        <?php if (!empty($item['variant_label'])): ?>
-                                            <span class="cart-line-variant"><?= htmlspecialchars($item['variant_label']) ?></span>
-                                        <?php endif; ?>
+                                    <td data-label="Produto" class="cart-line-product">
+                                        <a href="<?= htmlspecialchars($__pUrl) ?>" class="cart-line-thumb" tabindex="-1" aria-hidden="true">
+                                            <?php if ($__imgUrl): ?>
+                                                <img src="<?= htmlspecialchars($__imgUrl) ?>" alt="" width="64" height="64" loading="lazy" decoding="async">
+                                            <?php else: ?>
+                                                <?= ui_icon('package', 22) ?>
+                                            <?php endif; ?>
+                                        </a>
+                                        <span class="cart-line-info">
+                                            <a href="<?= htmlspecialchars($__pUrl) ?>" class="cart-line-name"><?= htmlspecialchars($p['name']) ?></a>
+                                            <?php if (!empty($item['variant_label'])): ?>
+                                                <span class="cart-line-variant"><?= htmlspecialchars($item['variant_label']) ?></span>
+                                            <?php endif; ?>
+                                        </span>
                                     </td>
                                     <td data-label="Qtd">
                                         <div class="cart-qty-control" data-max="<?= (int) $item['line_stock'] ?>">
@@ -47,15 +59,20 @@ ob_start();
                                     <td data-label="Preço"><?php if (product_on_sale($p)): ?><s class="cart-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s> <?php endif; ?>R$ <?= number_format(product_effective_price($p), 2, ',', '.') ?></td>
                                     <td class="subtotal" data-label="Subtotal">R$ <?= number_format($sub, 2, ',', '.') ?></td>
                                     <td class="store-cart-actions" data-label="">
-                                        <button type="button" class="btn btn-sm btn-danger remove-from-cart" data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>">Remover</button>
+                                        <button type="button" class="store-cart-remove remove-from-cart" data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>" aria-label="Remover <?= htmlspecialchars($p['name']) ?> do carrinho"><?= ui_icon('trash', 16) ?><span>Remover</span></button>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
+                <?php
+                $__pixPct = \App\Services\OrderPricing::pixPct($store);
+                $__pixTotal = \App\Services\OrderPricing::pixPrice($store, $total);
+                $__waDuvida = store_whatsapp_url($store, 'Olá! Estou com uma dúvida sobre o meu carrinho na loja ' . $store['name'] . '.');
+                ?>
                 <div class="store-cart-summary">
-                    <div class="store-cart-shipping" id="cart-shipping" data-slug="<?= htmlspecialchars($store['slug']) ?>" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>">
+                    <div class="store-cart-shipping" id="cart-shipping" data-slug="<?= htmlspecialchars($store['slug']) ?>" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>" data-pix-pct="<?= htmlspecialchars((string) $__pixPct) ?>">
                         <label for="cart-cep" class="store-cart-shipping-label"><?= ui_icon('truck', 16) ?> Calcular frete</label>
                         <div class="store-cart-shipping-row">
                             <input type="text" id="cart-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" autocomplete="postal-code" aria-describedby="cart-shipping-result">
@@ -63,11 +80,20 @@ ob_start();
                         </div>
                         <p class="store-cart-shipping-result" id="cart-shipping-result" role="status" aria-live="polite"></p>
                     </div>
-                    <p class="cart-total"><span class="store-cart-total-label">Total</span> <strong class="store-cart-total-value">R$ <?= number_format($total, 2, ',', '.') ?></strong></p>
-                    <?php $__pixTotal = \App\Services\OrderPricing::pixPrice($store, $total); if ($__pixTotal !== null): ?>
-                        <p class="store-cart-pix">ou <strong>R$ <?= number_format($__pixTotal, 2, ',', '.') ?></strong> no PIX</p>
-                    <?php endif; ?>
-                    <a href="<?= base_url("loja/{$store['slug']}/checkout") ?>" class="btn btn-primary store-cart-checkout-btn">Finalizar compra</a>
+                    <div class="store-cart-totals">
+                        <dl class="store-cart-lines">
+                            <div><dt>Subtotal</dt><dd>R$ <?= number_format($total, 2, ',', '.') ?></dd></div>
+                            <div><dt>Frete</dt><dd id="cart-total-shipping" class="store-cart-shipping-value">Calculado na próxima etapa</dd></div>
+                        </dl>
+                        <p class="cart-total"><span class="store-cart-total-label">Total</span> <strong class="store-cart-total-value" id="cart-total-value">R$ <?= number_format($total, 2, ',', '.') ?></strong></p>
+                        <?php if ($__pixTotal !== null): ?>
+                            <p class="store-cart-pix" id="cart-total-pix">ou <strong>R$ <?= number_format($__pixTotal, 2, ',', '.') ?></strong> no PIX</p>
+                        <?php endif; ?>
+                        <a href="<?= base_url("loja/{$store['slug']}/checkout") ?>" class="btn btn-primary store-cart-checkout-btn">Finalizar compra</a>
+                        <?php if ($__waDuvida !== null): ?>
+                            <p class="store-cart-help">Dúvidas? <a href="<?= htmlspecialchars($__waDuvida) ?>" target="_blank" rel="noopener">Fale com a loja no WhatsApp</a></p>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         <?php else: ?>

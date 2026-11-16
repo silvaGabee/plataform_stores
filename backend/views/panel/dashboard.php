@@ -6,7 +6,7 @@ ob_start();
         <p class="panel-page-eyebrow">Resumo</p>
         <h1>Dashboard</h1>
     </header>
-    <p class="dashboard-welcome panel-lead">Bem-vindo, <strong><?= htmlspecialchars($welcome_user_name ?: 'utilizador') ?></strong> — está no painel de <strong><?= htmlspecialchars($store['name']) ?></strong>.</p>
+    <p class="dashboard-welcome panel-lead">Bem-vindo, <strong><?= htmlspecialchars($welcome_user_name ?: 'usuário') ?></strong> — você está no painel de <strong><?= htmlspecialchars($store['name']) ?></strong>.</p>
 
     <div class="panel-surface-card dashboard-store-link-card">
         <div class="panel-surface-card-head">
@@ -69,7 +69,7 @@ ob_start();
                 <input type="hidden" id="dashboard-category-icon-key" name="icon_key" value="feminino">
                 <div class="dashboard-category-modal-actions">
                     <button type="button" class="btn btn-secondary btn-sm" id="dashboard-category-cancel">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm" id="dashboard-category-save">Guardar categoria</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="dashboard-category-save">Salvar categoria</button>
                 </div>
             </form>
             <p id="dashboard-category-modal-msg" class="panel-form-msg" role="status" aria-live="polite"></p>
@@ -121,7 +121,7 @@ ob_start();
                         <li><strong>GIF animado</strong> não pode ser editado — envie já no tamanho certo (ex. 1920×512 px)</li>
                     </ul>
                     <form id="dashboard-banner-form" class="dashboard-banner-form" enctype="multipart/form-data">
-                        <p class="dashboard-banner-field-label">Ficheiro</p>
+                        <p class="dashboard-banner-field-label">Arquivo</p>
                         <div class="dashboard-banner-drop">
                             <input type="file" id="dashboard-banner-file" name="banner" class="dashboard-banner-file-input" accept="image/jpeg,image/png,image/gif,image/webp,.jpg,.jpeg,.png,.gif,.webp" title="Escolher imagem">
                             <label for="dashboard-banner-file" class="dashboard-banner-drop-label">
@@ -130,15 +130,15 @@ ob_start();
                                 </span>
                                 <span class="dashboard-banner-drop-text">Escolher imagem</span>
                             </label>
-                            <span id="dashboard-banner-filename" class="dashboard-banner-filename">Nenhum ficheiro selecionado</span>
+                            <span id="dashboard-banner-filename" class="dashboard-banner-filename">Nenhum arquivo selecionado</span>
                         </div>
                         <div class="dashboard-banner-form-actions">
                             <button type="button" id="dashboard-banner-edit" class="btn btn-primary btn-sm dashboard-banner-edit-btn hidden">Editar</button>
-                            <button type="submit" class="btn btn-primary btn-sm dashboard-banner-btn-save">Guardar na vitrine</button>
+                            <button type="submit" class="btn btn-primary btn-sm dashboard-banner-btn-save">Salvar na vitrine</button>
                             <button type="button" id="dashboard-banner-remove" class="btn btn-secondary btn-sm dashboard-banner-btn-remove hidden">Remover banner</button>
                         </div>
                     </form>
-                    <p id="dashboard-banner-gif-note" class="dashboard-banner-gif-note hidden" role="note">GIF animado: não é possível editar no painel. Envie o ficheiro já no tamanho desejado (ex. 1920×512 px) e clique em <strong>Guardar na vitrine</strong>.</p>
+                    <p id="dashboard-banner-gif-note" class="dashboard-banner-gif-note hidden" role="note">GIF animado: não é possível editar no painel. Envie o arquivo já no tamanho desejado (ex.: 1920×512 px) e clique em <strong>Salvar na vitrine</strong>.</p>
                     <p id="dashboard-banner-msg" class="panel-form-msg dashboard-banner-msg" role="status" aria-live="polite"></p>
                     <?php else: ?>
                     <p class="dashboard-banner-readonly-note">Só o gerente pode carregar ou remover o banner.</p>
@@ -209,7 +209,7 @@ ob_start();
                 <button type="button" id="dashboard-banner-crop-cancel" class="btn btn-secondary js-banner-crop-cancel">Cancelar</button>
                 <button type="button" id="dashboard-banner-crop-apply" class="btn btn-primary banner-crop-btn-apply">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Aplicar e guardar
+                    Aplicar e salvar
                 </button>
             </footer>
         </div>
@@ -471,7 +471,7 @@ ob_start();
   function uploadBannerBlob(blob, filename, mime) {
     var fd = new FormData();
     fd.append('banner', blob, filename || 'banner.jpg');
-    setMsg('A guardar banner…', '');
+    setMsg('Salvando banner…', '');
     return fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { method: 'POST', body: fd, credentials: 'same-origin' })
       .then(function(r){ return r.json(); })
       .then(function(res){
@@ -507,7 +507,7 @@ ob_start();
   function setFilenameLabel() {
     if (!nameEl || !fileInput) return;
     var f = fileInput.files && fileInput.files[0];
-    nameEl.textContent = f ? f.name : 'Nenhum ficheiro selecionado';
+    nameEl.textContent = f ? f.name : 'Nenhum arquivo selecionado';
     nameEl.classList.toggle('dashboard-banner-filename--picked', !!(f && f.name));
   }
 
@@ -614,7 +614,7 @@ ob_start();
       }
     }
     if (!src) {
-      setMsg('Carregue ou escolha uma imagem antes de editar.', 'error');
+      setMsg('Envie ou escolha uma imagem antes de editar.', 'error');
       return;
     }
     cropEditor.open(src, mime, blob, name);
@@ -656,7 +656,7 @@ ob_start();
         dt.items.add(file);
         fileInput.files = dt.files;
       } catch (err) {
-        setMsg('Este navegador não suporta largar ficheiros aqui. Use «Escolher imagem».', 'error');
+        setMsg('Este navegador não aceita arrastar arquivos para cá. Use "Escolher imagem".', 'error');
         return;
       }
       setFilenameLabel();

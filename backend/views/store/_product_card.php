@@ -2,7 +2,8 @@
 /** @var array $p */
 /** @var array $store */
 $cover = product_cover_image($p);
-$coverUrl = $cover['url'] ?? null;
+// Miniatura WebP quando existe (bem mais leve); senão, a foto original.
+$coverUrl = $cover['thumb_url'] ?? ($cover['url'] ?? null);
 $variants = $p['variants'] ?? [];
 $hasVariants = product_has_variants($p);
 $variantGroups = product_has_variants($p) ? product_variants_grouped($p) : [];

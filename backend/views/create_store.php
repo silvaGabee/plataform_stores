@@ -8,7 +8,7 @@ ob_start();
             <div class="create-store-hero-copy">
                 <p class="create-store-eyebrow">Nova loja</p>
                 <h1 class="create-store-title">Criar <span class="create-store-title-accent">minha loja</span></h1>
-                <p class="create-store-lead">Defina os dados da vitrine. A loja ficará associada à sua conta — confirme com a sua senha para validar.</p>
+                <p class="create-store-lead">Defina os dados da vitrine. A loja ficará ligada à sua conta. Confirme com sua senha para continuar.</p>
                 <a href="<?= base_url('lojas') ?>" class="create-store-back js-create-store-back">Voltar às lojas</a>
             </div>
         </div>
@@ -51,8 +51,8 @@ ob_start();
                 </section>
 
                 <section class="create-store-panel create-store-panel-account" aria-labelledby="create-store-gerente-heading">
-                    <h2 id="create-store-gerente-heading" class="create-store-panel-title">A sua conta</h2>
-                    <p class="create-store-panel-desc">O painel desta loja ficará ligado ao utilizador com sessão iniciada. Os dados abaixo vêm da sua conta e não podem ser alterados aqui.</p>
+                    <h2 id="create-store-gerente-heading" class="create-store-panel-title">Sua conta</h2>
+                    <p class="create-store-panel-desc">O painel desta loja ficará ligado à conta com que você entrou. Os dados abaixo vêm da sua conta e não podem ser alterados aqui.</p>
                     <?php
                     $cu = $current_user ?? [];
                     $cuName = htmlspecialchars((string) ($cu['name'] ?? ''));
@@ -70,8 +70,8 @@ ob_start();
                     </div>
                     <div class="create-store-fields">
                         <div class="create-store-field">
-                            <label for="cs-manager-password">Confirme a sua senha *</label>
-                            <input type="password" id="cs-manager-password" name="manager_password" required placeholder="Coloque a sua senha de login" autocomplete="current-password">
+                            <label for="cs-manager-password">Confirme sua senha *</label>
+                            <input type="password" id="cs-manager-password" name="manager_password" required placeholder="Digite a senha com que você entra" autocomplete="current-password">
                             <p class="create-store-field-hint">Obrigatório para validar que é mesmo você. Tem de ser igual à senha utilizada no login.</p>
                         </div>
                     </div>

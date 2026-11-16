@@ -33,7 +33,7 @@ class UserApiController extends Controller
         $users = (new StoreMemberRepository())->listMembers($storeId, $tipo);
         $roleRepo = new EmployeeRoleRepository();
         foreach ($users as &$u) {
-            $roles = $roleRepo->getRolesByUser((int) $u['id']);
+            $roles = $roleRepo->getRolesByUser((int) $u['id'], $storeId);
             $u['cargo'] = $roles[0]['name'] ?? null;
         }
         unset($u);
@@ -198,7 +198,7 @@ class UserApiController extends Controller
                 return;
             }
         }
-        (new EmployeeRoleRepository())->setUserRoles($id, $roleIds);
+        (new EmployeeRoleRepository())->setUserRoles($id, is_array($roleIds) ? $roleIds : [], $storeId);
         $this->json(['success' => true]);
     }
 
@@ -213,7 +213,7 @@ class UserApiController extends Controller
             $this->json(['error' => 'Usuário não encontrado'], 404);
             return;
         }
-        $this->json(['roles' => (new EmployeeRoleRepository())->getRolesByUser($id)]);
+        $this->json(['roles' => (new EmployeeRoleRepository())->getRolesByUser($id, $storeId)]);
     }
 
     public function delete(string $slug, int $id): void
@@ -260,7 +260,7 @@ class UserApiController extends Controller
             return;
         }
         $memberRepo->remove($id, $storeId);
-        (new EmployeeRoleRepository())->setUserRoles($id, []);
+        (new EmployeeRoleRepository())->setUserRoles($id, [], $storeId);
         Permissions::limparCache();
         $this->json(['success' => true]);
     }

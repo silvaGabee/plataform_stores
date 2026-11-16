@@ -92,7 +92,7 @@ class StoreApiController extends Controller
         $old = trim((string) ($store['banner_path'] ?? ''));
         $path = upload_store_banner($storeId, $file);
         if (!$path) {
-            $this->json(['error' => 'Não foi possível guardar a imagem. Verifique o formato e permissões da pasta uploads.'], 400);
+            $this->json(['error' => 'Não foi possível salvar a imagem. Verifique o formato e as permissões da pasta uploads.'], 400);
         }
         if ($old !== '') {
             delete_store_banner_file($old);
@@ -164,7 +164,7 @@ class StoreApiController extends Controller
         $old = trim((string) ($store['store_icon_path'] ?? ''));
         $path = upload_store_icon($storeId, $file);
         if (!$path) {
-            $this->json(['error' => 'Não foi possível guardar a imagem. Use JPG, PNG, GIF, WebP ou ICO.'], 400);
+            $this->json(['error' => 'Não foi possível salvar a imagem. Use JPG, PNG, GIF, WebP ou ICO.'], 400);
         }
         if ($old !== '') {
             delete_store_icon_file($old);
@@ -225,7 +225,7 @@ class StoreApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
         } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível guardar o nome.'], 500);
+            $this->json(['error' => 'Não foi possível salvar o nome.'], 500);
         }
     }
 
@@ -255,7 +255,7 @@ class StoreApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
         } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível guardar o slogan.'], 500);
+            $this->json(['error' => 'Não foi possível salvar o slogan.'], 500);
         }
     }
 
@@ -284,7 +284,7 @@ class StoreApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
         } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível guardar a cor de fundo.'], 500);
+            $this->json(['error' => 'Não foi possível salvar a cor de fundo.'], 500);
         }
     }
 
@@ -316,7 +316,7 @@ class StoreApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
         } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível guardar as configurações de aparência.'], 500);
+            $this->json(['error' => 'Não foi possível salvar as configurações de aparência.'], 500);
         }
     }
 
@@ -341,7 +341,7 @@ class StoreApiController extends Controller
         $input = $this->getJsonInput();
         $senha = (string) ($input['password'] ?? '');
         if ($senha === '') {
-            $this->json(['error' => 'Digite a sua senha para confirmar.'], 400);
+            $this->json(['error' => 'Digite sua senha para confirmar.'], 400);
             return;
         }
         $alvo = $me['id'] . ':' . $storeId;

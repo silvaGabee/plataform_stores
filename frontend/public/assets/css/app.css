@@ -6915,7 +6915,11 @@ body.panel {
 .hierarchy-subtitle { margin: 0.4rem 0 0; color: var(--text-muted); font-size: 0.95rem; max-width: 40rem; line-height: 1.5; }
 .hierarchy-header-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
-.hierarchy-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.85rem; margin-top: 1.5rem; }
+.hierarchy-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.85rem; margin-top: 1.5rem; }
+@media (max-width: 1100px) { .hierarchy-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hierarchy-stat-link { font: inherit; text-align: left; cursor: pointer; transition: border-color 0.12s, transform 0.12s; }
+.hierarchy-stat-link:hover, .hierarchy-stat-link:focus-visible { border-color: var(--primary); transform: translateY(-1px); outline: none; }
+.hierarchy-stat.is-info .hierarchy-stat-value { color: var(--primary); }
 .hierarchy-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.15rem; }
 .hierarchy-stat-value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hierarchy-stat-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
@@ -7061,6 +7065,40 @@ button.org-card:focus-visible { transform: translateY(-2px); border-color: var(-
   .hierarchy-header-actions .btn { flex: 1 1 auto; }
   .org-viewport { max-height: 65vh; }
 }
+/* Abas Cargos | Pessoas */
+.hierarchy-tabs { display: flex; gap: 0.25rem; padding: 0.6rem 0.75rem 0; border-bottom: 1px solid var(--border); }
+.hierarchy-tab { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.8rem; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); font: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer; }
+.hierarchy-tab:hover { color: var(--text); }
+.hierarchy-tab.is-active { color: var(--text); border-bottom-color: var(--primary); }
+.hierarchy-tab-count { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); background: var(--border-subtle); border: 1px solid var(--border); padding: 0.05rem 0.4rem; border-radius: 999px; }
+.hierarchy-tab-count:empty { display: none; }
+
+/* Lista de pessoas */
+.people-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.65rem 1.1rem; border-bottom: 1px solid var(--border); }
+.people-chip { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.7rem; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.people-chip span { font-weight: 800; color: var(--text); }
+.people-chip:hover { border-color: var(--text-muted); color: var(--text); }
+.people-chip.is-active { background: color-mix(in srgb, var(--primary) 16%, transparent); border-color: var(--primary); color: var(--text); }
+.people-chip-warning.is-active { background: var(--warning-bg); border-color: var(--warning); }
+.person-row { display: flex; align-items: flex-start; gap: 0.7rem; padding: 0.65rem 0.75rem 0.65rem 1.1rem; border-left: 3px solid transparent; }
+.person-row:hover { background: var(--border-subtle); }
+.person-row.is-unassigned { border-left-color: var(--warning); }
+.person-avatar { --org-accent: var(--text-muted); width: 30px; height: 30px; font-size: 0.7rem; margin-top: 0.1rem; }
+.person-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.person-head { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.person-flag { flex: 0 0 auto; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 999px; }
+.person-flag-warning { color: var(--warning); background: var(--warning-bg); }
+.person-flag-info { color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, transparent); }
+.person-roles { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
+.person-role-chip { display: inline-flex; align-items: center; max-width: 100%; padding: 0.15rem 0.5rem; border: 1px solid color-mix(in srgb, var(--org-accent) 45%, transparent); border-radius: 6px; background: color-mix(in srgb, var(--org-accent) 12%, transparent); color: var(--text); font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-role-chip:hover { border-color: var(--org-accent); }
+
+/* Modal: cargos da pessoa */
+.person-modal-lead { margin: 0 0 0.75rem; font-size: 0.88rem; color: var(--text-muted); }
+.person-role-options { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.3rem 0; }
+.modal .person-role-options .person-role-option { display: flex; align-items: center; gap: 0.55rem; margin: 0; padding: 0.45rem 0.75rem 0.45rem calc(0.75rem + var(--role-indent, 0) * 1rem); font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+.modal .person-role-options .person-role-option:hover { background: var(--border-subtle); }
+.modal .person-role-options .person-role-option input { flex: 0 0 auto; margin: 0; width: 16px; height: 16px; }
 .panel-readonly #btn-new-role { display: none !important; }
 .panel-readonly-badge { font-size: 0.8rem; color: var(--warning); background: var(--warning-bg); padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem; }
 .panel-readonly .btn-primary[hidden] { display: none !important; }

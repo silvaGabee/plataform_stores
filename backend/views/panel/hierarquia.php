@@ -23,19 +23,31 @@
     <div class="hierarchy-stats" id="hierarchy-stats" aria-live="polite">
         <div class="hierarchy-stat"><span class="hierarchy-stat-value" data-stat="roles">–</span><span class="hierarchy-stat-label">Cargos</span></div>
         <div class="hierarchy-stat"><span class="hierarchy-stat-value" data-stat="levels">–</span><span class="hierarchy-stat-label">Níveis</span></div>
-        <div class="hierarchy-stat"><span class="hierarchy-stat-value" data-stat="people">–</span><span class="hierarchy-stat-label">Pessoas alocadas</span></div>
+        <div class="hierarchy-stat"><span class="hierarchy-stat-value" data-stat="people">–</span><span class="hierarchy-stat-label">Pessoas na equipe</span></div>
+        <button type="button" class="hierarchy-stat hierarchy-stat-link" data-people-filter="none" title="Ver quem está sem cargo"><span class="hierarchy-stat-value" data-stat="unassigned">–</span><span class="hierarchy-stat-label">Sem cargo</span></button>
+        <button type="button" class="hierarchy-stat hierarchy-stat-link" data-people-filter="multi" title="Ver quem tem mais de um cargo"><span class="hierarchy-stat-value" data-stat="multi">–</span><span class="hierarchy-stat-label">Com 2+ cargos</span></button>
         <div class="hierarchy-stat"><span class="hierarchy-stat-value" data-stat="vacant">–</span><span class="hierarchy-stat-label">Cargos vagos</span></div>
     </div>
 
     <div class="hierarchy-layout">
         <section class="hierarchy-panel hierarchy-list-panel" aria-labelledby="hierarchy-list-title">
-            <div class="hierarchy-panel-head">
-                <h2 id="hierarchy-list-title">Cargos</h2>
+            <h2 id="hierarchy-list-title" class="visually-hidden">Cargos e pessoas</h2>
+            <div class="hierarchy-tabs" role="tablist" aria-label="Ver por">
+                <button type="button" class="hierarchy-tab is-active" role="tab" id="tab-roles" aria-controls="role-list" aria-selected="true" data-tab="roles">Cargos <span class="hierarchy-tab-count" data-count="roles"></span></button>
+                <button type="button" class="hierarchy-tab" role="tab" id="tab-people" aria-controls="people-pane" aria-selected="false" data-tab="people">Pessoas <span class="hierarchy-tab-count" data-count="people"></span></button>
             </div>
             <div class="hierarchy-search">
                 <input type="search" id="role-search" placeholder="Buscar cargo ou pessoa…" aria-label="Buscar cargo ou pessoa" autocomplete="off">
             </div>
-            <div id="role-list" class="hierarchy-role-list"></div>
+            <div id="role-list" class="hierarchy-role-list" role="tabpanel" aria-labelledby="tab-roles"></div>
+            <div id="people-pane" role="tabpanel" aria-labelledby="tab-people" hidden>
+                <div class="people-filters" role="group" aria-label="Filtrar pessoas">
+                    <button type="button" class="people-chip is-active" data-people-filter="all">Todas <span data-count="all"></span></button>
+                    <button type="button" class="people-chip people-chip-warning" data-people-filter="none">Sem cargo <span data-count="none"></span></button>
+                    <button type="button" class="people-chip people-chip-info" data-people-filter="multi">2+ cargos <span data-count="multi"></span></button>
+                </div>
+                <div id="people-list" class="hierarchy-role-list"></div>
+            </div>
         </section>
 
         <section class="hierarchy-panel hierarchy-org-panel" aria-labelledby="hierarchy-org-title">
@@ -77,6 +89,20 @@
                     <option value="">Carregando...</option>
                 </select>
                 <small class="text-muted">Segure Ctrl (ou Cmd) para selecionar mais de uma pessoa.</small>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="person-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="person-modal-title">Cargos da pessoa</h2>
+            <form id="person-form">
+                <input type="hidden" id="person-id">
+                <p class="person-modal-lead">Marque um ou mais cargos. Quem acumula funções pode ficar em mais de um.</p>
+                <div id="person-roles" class="person-role-options"></div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Salvar</button>
                     <button type="button" class="btn btn-secondary close-modal">Cancelar</button>

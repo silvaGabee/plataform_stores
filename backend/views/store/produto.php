@@ -101,18 +101,6 @@ $content = ob_start();
                     <?php endif; ?>
                 </div>
 
-                <p class="product-detail-stock" id="product-stock-label">
-                    <?php if ($hasVariants): ?>
-                        Selecione as opções para ver a disponibilidade
-                    <?php elseif ($stockTotal > 5): ?>
-                        Em estoque
-                    <?php elseif ($stockTotal > 0): ?>
-                        Últimas <?= $stockTotal ?> unidade<?= $stockTotal === 1 ? '' : 's' ?>
-                    <?php else: ?>
-                        Produto indisponível
-                    <?php endif; ?>
-                </p>
-
                 <?php if ($hasMatrixVariants): ?>
                     <div class="product-variant-selectors product-variant-selectors--matrix" id="product-variant-selectors">
                         <fieldset class="product-variant-fieldset">
@@ -193,6 +181,19 @@ $content = ob_start();
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
+
+                <?php // Depois das opções: antes o aviso "Selecione o tamanho" ficava acima de "Cor", fora de ordem. ?>
+                <p class="product-detail-stock" id="product-stock-label">
+                    <?php if ($hasVariants): ?>
+                        Selecione as opções para ver a disponibilidade
+                    <?php elseif ($stockTotal > 5): ?>
+                        Em estoque
+                    <?php elseif ($stockTotal > 0): ?>
+                        Últimas <?= $stockTotal ?> unidade<?= $stockTotal === 1 ? '' : 's' ?>
+                    <?php else: ?>
+                        Produto indisponível
+                    <?php endif; ?>
+                </p>
 
                 <?php if ($stockTotal > 0 || $hasVariants): ?>
                     <div class="product-detail-buy" id="product-detail-buy">
@@ -278,7 +279,7 @@ $content = ob_start();
                         <button type="submit" class="btn btn-primary btn-sm"><?= !empty($my_review) ? 'Atualizar avaliação' : 'Enviar avaliação' ?></button>
                     </form>
                 <?php elseif (empty($is_logged)): ?>
-                    <p class="product-reviews-hint">Comprou este produto? <a href="<?= base_url('?auth=login') ?>">Entre na sua conta</a> para avaliar.</p>
+                    <p class="product-reviews-hint">Comprou este produto? <a href="<?= base_url("loja/{$store['slug']}/entrar") ?>?motivo=avaliar&amp;volta=<?= rawurlencode("loja/{$store['slug']}/produto/{$product['id']}") ?>">Entre na sua conta</a> para avaliar.</p>
                 <?php else: ?>
                     <p class="product-reviews-hint">Só quem comprou este produto pode avaliá-lo.</p>
                 <?php endif; ?>
@@ -317,7 +318,30 @@ $content = ob_start();
         </section>
     <?php endif; ?>
 </div>
+<?php if ($stockTotal > 0 || $hasVariants): ?>
+    <?php
+    // Barra de compra fixa no rodapé do celular. Na primeira tela, a foto
+    // ocupava quase tudo e o preço e o botão só apareciam depois de rolar.
+    // store-product.js mostra a barra quando o botão principal sai da tela.
+    $__axis = $hasMatrixVariants ? mb_strtolower((string) ($variantsMatrix['axis_label'] ?? 'tamanho')) : 'opção';
+    ?>
+    <div class="product-buybar" id="product-buybar" hidden data-choose-label="Escolher <?= htmlspecialchars($__axis) ?>">
+        <div class="product-buybar-price">
+            <strong>R$ <?= number_format($effectivePrice, 2, ',', '.') ?></strong>
+            <?php if ($pixPrice !== null): ?>
+                <span>R$ <?= number_format($pixPrice, 2, ',', '.') ?> no PIX</span>
+            <?php endif; ?>
+        </div>
+        <button type="button" class="btn btn-primary product-buybar-btn" id="product-buybar-btn"><?= $hasVariants ? 'Escolher ' . htmlspecialchars($__axis) : 'Adicionar ao carrinho' ?></button>
+    </div>
+<?php endif; ?>
 <?php
 $content = ob_get_clean();
 $extra_js = '<script src="' . asset('js/store-product.js') . '"></script>';
+$__descricao = trim((string) ($product['description'] ?? ''));
+$meta_description = $product['name'] . ' por R$ ' . number_format($effectivePrice, 2, ',', '.')
+    . ($pixPrice !== null ? ' (R$ ' . number_format($pixPrice, 2, ',', '.') . ' no PIX)' : '')
+    . ' na ' . $store['name'] . '.' . ($__descricao !== '' ? ' ' . $__descricao : '');
+$meta_image = $cover['url'] ?? null;
+$meta_og_type = 'product';
 require __DIR__ . '/layout_store.php';

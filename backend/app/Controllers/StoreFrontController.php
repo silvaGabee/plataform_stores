@@ -35,8 +35,7 @@ class StoreFrontController extends Controller
         $catRepo = new StoreVitrineCategoryRepository();
         $row = $catRepo->find($categoryId, (int) $store['id']);
         if (!$row) {
-            http_response_code(404);
-            echo 'Categoria não encontrada';
+            $this->naoEncontrado($store, 'Categoria não encontrada', 'Esta categoria não existe mais. Veja os produtos da vitrine.');
 
             return;
         }
@@ -83,8 +82,19 @@ class StoreFrontController extends Controller
         $this->expirePending((int) $store['id']);
         $product = $service->getByIdAndStore((int) $id, (int) $store['id']);
         if (!$product) {
-            http_response_code(404);
-            echo 'Produto não encontrado';
+            // Link antigo (divulgado no Instagram, salvo nos favoritos do
+            // navegador): em vez de beco sem saída, os mais vendidos da loja.
+            $sugestoes = array_slice(array_values(array_filter(
+                storefront_products($service->listForStore((int) $store['id'], true), (int) $store['id'], 'mais-vendidos'),
+                static fn (array $p): bool => (int) ($p['stock_quantity'] ?? 0) > 0
+            )), 0, 4);
+            $this->naoEncontrado(
+                $store,
+                'Este produto não está mais disponível',
+                'Ele pode ter esgotado ou saído do catálogo. Veja outras opções da loja.',
+                $sugestoes
+            );
+
             return;
         }
         // Tamanho/cor reservado por quem está pagando aparece como esgotado.
@@ -115,6 +125,9 @@ class StoreFrontController extends Controller
             'can_review' => $podeAvaliar,
             'my_review' => $minhaAvaliacao,
             'is_logged' => $me !== null,
+            // A página do produto já tem o botão "Tirar dúvida no WhatsApp" e,
+            // no celular, a barra de compra fixa no rodapé.
+            'hide_whatsapp_fab' => true,
             'title' => $product['name'],
         ]);
     }
@@ -177,7 +190,9 @@ class StoreFrontController extends Controller
     {
         $store = $this->getStore($slug);
         $cart = $_SESSION['cart'][$store['id']] ?? [];
-        $this->render('store/carrinho', ['store' => $store, 'cart' => $cart, 'title' => 'Carrinho']);
+        // O botão flutuante do WhatsApp cobria o "Calcular" do frete no
+        // celular. Aqui a página mostra um link "Dúvidas?" no resumo.
+        $this->render('store/carrinho', ['store' => $store, 'cart' => $cart, 'title' => 'Carrinho', 'hide_whatsapp_fab' => true, 'meta_robots' => 'noindex']);
     }
 
     public function checkout(string $slug): void
@@ -192,9 +207,12 @@ class StoreFrontController extends Controller
         // aos endereços e pedidos de qualquer cliente.
         $me = $this->currentUser();
         if ($me === null) {
-            $_SESSION['_error'] = 'Entre na sua conta para finalizar a compra.';
+            // A entrada acontece dentro da loja, com a marca dela. Antes ia
+            // para a página da plataforma, com texto para lojistas e o aviso
+            // em vermelho, como se fosse um erro.
+            $_SESSION['_info'] = 'Entre ou crie sua conta para concluir o pedido. Seu carrinho fica guardado.';
             $_SESSION['_after_login'] = base_url("loja/{$slug}/checkout");
-            redirect(base_url('?auth=login'));
+            redirect(base_url("loja/{$slug}/entrar"));
         }
         $checkoutCustomerName = (string) ($me['name'] ?? '');
         $checkoutCustomerEmail = (string) ($me['email'] ?? '');
@@ -213,6 +231,8 @@ class StoreFrontController extends Controller
             'store' => $store,
             'cart' => $cart,
             'title' => 'Finalizar compra',
+            'hide_whatsapp_fab' => true,
+            'meta_robots' => 'noindex',
             'checkout_customer_name' => $checkoutCustomerName,
             'checkout_customer_email' => $checkoutCustomerEmail,
             'pending_orders' => $pendentes,
@@ -228,8 +248,14 @@ class StoreFrontController extends Controller
         if (!$order || !$this->canViewOrder($order, (int) $store['id'])) {
             // 404 e não 403: confirmar que o pedido existe já é informação útil
             // para quem está varrendo ids sequenciais.
-            http_response_code(404);
-            echo 'Pedido não encontrado';
+            $this->naoEncontrado(
+                $store,
+                'Pedido não encontrado',
+                logged_in()
+                    ? 'Confira o link ou abra a lista dos seus pedidos.'
+                    : 'Entre na conta usada na compra para ver seus pedidos.'
+            );
+
             return;
         }
         $order['items'] = (new OrderItemRepository())->getByOrder($order['id']);
@@ -296,17 +322,84 @@ class StoreFrontController extends Controller
         ))->expirarPendentes($storeId);
     }
 
-    /** Exige sessão de cliente; sem ela manda para o login e volta depois. */
+    /** Exige sessão de cliente; sem ela manda para a entrada da loja e volta depois. */
     private function requireCustomerLogin(string $slug, string $path): array
     {
         $me = $this->currentUser();
         if ($me === null) {
-            $_SESSION['_error'] = 'Entre na sua conta para ver esta página.';
+            $avisos = [
+                'meus-pedidos' => 'Entre na sua conta para acompanhar seus pedidos.',
+                'favoritos' => 'Entre na sua conta para ver os produtos que você salvou.',
+                'meus-enderecos' => 'Entre na sua conta para ver seus endereços de entrega.',
+            ];
+            $_SESSION['_info'] = $avisos[$path] ?? 'Entre na sua conta para continuar.';
             $_SESSION['_after_login'] = base_url("loja/{$slug}/{$path}");
-            redirect(base_url('?auth=login'));
+            redirect(base_url("loja/{$slug}/entrar"));
         }
 
         return $me;
+    }
+
+    /**
+     * Entrar ou criar conta sem sair da loja.
+     *
+     * ?modo=cadastro abre a aba "Criar conta". ?volta= é o caminho dentro desta
+     * loja para onde a pessoa vai depois de entrar (ex.: o produto que ela
+     * tentou favoritar). Só caminhos que começam por loja/{slug} são aceitos,
+     * para o parâmetro não virar um redirecionamento para fora do site.
+     */
+    public function entrar(string $slug): void
+    {
+        $store = $this->getStore($slug);
+        $volta = trim((string) ($_GET['volta'] ?? ''));
+        $prefixo = 'loja/' . $store['slug'];
+        $voltaValida = $volta !== ''
+            && ($volta === $prefixo || strpos($volta, $prefixo . '/') === 0 || strpos($volta, $prefixo . '?') === 0)
+            && strpos($volta, '..') === false
+            && preg_match('#^[A-Za-z0-9/_\-?=&%.\#]+$#', $volta) === 1;
+        if ($voltaValida) {
+            $_SESSION['_after_login'] = base_url($volta);
+        }
+        $motivos = [
+            'favoritos' => 'Entre na sua conta para salvar produtos nos favoritos.',
+            'avaliar' => 'Entre com a conta usada na compra para avaliar o produto.',
+        ];
+        $motivo = (string) ($_GET['motivo'] ?? '');
+        if (isset($motivos[$motivo])) {
+            $_SESSION['_info'] = $motivos[$motivo];
+        }
+        if ($this->currentUser() !== null) {
+            $destino = (string) ($_SESSION['_after_login'] ?? '');
+            unset($_SESSION['_after_login']);
+            redirect($destino !== '' && strpos($destino, rtrim(base_url(), '/') . '/') === 0 ? $destino : base_url($prefixo));
+        }
+        $modo = ($_GET['modo'] ?? '') === 'cadastro' ? 'cadastro' : 'login';
+        $this->render('store/entrar', [
+            'store' => $store,
+            'modo' => $modo,
+            'hide_whatsapp_fab' => true,
+            'title' => ($modo === 'cadastro' ? 'Criar conta' : 'Entrar') . ' — ' . $store['name'],
+            'meta_robots' => 'noindex',
+        ]);
+    }
+
+    /**
+     * 404 dentro da loja: mesmo cabeçalho, mesmas cores e um caminho de volta
+     * para a vitrine, em vez de uma linha de texto sem estilo.
+     *
+     * @param list<array> $sugestoes produtos para mostrar abaixo da mensagem
+     */
+    private function naoEncontrado(array $store, string $titulo, string $mensagem, array $sugestoes = []): void
+    {
+        http_response_code(404);
+        $this->render('store/nao_encontrado', [
+            'store' => $store,
+            'nf_titulo' => $titulo,
+            'nf_mensagem' => $mensagem,
+            'products' => $sugestoes,
+            'title' => $titulo . ' — ' . $store['name'],
+            'meta_robots' => 'noindex',
+        ]);
     }
 
     /**
@@ -346,9 +439,7 @@ class StoreFrontController extends Controller
         $repo = new StoreRepository();
         $store = $repo->findBySlug($slug);
         if (!$store) {
-            http_response_code(404);
-            echo 'Loja não encontrada';
-            exit;
+            \App\Http\NotFound::pagina('Loja não encontrada', 'Confira o endereço. A loja pode ter mudado de nome ou saído do ar.');
         }
         return $store;
     }

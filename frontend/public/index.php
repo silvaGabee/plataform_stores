@@ -171,7 +171,5 @@ if ($isApiRequest) {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['error' => 'Rota não encontrada', 'path' => $path], JSON_UNESCAPED_UNICODE);
 } else {
-    http_response_code(404);
-    header('Content-Type: text/html; charset=utf-8');
-    echo '<h1>404 - Página não encontrada</h1><p>' . htmlspecialchars($path) . '</p>';
+    App\Http\NotFound::pagina();
 }

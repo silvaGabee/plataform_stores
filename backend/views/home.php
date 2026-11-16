@@ -7,12 +7,12 @@ $content = ob_start();
             <div class="home-hero-copy">
                 <p class="home-eyebrow">Plataforma de Lojas</p>
                 <h1 class="home-headline">A melhor experiência para vender <span class="home-headline-accent">online e no balcão</span></h1>
-                <p class="home-lead">Crie a sua vitrine, organize produtos e stock, receba pedidos e acompanhe tudo num painel simples — ideal para equipas que querem crescer com profissionalismo.</p>
+                <p class="home-lead">Crie sua vitrine, organize produtos e estoque, receba pedidos e acompanhe tudo em um painel simples. Ideal para equipes que querem crescer com profissionalismo.</p>
                 <div class="home-hero-cta">
                     <button type="button" class="btn home-cta-primary js-auth-open" data-auth-tab="cadastro">Criar conta grátis</button>
                     <button type="button" class="btn home-cta-secondary js-auth-open" data-auth-tab="login">Já tenho conta</button>
                 </div>
-                <p class="home-microcopy">Comece em minutos. Entre, escolha ou crie a sua loja e comece a vender.</p>
+                <p class="home-microcopy">Comece em minutos: crie sua conta, abra sua loja e comece a vender.</p>
             </div>
             <div class="home-hero-visual" aria-hidden="true">
                 <div class="home-mockup home-mockup-store">
@@ -56,21 +56,21 @@ $content = ob_start();
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </span>
                     <h3>Loja pública</h3>
-                    <p>Vitrine com produtos, carrinho e checkout para os seus clientes comprarem com confiança.</p>
+                    <p>Vitrine com produtos, carrinho e checkout para seus clientes comprarem com confiança.</p>
                 </li>
                 <li class="home-feature-card">
                     <span class="home-feature-icon" aria-hidden="true">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12"/></svg>
                     </span>
                     <h3>Painel da loja</h3>
-                    <p>Stock, entregas, PDV, relatórios e configurações num só sítio, acessível pela sua equipa.</p>
+                    <p>Estoque, entregas, PDV, relatórios e configurações em um só lugar, acessível para toda a equipe.</p>
                 </li>
                 <li class="home-feature-card">
                     <span class="home-feature-icon" aria-hidden="true">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     </span>
                     <h3>Conta e permissões</h3>
-                    <p>Uma conta para gerir várias lojas e convidar quem precisa, com o nível de acesso certo.</p>
+                    <p>Uma conta para gerenciar várias lojas e convidar quem precisa, com o nível de acesso certo.</p>
                 </li>
             </ul>
         </div>
@@ -80,10 +80,11 @@ $content = ob_start();
         <div class="container home-bottom-inner">
             <div>
                 <h2 class="home-bottom-title">Pronto para começar?</h2>
-                <p class="home-bottom-text">Faça login ou crie a sua conta e acesse as lojas às quais pertence.</p>
+                <p class="home-bottom-text">Crie sua conta grátis ou entre para acessar as lojas em que você trabalha.</p>
             </div>
             <div class="home-bottom-actions">
-                <a href="<?= base_url('lojas') ?>" class="btn home-bottom-link">Ver minhas lojas</a>
+                <?php // A página inicial só aparece para quem não entrou; "Ver minhas lojas" abria o login. ?>
+                <button type="button" class="btn home-bottom-link js-auth-open" data-auth-tab="login">Entrar</button>
                 <button type="button" class="btn btn-primary js-auth-open" data-auth-tab="cadastro">Criar conta</button>
             </div>
         </div>

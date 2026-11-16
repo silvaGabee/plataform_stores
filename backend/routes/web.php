@@ -21,9 +21,13 @@ return [
     'POST /criar-conta' => [HomeController::class, 'createAccount', Guard::PUBLICO],
     'GET /criar-loja' => [HomeController::class, 'createStoreForm', Guard::AUTENTICADO],
     'POST /criar-loja' => [HomeController::class, 'createStore', Guard::AUTENTICADO],
+    'GET /privacidade' => [HomeController::class, 'privacy', Guard::PUBLICO],
 
     // Vitrine pública.
     'GET /loja/{slug}' => [StoreFrontController::class, 'vitrine', Guard::PUBLICO],
+    // Entrar e criar conta sem sair da loja: o formulário envia para /login e
+    // /criar-conta com o campo "origem", e os erros voltam para cá.
+    'GET /loja/{slug}/entrar' => [StoreFrontController::class, 'entrar', Guard::PUBLICO],
     'GET /loja/{slug}/categoria/{id}' => [StoreFrontController::class, 'categoria', Guard::PUBLICO],
     'GET /loja/{slug}/produto/{id}' => [StoreFrontController::class, 'product', Guard::PUBLICO],
     'GET /loja/{slug}/carrinho' => [StoreFrontController::class, 'cart', Guard::PUBLICO],

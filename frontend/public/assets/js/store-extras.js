@@ -13,6 +13,14 @@
   }
   if (!slug) return;
 
+  /** Entrada da loja, voltando para a página atual depois do login. */
+  function irParaEntrar(motivo) {
+    var atual = window.location.href.slice(UI.base.length + 1).split('#')[0];
+    var url = UI.base + '/loja/' + encodeURIComponent(slug) + '/entrar?motivo=' + encodeURIComponent(motivo) +
+      (atual.indexOf('loja/') === 0 ? '&volta=' + encodeURIComponent(atual) : '');
+    window.location.href = url;
+  }
+
   // ------------------------------------------------------------ favoritos
   // Delegado no documento: a vitrine troca os cards por AJAX ao mudar de categoria.
   document.addEventListener('click', function (e) {
@@ -21,12 +29,18 @@
     e.preventDefault();
     if (btn.disabled) return;
     var id = btn.getAttribute('data-product-id');
+    // Visitante: vai direto para a entrada da loja e volta para esta página.
+    // Antes a chamada à API era feita mesmo assim, voltava 401 (erro no
+    // console) e levava para a página da plataforma.
+    if (document.body.getAttribute('data-logged') === '0') {
+      irParaEntrar('favoritos');
+      return;
+    }
     btn.disabled = true;
     UI.api('api/loja/' + encodeURIComponent(slug) + '/favoritos/' + id, { method: 'POST', body: {} }).then(function (r) {
       btn.disabled = false;
       if (r._status === 401) {
-        UI.toast('Entre na sua conta para salvar favoritos.', 'info');
-        setTimeout(function () { window.location.href = UI.base + '/?auth=login'; }, 900);
+        irParaEntrar('favoritos');
         return;
       }
       if (r.error) { UI.toast(r.error, 'error'); return; }
@@ -55,26 +69,55 @@
     var lembrado = '';
     try { lembrado = localStorage.getItem('vitrine_cep') || ''; } catch (e) {}
     if (lembrado) cepInput.value = lembrado;
+    var subtotal = parseFloat(ship.getAttribute('data-subtotal')) || 0;
+    var pixPct = parseFloat(ship.getAttribute('data-pix-pct')) || 0;
+    var outFrete = document.getElementById('cart-total-shipping');
+    var outTotal = document.getElementById('cart-total-value');
+    var outPix = document.getElementById('cart-total-pix');
+
+    /**
+     * Subtotal + frete = total. Antes o frete aparecia ao lado e o total
+     * continuava sem ele. O desconto do PIX vale só sobre os produtos, como
+     * no checkout (OrderPricing::breakdown).
+     */
+    function mostrarTotais(frete) {
+      if (!outTotal) return;
+      if (frete === null) {
+        if (outFrete) outFrete.textContent = 'Calculado na próxima etapa';
+        outTotal.textContent = UI.money(subtotal);
+        if (outPix) outPix.innerHTML = 'ou <strong>' + UI.esc(UI.money(subtotal - descontoPix(subtotal))) + '</strong> no PIX';
+        return;
+      }
+      if (outFrete) outFrete.textContent = frete > 0 ? UI.money(frete) : 'Grátis';
+      outTotal.textContent = UI.money(subtotal + frete);
+      if (outPix) outPix.innerHTML = 'ou <strong>' + UI.esc(UI.money(subtotal - descontoPix(subtotal) + frete)) + '</strong> no PIX';
+    }
+    function descontoPix(base) {
+      if (base <= 0 || pixPct <= 0) return 0;
+      return Math.round(Math.round(base * 100) * pixPct / 100) / 100;
+    }
     cepInput.addEventListener('input', function () {
       var d = cepInput.value.replace(/\D/g, '').slice(0, 8);
       cepInput.value = d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
     });
     var calcular = function () {
       var cep = cepInput.value.replace(/\D/g, '');
-      if (cep.length !== 8) { out.className = 'store-cart-shipping-result is-error'; out.textContent = 'Digite um CEP com 8 dígitos.'; return; }
+      if (cep.length !== 8) { out.className = 'store-cart-shipping-result is-error'; out.textContent = 'Digite um CEP com 8 dígitos.'; mostrarTotais(null); return; }
       try { localStorage.setItem('vitrine_cep', cepInput.value); } catch (e) {}
       cepBtn.disabled = true;
       out.className = 'store-cart-shipping-result';
       out.textContent = 'Calculando…';
       UI.api('api/loja/' + encodeURIComponent(slug) + '/frete?cep=' + cep + '&subtotal=' + ship.getAttribute('data-subtotal')).then(function (r) {
         cepBtn.disabled = false;
-        if (r.error) { out.className = 'store-cart-shipping-result is-error'; out.textContent = r.error; return; }
+        if (r.error) { out.className = 'store-cart-shipping-result is-error'; out.textContent = r.error; mostrarTotais(null); return; }
         var f = r.frete;
         if (!f.disponivel) {
           out.className = 'store-cart-shipping-result is-error';
           out.textContent = 'A loja ainda não entrega neste CEP. Você pode retirar na loja.';
+          mostrarTotais(null);
           return;
         }
+        mostrarTotais(Number(f.valor) || 0);
         out.className = 'store-cart-shipping-result is-ok';
         var valor = f.valor > 0 ? UI.money(f.valor) : 'Frete grátis';
         var prazo = f.prazo != null ? ' · chega em até ' + f.prazo + ' dia' + (f.prazo === 1 ? '' : 's') + ' úte' + (f.prazo === 1 ? 'il' : 'is') : '';

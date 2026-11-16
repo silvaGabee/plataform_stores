@@ -127,6 +127,7 @@ return [
     'POST /api/loja/{slug}/store/installments' => [PromotionApiController::class, 'saveInstallmentRules', 'store.settings.write'],
     'POST /api/loja/{slug}/store/pix-discount' => [VitrineExtrasApiController::class, 'savePixDiscount', 'store.settings.write'],
     'POST /api/loja/{slug}/store/phone' => [VitrineExtrasApiController::class, 'savePhone', 'store.settings.write'],
+    'POST /api/loja/{slug}/store/legal' => [VitrineExtrasApiController::class, 'saveLegalInfo', 'store.settings.write'],
 
     // Frete por CEP: cotação pública (carrinho/checkout), faixas no painel.
     'GET /api/loja/{slug}/frete' => [VitrineExtrasApiController::class, 'shippingQuote', Guard::PUBLICO],

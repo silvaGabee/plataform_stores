@@ -127,6 +127,34 @@ class VitrineExtrasApiController extends Controller
         $this->json(['success' => true, 'phone' => $digitos, 'whatsapp_url' => store_whatsapp_url(['phone' => $digitos])]);
     }
 
+    /**
+     * POST (gerente): {legal_name, document, address} — dados da empresa no
+     * rodapé da vitrine. Campos vazios saem do rodapé.
+     */
+    public function saveLegalInfo(string $slug): void
+    {
+        $store = $this->storeOr404($slug);
+        $in = $this->getJsonInput();
+        $nome = trim((string) ($in['legal_name'] ?? ''));
+        $endereco = trim((string) ($in['address'] ?? ''));
+        $doc = preg_replace('/\D/', '', (string) ($in['document'] ?? '')) ?? '';
+        if ($doc !== '' && strlen($doc) !== 14 && strlen($doc) !== 11) {
+            $this->json(['error' => 'Informe o CNPJ com 14 dígitos (ou o CPF com 11).'], 400);
+            return;
+        }
+        if (mb_strlen($nome) > 160 || mb_strlen($endereco) > 255) {
+            $this->json(['error' => 'Texto longo demais: até 160 caracteres na razão social e 255 no endereço.'], 400);
+            return;
+        }
+        (new StoreRepository())->updateLegalInfo(
+            (int) $store['id'],
+            $nome !== '' ? $nome : null,
+            $doc !== '' ? $doc : null,
+            $endereco !== '' ? $endereco : null
+        );
+        $this->json(['success' => true, 'document' => store_document_format($doc)]);
+    }
+
     // ------------------------------------------------------------ favoritos
 
     /** POST (cliente logado): liga/desliga o favorito. */

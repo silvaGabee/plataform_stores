@@ -418,3 +418,62 @@
 
   updateUi();
 })();
+
+/**
+ * Barra de compra fixa no rodapé do celular.
+ *
+ * Na primeira tela do celular a foto ocupava quase tudo: preço, tamanhos e o
+ * botão só apareciam depois de rolar. A barra aparece quando o botão
+ * principal está fora da tela. Sem tamanho escolhido, ela leva até as opções;
+ * com tudo escolhido, adiciona ao carrinho.
+ */
+(function () {
+  'use strict';
+  var bar = document.getElementById('product-buybar');
+  var barBtn = document.getElementById('product-buybar-btn');
+  var buy = document.getElementById('product-detail-buy');
+  var addBtn = document.getElementById('product-add-cart');
+  if (!bar || !barBtn || !buy || !addBtn || !('IntersectionObserver' in window)) return;
+
+  var mobile = window.matchMedia('(max-width: 760px)');
+  var chooseLabel = bar.getAttribute('data-choose-label') || 'Escolher opção';
+  var buyVisible = true;
+
+  function syncLabel() {
+    barBtn.textContent = addBtn.disabled ? chooseLabel : 'Adicionar ao carrinho';
+  }
+
+  function render() {
+    var show = mobile.matches && !buyVisible;
+    bar.hidden = !show;
+    document.body.classList.toggle('has-product-buybar', show);
+  }
+
+  new IntersectionObserver(function (entries) {
+    buyVisible = entries[0].isIntersecting;
+    render();
+  }, { rootMargin: '0px 0px -64px 0px' }).observe(buy);
+
+  new MutationObserver(syncLabel).observe(addBtn, { attributes: true, attributeFilter: ['disabled'] });
+  if (mobile.addEventListener) mobile.addEventListener('change', render);
+
+  barBtn.addEventListener('click', function () {
+    if (!addBtn.disabled) {
+      addBtn.click();
+      return;
+    }
+    var alvo = document.getElementById('product-variant-size-fieldset');
+    if (!alvo || alvo.classList.contains('hidden')) alvo = document.getElementById('product-variant-selectors');
+    if (!alvo) return;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    alvo.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    alvo.classList.remove('is-attention');
+    void alvo.offsetWidth;
+    alvo.classList.add('is-attention');
+    var primeiro = alvo.querySelector('button:not([disabled])');
+    if (primeiro) setTimeout(function () { primeiro.focus({ preventScroll: true }); }, reduce ? 0 : 400);
+  });
+
+  syncLabel();
+  render();
+})();

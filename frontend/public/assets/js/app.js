@@ -47,7 +47,7 @@
     const requireVariant = btn.dataset.requireVariant === '1';
     const variantKey = (btn.dataset.variantKey || '').trim();
     if (requireVariant && !variantKey) {
-      showStoreToast('Selecione cor e tamanho antes de adicionar');
+      showStoreToast('Escolha a cor e o tamanho antes de adicionar');
       return;
     }
     let qty = 1;
@@ -62,7 +62,9 @@
     cart[storeId][lineKey] = (cart[storeId][lineKey] || 0) + qty;
     sessionStorage.setItem('cart', JSON.stringify(cart));
     if (typeof window.syncCartToSession === 'function') window.syncCartToSession();
-    showStoreToast('Adicionado ao carrinho');
+    // Na loja, o aviso traz "Ver carrinho" e o ícone do cabeçalho ganha o número.
+    if (window.StoreUI) window.StoreUI.cartAdded();
+    else showStoreToast('Adicionado ao carrinho');
   });
 
   document.querySelectorAll('.remove-from-cart').forEach(function (btn) {

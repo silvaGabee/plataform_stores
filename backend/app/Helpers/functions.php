@@ -1147,6 +1147,68 @@ if (!function_exists('login_user')) {
     }
 }
 
+if (!function_exists('product_image_thumb_path')) {
+    /** "products/p_1.png" → "products/thumbs/p_1.webp" (relativo a uploads/). */
+    function product_image_thumb_path(string $relPath): string
+    {
+        $relPath = ltrim(str_replace('\\', '/', $relPath), '/');
+        $dir = dirname($relPath);
+
+        return ($dir === '.' ? '' : $dir . '/') . 'thumbs/' . pathinfo($relPath, PATHINFO_FILENAME) . '.webp';
+    }
+}
+
+if (!function_exists('product_image_make_thumb')) {
+    /**
+     * Gera a miniatura WebP (até $largura px) usada nos cards da vitrine e no
+     * carrinho. As fotos originais têm até 1,5 MB e o card mostra ~300 px: a
+     * vitrine de uma loja chegava a baixar 3,6 MB de imagens.
+     *
+     * Precisa da extensão GD com WebP. Sem ela, devolve null e a vitrine
+     * continua usando a foto original. Para gerar as que faltam:
+     * php backend/scripts/thumbs.php
+     *
+     * @return string|null caminho relativo da miniatura, ou null se não deu
+     */
+    function product_image_make_thumb(string $relPath, int $largura = 480): ?string
+    {
+        if (!function_exists('imagewebp') || !function_exists('imagecreatefromstring')) {
+            return null;
+        }
+        $relPath = ltrim(str_replace('\\', '/', $relPath), '/');
+        $uploads = PLATAFORM_ROOT . '/frontend/public/uploads/';
+        $origem = $uploads . $relPath;
+        if (strpos($relPath, '..') !== false || !is_file($origem)) {
+            return null;
+        }
+        $dados = @file_get_contents($origem);
+        $img = $dados !== false ? @imagecreatefromstring($dados) : false;
+        if ($img === false) {
+            return null;
+        }
+        $w = imagesx($img);
+        $h = imagesy($img);
+        if ($w > $largura) {
+            $novoH = (int) round($h * $largura / $w);
+            $menor = imagecreatetruecolor($largura, $novoH);
+            imagealphablending($menor, false);
+            imagesavealpha($menor, true);
+            imagecopyresampled($menor, $img, 0, 0, 0, 0, $largura, $novoH, $w, $h);
+            imagedestroy($img);
+            $img = $menor;
+        }
+        $thumb = product_image_thumb_path($relPath);
+        $destino = $uploads . $thumb;
+        if (!is_dir(dirname($destino))) {
+            @mkdir(dirname($destino), 0755, true);
+        }
+        $ok = imagewebp($img, $destino, 78);
+        imagedestroy($img);
+
+        return $ok ? $thumb : null;
+    }
+}
+
 /** Salva um arquivo de upload de imagem de produto. Retorna path relativo (ex: products/abc.jpg) ou null. */
 if (!function_exists('upload_product_image')) {
     function upload_product_image(array $file): ?string {
@@ -1184,6 +1246,7 @@ if (!function_exists('upload_product_image')) {
         if (!move_uploaded_file($file['tmp_name'], $path)) {
             return null;
         }
+        product_image_make_thumb('products/' . $filename);
         return 'products/' . $filename;
     }
 }
@@ -1216,6 +1279,7 @@ if (!function_exists('save_product_image_from_base64')) {
         if (file_put_contents($path, $data) === false) {
             return null;
         }
+        product_image_make_thumb('products/' . $filename);
         return 'products/' . $filename;
     }
 }
@@ -1495,6 +1559,11 @@ if (!function_exists('ui_icon')) {
             'shield' => '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
             'heart' => '<path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/>',
             'chat' => '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/>',
+            'info' => '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+            'pin' => '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+            'log-in' => '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>',
+            'log-out' => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+            'user-plus' => '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>',
         ];
         $inner = $paths[$name] ?? $paths['alert'];
         $cls = trim('ui-icon ' . $class);
@@ -1587,6 +1656,59 @@ if (!function_exists('store_whatsapp_url')) {
         $url = 'https://wa.me/' . $d;
 
         return $mensagem !== null && $mensagem !== '' ? $url . '?text=' . rawurlencode($mensagem) : $url;
+    }
+}
+
+if (!function_exists('store_phone_format')) {
+    /** "31988776655" → "(31) 98877-6655". Formato desconhecido volta como veio. */
+    function store_phone_format(string $phone): string
+    {
+        $d = preg_replace('/\D/', '', $phone) ?? '';
+        if (strlen($d) === 11) {
+            return sprintf('(%s) %s-%s', substr($d, 0, 2), substr($d, 2, 5), substr($d, 7));
+        }
+        if (strlen($d) === 10) {
+            return sprintf('(%s) %s-%s', substr($d, 0, 2), substr($d, 2, 4), substr($d, 6));
+        }
+
+        return $phone;
+    }
+}
+
+if (!function_exists('store_document_format')) {
+    /** CNPJ (14 dígitos) ou CPF (11) com pontuação. Vazio ou outro tamanho volta como veio. */
+    function store_document_format(string $doc): string
+    {
+        $d = preg_replace('/\D/', '', $doc) ?? '';
+        if (strlen($d) === 14) {
+            return sprintf('%s.%s.%s/%s-%s', substr($d, 0, 2), substr($d, 2, 3), substr($d, 5, 3), substr($d, 8, 4), substr($d, 12));
+        }
+        if (strlen($d) === 11) {
+            return sprintf('%s.%s.%s-%s', substr($d, 0, 3), substr($d, 3, 3), substr($d, 6, 3), substr($d, 9));
+        }
+
+        return $doc;
+    }
+}
+
+if (!function_exists('store_cart_count')) {
+    /**
+     * Quantidade de itens no carrinho da loja guardado na sessão. É o número
+     * inicial do ícone do carrinho; o JavaScript corrige com o carrinho do
+     * navegador (sessionStorage), que é sincronizado com a sessão depois.
+     */
+    function store_cart_count(int $storeId): int
+    {
+        $cart = $_SESSION['cart'][$storeId] ?? [];
+        if (!is_array($cart)) {
+            return 0;
+        }
+        $total = 0;
+        foreach (store_cart_normalize_lines($cart) as $line) {
+            $total += (int) $line['quantity'];
+        }
+
+        return $total;
     }
 }
 

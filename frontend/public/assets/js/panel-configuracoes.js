@@ -837,3 +837,34 @@
     });
   });
 })();
+
+/* Dados da empresa (razão social, CNPJ, endereço) mostrados no rodapé da vitrine. */
+(function () {
+  var form = document.getElementById('config-store-legal-form');
+  if (!form || !window.UI || typeof storeSlug === 'undefined') return;
+  var doc = document.getElementById('config-store-legal-document');
+  var msg = document.getElementById('config-store-legal-msg');
+  var btn = document.getElementById('config-store-legal-save');
+  doc.addEventListener('input', function () {
+    var d = doc.value.replace(/\D/g, '').slice(0, 14);
+    if (d.length > 11) {
+      doc.value = d.slice(0, 2) + '.' + d.slice(2, 5) + '.' + d.slice(5, 8) + '/' + d.slice(8, 12) + (d.length > 12 ? '-' + d.slice(12) : '');
+    } else {
+      doc.value = d;
+    }
+  });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    btn.disabled = true;
+    UI.api('api/loja/' + encodeURIComponent(storeSlug) + '/store/legal', {
+      method: 'POST',
+      body: { legal_name: form.legal_name.value, document: doc.value, address: form.address.value }
+    }).then(function (r) {
+      btn.disabled = false;
+      msg.className = 'panel-form-msg panel-config-feedback ' + (r.error ? 'is-error' : 'is-success');
+      if (r.error) { msg.textContent = r.error; return; }
+      if (r.document) doc.value = r.document;
+      msg.textContent = 'Dados salvos. Eles já aparecem no rodapé da vitrine.';
+    });
+  });
+})();

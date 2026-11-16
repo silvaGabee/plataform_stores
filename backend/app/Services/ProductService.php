@@ -219,6 +219,11 @@ class ProductService
             $path = ltrim($path, '/');
             if ($path !== '') {
                 $img['url'] = base_url('uploads/' . $path) . $q;
+                // Miniatura WebP para cards e carrinho (ver product_image_make_thumb).
+                $thumb = product_image_thumb_path($path);
+                if (is_file(PLATAFORM_ROOT . '/frontend/public/uploads/' . $thumb)) {
+                    $img['thumb_url'] = base_url('uploads/' . $thumb) . $q;
+                }
             }
             $img['is_cover'] = $minSort !== null && (int) ($img['sort_order'] ?? 0) === $minSort;
         }

@@ -196,6 +196,9 @@ final class Guard
             $_SESSION['_after_login'] = self::urlAtual();
             redirect(base_url('?auth=login'));
         }
+        if ($codigo === 404) {
+            NotFound::pagina('Loja não encontrada', 'Confira o endereço. A loja pode ter mudado de nome ou saído do ar.');
+        }
         header('Content-Type: text/html; charset=utf-8');
         echo '<h1>' . $codigo . '</h1><p>' . htmlspecialchars($mensagem, ENT_QUOTES, 'UTF-8') . '</p>';
         exit;

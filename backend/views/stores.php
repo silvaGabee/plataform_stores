@@ -48,7 +48,7 @@ $renderStoreCard = function (array $s, bool $isMine) use ($storeHue, $storeIniti
                         <a href="<?= $hrefVitrine ?>"><?= $nameEsc ?></a>
                     </h3>
                     <?php if ($isMine): ?>
-                        <span class="store-card-pro-badge">A sua equipa</span>
+                        <span class="store-card-pro-badge">Sua equipe</span>
                     <?php else: ?>
                         <span class="store-card-pro-badge store-card-pro-badge-muted">Vitrine pública</span>
                     <?php endif; ?>
@@ -100,7 +100,7 @@ $renderStoreCard = function (array $s, bool $isMine) use ($storeHue, $storeIniti
         <div class="container stores-hero-inner">
             <div class="stores-hero-copy">
                 <p class="stores-hero-eyebrow">Painel</p>
-                <h1 class="stores-page-title">As suas <span class="stores-page-title-accent">lojas</span></h1>
+                <h1 class="stores-page-title">Suas <span class="stores-page-title-accent">lojas</span></h1>
                 <p class="stores-page-lead">Vitrine pública para clientes e painel para a equipe — tudo acessível a partir daqui.</p>
             </div>
             <a href="<?= base_url('criar-loja') ?>" class="stores-hero-cta">Criar nova loja</a>

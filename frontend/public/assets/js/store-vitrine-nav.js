@@ -91,10 +91,29 @@
     }
   }
 
+  /**
+   * Estado vazio da busca: antes era só a frase "Nenhum resultado", pequena e
+   * fora da tela. Agora diz o que fazer e oferece as categorias.
+   */
+  function buildNoResults(queryLabel) {
+    var cats = [];
+    page.querySelectorAll('.store-vitrine-categories .js-store-category-link').forEach(function (a) {
+      var nome = (a.querySelector('.store-vitrine-category-name') || a).textContent.trim();
+      cats.push('<li><a href="' + esc(a.getAttribute('href')) + '" class="store-search-empty-chip js-store-category-link" data-category-id="' +
+        esc(a.getAttribute('data-category-id')) + '" data-clear-search="1">' + esc(nome) + '</a></li>');
+    });
+    return '<div class="store-search-empty">' +
+      '<p class="store-search-empty-title">Nenhum produto encontrado para “' + esc(queryLabel) + '”</p>' +
+      '<p class="store-search-empty-text">Confira a grafia ou tente uma palavra mais geral, como o tipo de peça.</p>' +
+      '<button type="button" class="btn btn-primary btn-sm js-search-empty-clear">Limpar busca e ver tudo</button>' +
+      (cats.length ? '<p class="store-search-empty-label">Ou navegue por categoria</p><ul class="store-search-empty-chips">' + cats.join('') + '</ul>' : '') +
+      '</div>';
+  }
+
   function setNoResultsVisible(noResults, show, queryLabel) {
     if (!noResults) return;
     if (show) {
-      noResults.textContent = 'Nenhum produto encontrado para «' + queryLabel + '».';
+      noResults.innerHTML = buildNoResults(queryLabel);
       noResults.classList.remove('hidden');
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
@@ -158,32 +177,100 @@
     var desc = dynamic.querySelector('.store-vitrine-section-desc');
     var sub = dynamic.querySelector('.store-category-page-sub');
     var countEl = desc || sub;
+    var termo = '“' + getSearchQueryDisplay() + '”';
     if (countEl && isFiltering) {
       if (visible === 0) {
-        countEl.textContent = 'Nenhum resultado';
+        countEl.textContent = 'Nenhum resultado para ' + termo;
       } else if (visible === 1) {
-        countEl.textContent = '1 produto encontrado';
-      } else if (visible < total) {
-        countEl.textContent = visible + ' de ' + total + ' produtos';
+        countEl.textContent = '1 resultado para ' + termo;
       } else {
-        countEl.textContent = visible + ' produtos encontrados';
+        countEl.textContent = visible + ' resultados para ' + termo;
       }
     } else if (!isFiltering) {
       restoreCatalogCount();
     }
+    syncSearchUrl();
+    document.dispatchEvent(new CustomEvent('store:layout-changed'));
+  }
+
+  /** ?busca= no endereço: dá para compartilhar a busca e voltar a ela. */
+  function syncSearchUrl() {
+    if (!window.history || !history.replaceState) return;
+    var url = new URL(window.location.href);
+    var q = getSearchQueryDisplay();
+    if (q) url.searchParams.set('busca', q);
+    else url.searchParams.delete('busca');
+    if (url.toString() !== window.location.href) {
+      history.replaceState(history.state, '', url.toString());
+    }
+  }
+
+  /**
+   * A busca fica no cabeçalho, mas os resultados começam abaixo do banner e
+   * das categorias, fora da tela. Ao começar a digitar, a página rola até
+   * eles uma vez; não rola de novo a cada letra.
+   */
+  var scrolledForSearch = false;
+  var scrollTimer = null;
+  function scrollToResults(force) {
+    var header = document.querySelector('.store-header');
+    var offset = (header ? header.offsetHeight : 0) + 12;
+    var top = dynamic.getBoundingClientRect().top;
+    var foraDaTela = top > window.innerHeight * 0.55 || top < offset - 4;
+    if (!force && !foraDaTela) return;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top + window.scrollY - offset), behavior: reduce ? 'auto' : 'smooth' });
+  }
+  function onSearchInput() {
+    applyVitrineSearch();
+    var ativo = getSearchTerms(getSearchQuery()).length > 0;
+    if (!ativo) { scrolledForSearch = false; return; }
+    if (scrolledForSearch) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(function () {
+      scrolledForSearch = true;
+      scrollToResults(false);
+    }, 350);
+  }
+  function clearSearch(focusInput) {
+    if (!searchInput) return;
+    searchInput.value = '';
+    scrolledForSearch = false;
+    if (focusInput) searchInput.focus();
+    applyVitrineSearch();
   }
 
   if (searchInput) {
-    searchInput.addEventListener('input', applyVitrineSearch);
+    searchInput.addEventListener('input', onSearchInput);
     searchInput.addEventListener('search', applyVitrineSearch);
+    searchInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      applyVitrineSearch();
+      // No celular, Enter fecha o teclado para os resultados aparecerem.
+      if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) searchInput.blur();
+      scrolledForSearch = true;
+      scrollToResults(true);
+    });
   }
   if (searchClearBtn) {
-    searchClearBtn.addEventListener('click', function () {
-      if (!searchInput) return;
-      searchInput.value = '';
-      searchInput.focus();
-      applyVitrineSearch();
-    });
+    searchClearBtn.addEventListener('click', function () { clearSearch(true); });
+  }
+  dynamic.addEventListener('click', function (e) {
+    if (e.target.closest('.js-search-empty-clear')) {
+      e.preventDefault();
+      clearSearch(false);
+      scrollToResults(true);
+    }
+  });
+  // Busca vinda do endereço (?busca=), ao abrir um link compartilhado.
+  if (searchInput) {
+    var buscaInicial = new URLSearchParams(window.location.search).get('busca');
+    if (buscaInicial) {
+      searchInput.value = buscaInicial;
+      scrolledForSearch = true;
+      setTimeout(function () { scrollToResults(true); }, 60);
+    }
   }
 
   window.storeVitrineSearchApply = applyVitrineSearch;
@@ -219,9 +306,11 @@
   function loadCategory(categoryId, pushHistory) {
     if (loading) return;
     var scrollY = window.scrollY || window.pageYOffset || 0;
-    // A ordenação escolhida (?ordem=) acompanha a troca de categoria.
-    var ordem = new URLSearchParams(window.location.search).get('ordem');
+    // A ordenação escolhida (?ordem=) e a busca (?busca=) acompanham a troca de categoria.
+    var params = new URLSearchParams(window.location.search);
+    var ordem = params.get('ordem');
     var qs = ordem ? '?ordem=' + encodeURIComponent(ordem) : '';
+    var busca = getSearchQueryDisplay();
     var url =
       (categoryId && categoryId > 0
         ? base + '/api/loja/' + encodeURIComponent(slug) + '/vitrine-categories/' + categoryId + '/conteudo'
@@ -229,7 +318,7 @@
     var historyUrl =
       (categoryId && categoryId > 0
         ? base + '/loja/' + encodeURIComponent(slug) + '/categoria/' + categoryId
-        : base + '/loja/' + encodeURIComponent(slug)) + qs;
+        : base + '/loja/' + encodeURIComponent(slug)) + qs + (busca ? (qs ? '&' : '?') + 'busca=' + encodeURIComponent(busca) : '');
 
     loading = true;
     dynamic.classList.add('store-vitrine-dynamic--loading');
@@ -265,6 +354,13 @@
       e.preventDefault();
       var catId = parseInt(catLink.getAttribute('data-category-id'), 10);
       if (!catId) return;
+      // Categoria escolhida no estado vazio da busca: a busca sai junto.
+      if (catLink.hasAttribute('data-clear-search') && searchInput) {
+        searchInput.value = '';
+        scrolledForSearch = false;
+        syncSearchUrl();
+        toggleSearchClear();
+      }
       loadCategory(catId, true);
       return;
     }

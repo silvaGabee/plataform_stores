@@ -53,6 +53,9 @@
   var ICON_USERS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
   var currentRoles = [];
+  var members = [];       // equipe da loja: { id, name, user_type }
+  var people = [];        // pessoas com seus cargos: { id, name, user_type, roles: [] }
+  var peopleFilter = 'all';
   var rolesById = {};
   var tree = [];          // nós raiz: { role, children, depth }
   var flatOrder = [];     // nós em ordem hierárquica (pré-ordem)
@@ -110,24 +113,65 @@
     return out;
   }
 
+  /* ---------- Pessoas ---------- */
+
+  function depthOf(roleId) {
+    for (var i = 0; i < flatOrder.length; i++) {
+      if (String(flatOrder[i].role.id) === String(roleId)) return flatOrder[i].depth;
+    }
+    return 0;
+  }
+
+  function buildPeople() {
+    var byId = {};
+    people = members.map(function (m) {
+      var p = { id: m.id, name: m.name || '', user_type: m.user_type || '', roles: [] };
+      byId[String(m.id)] = p;
+      return p;
+    });
+    // Cargos em ordem hierárquica: o mais alto aparece primeiro na linha da pessoa.
+    flatOrder.forEach(function (n) {
+      (n.role.users || []).forEach(function (u) {
+        var p = byId[String(u.id)];
+        if (!p) {
+          // Alguém num cargo mas fora da equipe (ex.: removido da loja) continua aparecendo.
+          p = { id: u.id, name: u.name || '', user_type: '', roles: [], outside: true };
+          byId[String(u.id)] = p;
+          people.push(p);
+        }
+        p.roles.push(n.role);
+      });
+    });
+    people.sort(function (a, b) { return a.name.localeCompare(b.name, 'pt-BR'); });
+  }
+
+  function peopleCounts() {
+    var c = { all: people.length, none: 0, multi: 0 };
+    people.forEach(function (p) {
+      if (!p.roles.length) c.none++;
+      else if (p.roles.length > 1) c.multi++;
+    });
+    return c;
+  }
+
   /* ---------- Indicadores ---------- */
 
   function renderStats() {
     var el = document.getElementById('hierarchy-stats');
     if (!el) return;
-    var people = {};
     var vacant = 0;
     var levels = 0;
     flatOrder.forEach(function (n) {
-      var users = n.role.users || [];
-      if (!users.length) vacant++;
-      users.forEach(function (u) { people[u.id] = true; });
+      if (!(n.role.users || []).length) vacant++;
       if (n.depth + 1 > levels) levels = n.depth + 1;
     });
+    var pc = peopleCounts();
     var values = {
       roles: currentRoles.length,
       levels: levels,
-      people: Object.keys(people).length,
+      people: pc.all,
+      unassigned: pc.none,
+      multi: pc.multi,
       vacant: vacant
     };
     Object.keys(values).forEach(function (k) {
@@ -136,6 +180,110 @@
     });
     var vacantStat = el.querySelector('[data-stat="vacant"]');
     if (vacantStat) vacantStat.parentNode.classList.toggle('is-warning', vacant > 0);
+    var noneStat = el.querySelector('[data-stat="unassigned"]');
+    if (noneStat) noneStat.parentNode.classList.toggle('is-warning', pc.none > 0);
+    var multiStat = el.querySelector('[data-stat="multi"]');
+    if (multiStat) multiStat.parentNode.classList.toggle('is-info', pc.multi > 0);
+
+    setCount('roles', currentRoles.length);
+    setCount('people', pc.all);
+    setCount('all', pc.all);
+    setCount('none', pc.none);
+    setCount('multi', pc.multi);
+  }
+
+  function setCount(key, n) {
+    var els = document.querySelectorAll('.hierarchy-page [data-count="' + key + '"]');
+    for (var i = 0; i < els.length; i++) els[i].textContent = n;
+  }
+
+  /* ---------- Lista de pessoas ---------- */
+
+  var TYPE_LABEL = { gerente: 'Gerente', funcionario: 'Funcionário' };
+
+  function renderPeopleList() {
+    var listEl = document.getElementById('people-list');
+    if (!listEl) return;
+    var chips = document.querySelectorAll('.people-chip');
+    for (var c = 0; c < chips.length; c++) {
+      chips[c].classList.toggle('is-active', chips[c].getAttribute('data-people-filter') === peopleFilter);
+    }
+    if (!people.length) {
+      listEl.innerHTML = '<div class="hierarchy-list-empty">Nenhuma pessoa na equipe ainda.<br>Cadastre em <strong>Funcionários</strong>.</div>';
+      return;
+    }
+    var rows = people.filter(function (p) {
+      if (peopleFilter === 'none' && p.roles.length) return false;
+      if (peopleFilter === 'multi' && p.roles.length < 2) return false;
+      if (!searchTerm) return true;
+      if (norm(p.name).indexOf(searchTerm) !== -1) return true;
+      return p.roles.some(function (r) { return norm(r.name).indexOf(searchTerm) !== -1; });
+    });
+    if (!rows.length) {
+      var msg = searchTerm ? 'Ninguém encontrado para a busca.'
+        : peopleFilter === 'none' ? 'Todo mundo tem cargo.'
+        : peopleFilter === 'multi' ? 'Ninguém acumula cargos.'
+        : 'Ninguém encontrado.';
+      listEl.innerHTML = '<div class="hierarchy-list-empty">' + msg + '</div>';
+      return;
+    }
+    listEl.innerHTML = rows.map(function (p) {
+      var status = !p.roles.length
+        ? '<span class="person-flag person-flag-warning">Sem cargo</span>'
+        : (p.roles.length > 1 ? '<span class="person-flag person-flag-info">' + p.roles.length + ' cargos</span>' : '');
+      var roleChips = p.roles.length
+        ? '<span class="person-roles">' + p.roles.map(function (r) {
+            return '<button type="button" class="person-role-chip org-depth-' + (depthOf(r.id) % 5) + '" data-locate="' + esc(r.id) + '" title="Mostrar no organograma">' + esc(r.name) + '</button>';
+          }).join('') + '</span>'
+        : '';
+      var type = p.outside ? 'Fora da equipe' : (TYPE_LABEL[p.user_type] || '');
+      var canEdit = !readonly && !p.outside && currentRoles.length > 0;
+      var action = canEdit
+        ? '<button type="button" class="role-row-btn btn-edit-person" data-person="' + esc(p.id) + '" title="Definir cargos" aria-label="Definir cargos de ' + esc(p.name) + '">' + ICON_EDIT + '</button>'
+        : '';
+      return '<div class="person-row' + (!p.roles.length ? ' is-unassigned' : '') + '">' +
+        '<span class="org-avatar person-avatar" aria-hidden="true">' + esc(initials(p.name)) + '</span>' +
+        '<span class="person-main">' +
+          '<span class="person-head"><span class="role-row-name">' + esc(p.name) + '</span>' + status + '</span>' +
+          (type ? '<span class="role-row-meta">' + esc(type) + '</span>' : '') +
+          roleChips +
+        '</span>' +
+        action +
+      '</div>';
+    }).join('');
+  }
+
+  function setTab(tab) {
+    var active = tab === 'people' ? 'people' : 'roles';
+    var tabs = document.querySelectorAll('.hierarchy-tab');
+    for (var i = 0; i < tabs.length; i++) {
+      var on = tabs[i].getAttribute('data-tab') === active;
+      tabs[i].classList.toggle('is-active', on);
+      tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    var roleList = document.getElementById('role-list');
+    var peoplePane = document.getElementById('people-pane');
+    if (roleList) roleList.hidden = active !== 'roles';
+    if (peoplePane) peoplePane.hidden = active !== 'people';
+  }
+
+  function openPersonModal(person) {
+    var modal = document.getElementById('person-modal');
+    var box = document.getElementById('person-roles');
+    if (!modal || !box) return;
+    document.getElementById('person-id').value = person.id;
+    var title = document.getElementById('person-modal-title');
+    if (title) title.textContent = 'Cargos de ' + person.name;
+    var mine = {};
+    person.roles.forEach(function (r) { mine[String(r.id)] = true; });
+    box.innerHTML = flatOrder.map(function (n) {
+      return '<label class="person-role-option" style="--role-indent:' + Math.min(n.depth, 6) + '">' +
+        '<input type="checkbox" value="' + esc(n.role.id) + '"' + (mine[String(n.role.id)] ? ' checked' : '') + '>' +
+        '<span class="role-row-dot org-depth-' + (n.depth % 5) + '" aria-hidden="true"></span>' +
+        '<span>' + esc(n.role.name) + '</span>' +
+      '</label>';
+    }).join('');
+    modal.classList.remove('hidden');
   }
 
   /* ---------- Lista de cargos ---------- */
@@ -369,9 +517,12 @@
   function loadAll() {
     return api('/api/loja/' + storeSlug + '/roles').then(function (res) {
       currentRoles = res.roles || [];
+      members = res.members || [];
       buildTree();
+      buildPeople();
       renderStats();
       renderList();
+      renderPeopleList();
       renderTree();
       if (!didAutoFit && tree.length) {
         // Na primeira carga, reduz o zoom (até 70%) para o organograma caber na largura.
@@ -397,6 +548,7 @@
       search.addEventListener('input', function () {
         searchTerm = norm(search.value.trim());
         renderList();
+        renderPeopleList();
         applySearchHighlight();
       });
     }
@@ -456,9 +608,61 @@
       }
     });
 
+    var tabButtons = document.querySelectorAll('.hierarchy-tab');
+    for (var t = 0; t < tabButtons.length; t++) {
+      tabButtons[t].addEventListener('click', function () { setTab(this.getAttribute('data-tab')); });
+    }
+    var filterButtons = document.querySelectorAll('[data-people-filter]');
+    for (var f = 0; f < filterButtons.length; f++) {
+      filterButtons[f].addEventListener('click', function () {
+        peopleFilter = this.getAttribute('data-people-filter');
+        setTab('people');
+        renderPeopleList();
+      });
+    }
+    var peopleList = document.getElementById('people-list');
+    if (peopleList) {
+      peopleList.addEventListener('click', function (e) {
+        var loc = e.target.closest('[data-locate]');
+        var edit = e.target.closest('.btn-edit-person');
+        if (edit) {
+          var pid = edit.getAttribute('data-person');
+          var person = null;
+          people.forEach(function (p) { if (String(p.id) === pid) person = p; });
+          if (person) openPersonModal(person);
+        } else if (loc) {
+          locate(loc.getAttribute('data-locate'));
+        }
+      });
+    }
+
     if (readonly) {
       loadAll();
       return;
+    }
+
+    var personModal = document.getElementById('person-modal');
+    var personForm = document.getElementById('person-form');
+    if (personModal && personForm) {
+      var personClose = personModal.querySelectorAll('.close-modal');
+      for (var pc = 0; pc < personClose.length; pc++) {
+        personClose[pc].addEventListener('click', function () { personModal.classList.add('hidden'); });
+      }
+      personForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var uid = document.getElementById('person-id').value;
+        var checks = personForm.querySelectorAll('#person-roles input[type="checkbox"]');
+        var roleIds = [];
+        for (var i = 0; i < checks.length; i++) {
+          if (checks[i].checked) roleIds.push(parseInt(checks[i].value, 10));
+        }
+        api('/api/loja/' + storeSlug + '/users/' + uid + '/roles', { method: 'POST', body: JSON.stringify({ role_ids: roleIds }) })
+          .then(function () {
+            personModal.classList.add('hidden');
+            loadAll();
+          })
+          .catch(function (err) { alert('Erro ao salvar cargos: ' + (err.message || err)); });
+      });
     }
 
     var btnNew = document.getElementById('btn-new-role');
@@ -490,7 +694,9 @@
       closeBtns[j].addEventListener('click', function () { modal.classList.add('hidden'); });
     }
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !modal.classList.contains('hidden')) modal.classList.add('hidden');
+      if (e.key !== 'Escape') return;
+      modal.classList.add('hidden');
+      if (personModal) personModal.classList.add('hidden');
     });
 
     form.addEventListener('submit', function (e) {

@@ -1,3 +1,5 @@
+<?php // Título principal da página (o nome da loja só aparecia na imagem do banner). Fica aqui, e não no layout, porque a categoria troca este bloco por AJAX e traz o próprio h1. ?>
+<h1 class="visually-hidden"><?= htmlspecialchars($store['name']) ?><?= trim((string) ($store['slogan'] ?? '')) !== '' ? ': ' . htmlspecialchars((string) $store['slogan']) : '' ?></h1>
 <?php if (!empty($products)): ?>
     <?php
     $catalog_title = 'Todos os produtos';

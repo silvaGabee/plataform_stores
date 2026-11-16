@@ -10,6 +10,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?= csrf_meta() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($title ?? 'Plataforma de Lojas') ?></title>
+    <meta name="description" content="<?= htmlspecialchars($meta_description ?? 'Crie sua loja online, venda no balcão com o PDV e acompanhe estoque, entregas e indicadores em um só painel.') ?>">
+    <?php if (!empty($meta_robots)): ?><meta name="robots" content="<?= htmlspecialchars($meta_robots) ?>"><?php endif; ?>
     <?= favicon_link_tag() ?>
     <?php if (!logged_in()): ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,6 +21,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/plataforma.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
     <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
@@ -65,13 +68,13 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
             <button type="button" class="auth-modal-close js-auth-close" aria-label="Fechar">&times;</button>
             <div class="auth-modal-layout">
                 <aside class="auth-modal-visual" aria-hidden="true">
-                    <p class="auth-modal-visual-eyebrow">Tudo num só lugar</p>
+                    <p class="auth-modal-visual-eyebrow">Tudo em um só lugar</p>
                     <h2 id="auth-modal-title" class="auth-modal-visual-title">Venda online e no balcão com confiança</h2>
-                    <p class="auth-modal-visual-text">Catálogo, carrinho, checkout e painel para a sua equipe — pensado para quem quer crescer sem complicar.</p>
+                    <p class="auth-modal-visual-text">Catálogo, carrinho, checkout e painel para sua equipe, pensado para quem quer crescer sem complicar.</p>
                     <ul class="auth-modal-visual-list">
                         <li>Loja pública com vitrine e produtos</li>
-                        <li>Painel para stock, entregas e relatórios</li>
-                        <li>Conta única para gerir as suas lojas</li>
+                        <li>Painel com estoque, entregas e relatórios</li>
+                        <li>Uma conta para gerenciar todas as suas lojas</li>
                     </ul>
                 </aside>
                 <div class="auth-modal-forms">
@@ -92,13 +95,19 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-success"><?= htmlspecialchars($_SESSION['_success']) ?></div>
                             <?php unset($_SESSION['_success']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('login') ?>" class="form-login auth-modal-form">
+                        <form method="post" action="<?= base_url('login') ?>" class="form-login auth-modal-form" data-validate novalidate>
                             <?= csrf_field() ?>
                             <input type="hidden" name="auth_intent" value="login">
-                            <label for="modal-login-email">E-mail</label>
-                            <input type="email" id="modal-login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
-                            <label for="modal-login-password">Senha</label>
-                            <input type="password" id="modal-login-password" name="password" required autocomplete="current-password" placeholder="••••••••">
+                            <div class="ui-form-field">
+                                <label for="modal-login-email">E-mail</label>
+                                <input type="email" id="modal-login-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" inputmode="email" placeholder="nome@exemplo.com">
+                            </div>
+                            <div class="ui-form-field">
+                                <label for="modal-login-password">Senha</label>
+                                <div class="ui-password">
+                                    <input type="password" id="modal-login-password" name="password" required autocomplete="current-password">
+                                </div>
+                            </div>
                             <div class="form-actions">
                                 <button type="submit" class="btn btn-primary btn-block">Entrar</button>
                             </div>
@@ -109,18 +118,28 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                             <div class="alert alert-error"><?= htmlspecialchars($_SESSION['_error']) ?></div>
                             <?php unset($_SESSION['_error']); ?>
                         <?php endif; ?>
-                        <form method="post" action="<?= base_url('criar-conta') ?>" class="form-create-account auth-modal-form">
+                        <form method="post" action="<?= base_url('criar-conta') ?>" class="form-create-account auth-modal-form" data-validate novalidate>
                             <?= csrf_field() ?>
                             <input type="hidden" name="auth_intent" value="register">
-                            <label for="modal-register-name">Nome</label>
-                            <input type="text" id="modal-register-name" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name" placeholder="O seu nome">
-                            <label for="modal-register-email">E-mail</label>
-                            <input type="email" id="modal-register-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" placeholder="nome@exemplo.com">
-                            <label for="modal-register-password">Senha</label>
-                            <input type="password" id="modal-register-password" name="password" required autocomplete="new-password" minlength="8" maxlength="72" placeholder="Mínimo 8 caracteres">
+                            <div class="ui-form-field">
+                                <label for="modal-register-name">Nome</label>
+                                <input type="text" id="modal-register-name" name="name" required value="<?= htmlspecialchars(old('name')) ?>" autocomplete="name" placeholder="Seu nome">
+                            </div>
+                            <div class="ui-form-field">
+                                <label for="modal-register-email">E-mail</label>
+                                <input type="email" id="modal-register-email" name="email" required value="<?= htmlspecialchars(old('email')) ?>" autocomplete="email" inputmode="email" placeholder="nome@exemplo.com">
+                            </div>
+                            <div class="ui-form-field">
+                                <label for="modal-register-password">Senha</label>
+                                <div class="ui-password">
+                                    <input type="password" id="modal-register-password" name="password" required autocomplete="new-password" minlength="8" maxlength="72" aria-describedby="modal-register-password-hint">
+                                </div>
+                                <p class="ui-form-hint" id="modal-register-password-hint">Mínimo de 8 caracteres.</p>
+                            </div>
                             <div class="form-actions">
                                 <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
                             </div>
+                            <p class="auth-modal-terms">Ao criar a conta, você concorda com os <a href="<?= base_url('privacidade') ?>" target="_blank" rel="noopener">Termos de uso e a Política de privacidade</a>.</p>
                         </form>
                     </div>
                 </div>
@@ -130,6 +149,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <?php endif; ?>
 
     <script src="<?= asset('js/app.js') ?>"></script>
+    <script src="<?= asset('js/form-helpers.js') ?>"></script>
     <?php if (!empty($extra_js)): ?><?= $extra_js ?><?php endif; ?>
 </body>
 </html>

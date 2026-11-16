@@ -108,7 +108,7 @@ class StoreService
             throw new \InvalidArgumentException('Loja não encontrada.');
         }
         if (! $this->storeRepo->updateName($storeId, $name)) {
-            throw new \RuntimeException('Não foi possível guardar o nome.');
+            throw new \RuntimeException('Não foi possível salvar o nome.');
         }
         $updated = $this->storeRepo->find($storeId);
         return $updated ?: array_merge($store, ['name' => $name]);
@@ -127,7 +127,7 @@ class StoreService
         }
         $value = $slogan === '' ? null : $slogan;
         if (! $this->storeRepo->updateSlogan($storeId, $value)) {
-            throw new \RuntimeException('Não foi possível guardar o slogan.');
+            throw new \RuntimeException('Não foi possível salvar o slogan.');
         }
         $updated = $this->storeRepo->find($storeId);
         return $updated ?: array_merge($store, ['slogan' => $value]);
@@ -145,7 +145,7 @@ class StoreService
         }
         $value = $color === '' ? null : $color;
         if (! $this->storeRepo->updateBackgroundColor($storeId, $value)) {
-            throw new \RuntimeException('Não foi possível guardar a cor de fundo.');
+            throw new \RuntimeException('Não foi possível salvar a cor de fundo.');
         }
         $updated = $this->storeRepo->find($storeId);
         return $updated ?: array_merge($store, ['background_color' => $value]);

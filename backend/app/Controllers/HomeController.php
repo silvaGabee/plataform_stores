@@ -36,22 +36,24 @@ class HomeController extends Controller
 
     public function login(): void
     {
+        $loja = $this->lojaDeOrigem();
+        $voltar = $this->telaDeEntrada($loja, 'login');
         $intent = $_POST['auth_intent'] ?? null;
         if ($intent !== null && $intent !== 'login') {
             $_SESSION['_old'] = $_POST;
             if ($intent === 'register') {
-                $_SESSION['_error'] = 'Para criar uma conta nova, use o separador «Criar conta» no formulário.';
-                redirect(base_url('?auth=cadastro'));
+                $_SESSION['_error'] = 'Para criar uma conta nova, use a aba "Criar conta".';
+                redirect($this->telaDeEntrada($loja, 'cadastro'));
             }
-            $_SESSION['_error'] = 'Pedido de entrada inválido. Tente novamente.';
-            redirect(base_url('?auth=login'));
+            $_SESSION['_error'] = 'Não foi possível entrar. Tente novamente.';
+            redirect($voltar);
         }
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         if (!$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha e-mail e senha.';
-            redirect(base_url('?auth=login'));
+            redirect($voltar);
         }
         // Sem isto, dava para testar senhas indefinidamente. 8 tentativas por
         // IP+e-mail a cada 15 minutos; o contador zera ao acertar.
@@ -62,7 +64,7 @@ class HomeController extends Controller
             ]);
             $_SESSION['_old'] = ['email' => $email];
             $_SESSION['_error'] = 'Muitas tentativas de entrada. Aguarde ' . $espera . ' minuto(s) e tente novamente.';
-            redirect(base_url('?auth=login'));
+            redirect($voltar);
         }
 
         // Uma consulta, uma pessoa. Antes isto percorria todas as linhas do
@@ -72,11 +74,13 @@ class HomeController extends Controller
         if ($user !== null && password_verify($password, $user['password'])) {
             RateLimiter::limpar('login', $email);
             login_user($user);
-            redirect($this->consumeAfterLoginUrl() ?? base_url('lojas'));
+            // Quem entrou pela loja volta para ela, não para a lista de lojas
+            // da plataforma (que é a tela de quem trabalha nas lojas).
+            redirect($this->consumeAfterLoginUrl() ?? ($loja !== null ? base_url('loja/' . $loja['slug']) : base_url('lojas')));
         }
         $_SESSION['_old'] = ['email' => $email];
         $_SESSION['_error'] = 'E-mail ou senha incorretos.';
-        redirect(base_url('?auth=login'));
+        redirect($voltar);
     }
 
     public function listStores(): void
@@ -151,11 +155,11 @@ class HomeController extends Controller
             redirect(base_url());
         }
         if ($repo->countOrdersAsCustomer($userId) > 0) {
-            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem pedidos associados a este utilizador.';
+            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem pedidos ligados a ela.';
             redirect(base_url('minha-conta'));
         }
         if ($repo->countCashRegistersAsOpener($userId) > 0) {
-            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem turnos de caixa abertos por este utilizador.';
+            $_SESSION['_error'] = 'Não é possível excluir a conta porque existem turnos de caixa abertos por ela.';
             redirect(base_url('minha-conta'));
         }
         try {
@@ -163,11 +167,11 @@ class HomeController extends Controller
                 throw new \RuntimeException('delete failed');
             }
         } catch (\Throwable $e) {
-            $_SESSION['_error'] = 'Não foi possível excluir a conta. Tente mais tarde ou contacte o suporte.';
+            $_SESSION['_error'] = 'Não foi possível excluir a conta. Tente mais tarde ou fale com o suporte.';
             redirect(base_url('minha-conta'));
         }
         logout();
-        $_SESSION['_success'] = 'A sua conta foi excluída com sucesso.';
+        $_SESSION['_success'] = 'Sua conta foi excluída.';
         redirect(base_url('?auth=login'));
     }
 
@@ -207,12 +211,12 @@ class HomeController extends Controller
         $passwordConfirm = $_POST['manager_password'] ?? '';
         if ($name === '' || $passwordConfirm === '') {
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = 'Preencha o nome da loja e confirme a sua senha.';
+            $_SESSION['_error'] = 'Preencha o nome da loja e confirme sua senha.';
             redirect(base_url('criar-loja'));
         }
         if (!password_verify($passwordConfirm, $me['password'])) {
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = 'Senha incorreta. Utilize a mesma palavra-passe com que faz login.';
+            $_SESSION['_error'] = 'Senha incorreta. Use a mesma senha com que você entra na plataforma.';
             redirect(base_url('criar-loja'));
         }
         $managerName = trim((string) $me['name']);
@@ -255,8 +259,22 @@ class HomeController extends Controller
 
     public function logout(): void
     {
+        // ?volta=loja/{slug}: quem sai pela loja continua nela.
+        $volta = trim((string) ($_GET['volta'] ?? ''));
         logout();
+        if (preg_match('#^loja/[a-z0-9-]+$#', $volta) === 1) {
+            redirect(base_url($volta));
+        }
         redirect(base_url());
+    }
+
+    /** Política de privacidade e termos de uso (link do cadastro e do rodapé das lojas). */
+    public function privacy(): void
+    {
+        $this->render('privacidade', [
+            'title' => 'Privacidade e termos de uso',
+            'meta_description' => 'Como a Plataforma de Lojas e as lojas que vendem por ela usam seus dados: o que é coletado, para quê e como pedir a exclusão.',
+        ]);
     }
 
     public function createAccountForm(): void
@@ -272,15 +290,17 @@ class HomeController extends Controller
         if (logged_in()) {
             redirect(base_url('lojas'));
         }
+        $loja = $this->lojaDeOrigem();
+        $voltar = $this->telaDeEntrada($loja, 'cadastro');
         $intent = $_POST['auth_intent'] ?? '';
         if ($intent !== 'register') {
             $_SESSION['_old'] = $_POST;
             if ($intent === 'login') {
-                $_SESSION['_error'] = 'Para entrar, use o separador «Entrar» (não cria conta nova).';
-                redirect(base_url('?auth=login'));
+                $_SESSION['_error'] = 'Para entrar, use a aba "Entrar".';
+                redirect($this->telaDeEntrada($loja, 'login'));
             }
-            $_SESSION['_error'] = 'Utilize o formulário «Criar conta» para se registar.';
-            redirect(base_url('?auth=cadastro'));
+            $_SESSION['_error'] = 'Use o formulário "Criar conta" para se cadastrar.';
+            redirect($voltar);
         }
         $name = trim($_POST['name'] ?? '');
         $email = trim($_POST['email'] ?? '');
@@ -288,26 +308,31 @@ class HomeController extends Controller
         if (!$name || !$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha todos os campos.';
-            redirect(base_url('?auth=cadastro'));
+            redirect($voltar);
+        }
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $_SESSION['_old'] = $_POST;
+            $_SESSION['_error'] = 'Digite um e-mail válido, como nome@exemplo.com.';
+            redirect($voltar);
         }
         if (($problema = PasswordPolicy::problema($password)) !== null) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = $problema;
-            redirect(base_url('?auth=cadastro'));
+            redirect($voltar);
         }
         // Limita criação de contas em massa a partir do mesmo IP.
         if (!RateLimiter::tentar('criar-conta', RateLimiter::ip(), self::CADASTRO_TENTATIVAS, self::CADASTRO_JANELA)) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Muitas contas criadas a partir deste acesso. Tente novamente mais tarde.';
-            redirect(base_url('?auth=cadastro'));
+            redirect($voltar);
         }
         $userRepo = new UserRepository();
         // O segundo argumento sumiu na unificação de identidade (Fase 3):
         // o e-mail é único global, não mais por loja.
         if ($userRepo->findByEmail($email) !== null) {
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = 'Este e-mail já está cadastrado.';
-            redirect(base_url('?auth=cadastro'));
+            $_SESSION['_error'] = 'Este e-mail já está cadastrado. Use a aba "Entrar".';
+            redirect($voltar);
         }
         try {
             $userRepo->create([
@@ -317,13 +342,49 @@ class HomeController extends Controller
                 'password' => password_hash($password, PASSWORD_DEFAULT),
                 'user_type' => 'cliente',
             ]);
-            $_SESSION['_success'] = 'Conta criada. Faça login para continuar.';
-            redirect(base_url('?auth=login'));
         } catch (\Throwable $e) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = $e->getMessage();
-            redirect(base_url('?auth=cadastro'));
+            redirect($voltar);
         }
+        if ($loja !== null) {
+            // Na loja, a conta nasce no meio de uma compra: entra direto e
+            // segue para onde a pessoa ia (quase sempre o checkout), em vez de
+            // pedir que ela digite e-mail e senha de novo.
+            $novo = $userRepo->findByEmail($email);
+            if ($novo !== null) {
+                login_user($novo);
+                redirect($this->consumeAfterLoginUrl() ?? base_url('loja/' . $loja['slug']));
+            }
+        }
+        $_SESSION['_success'] = 'Conta criada. Entre para continuar.';
+        $_SESSION['_old'] = ['email' => $email];
+        redirect($this->telaDeEntrada($loja, 'login'));
+    }
+
+    /**
+     * Loja de onde veio o formulário de entrada (campo "origem" = slug).
+     * Null quando veio da página da plataforma ou o slug não existe.
+     */
+    private function lojaDeOrigem(): ?array
+    {
+        $slug = trim((string) ($_POST['origem'] ?? ''));
+        if ($slug === '' || preg_match('/^[a-z0-9-]+$/', $slug) !== 1) {
+            return null;
+        }
+        $loja = (new StoreRepository())->findBySlug($slug);
+
+        return $loja ?: null;
+    }
+
+    /** Para onde voltar quando a entrada ou o cadastro falha: a loja ou a plataforma. */
+    private function telaDeEntrada(?array $loja, string $aba): string
+    {
+        if ($loja !== null) {
+            return base_url('loja/' . $loja['slug'] . '/entrar' . ($aba === 'cadastro' ? '?modo=cadastro' : ''));
+        }
+
+        return base_url('?auth=' . ($aba === 'cadastro' ? 'cadastro' : 'login'));
     }
 
     /**

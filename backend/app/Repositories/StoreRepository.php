@@ -136,5 +136,12 @@ class StoreRepository
     {
         return $this->pdo->prepare('UPDATE stores SET phone = ? WHERE id = ?')->execute([$phone, $id]);
     }
+
+    /** Razão social, CNPJ/CPF (só dígitos) e endereço mostrados no rodapé da vitrine. */
+    public function updateLegalInfo(int $id, ?string $legalName, ?string $document, ?string $address): bool
+    {
+        return $this->pdo->prepare('UPDATE stores SET legal_name = ?, document = ?, address = ? WHERE id = ?')
+            ->execute([$legalName, $document, $address, $id]);
+    }
 }
 

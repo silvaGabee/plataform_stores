@@ -24,7 +24,7 @@ $initialEsc = htmlspecialchars($initial);
             <div class="my-account-hero-copy">
                 <p class="my-account-eyebrow">Conta</p>
                 <h1 class="my-account-title">Minha <span class="my-account-title-accent">conta</span></h1>
-                <p class="my-account-lead">Dados do seu utilizador na plataforma. Mantenha o nome e o e-mail atualizados, especialmente se for criar lojas.</p>
+                <p class="my-account-lead">Seus dados na plataforma. Mantenha o nome e o e-mail atualizados, especialmente se for criar lojas.</p>
             </div>
         </div>
     </header>
@@ -96,7 +96,7 @@ $initialEsc = htmlspecialchars($initial);
                     <p class="my-account-danger-text">A exclusão da conta é permanente e só é permitida se não houver restrições no sistema.</p>
                     <form method="post" action="<?= base_url('minha-conta/excluir') ?>" class="my-account-delete-form">
                         <?= csrf_field() ?>
-                        <button type="submit" class="btn btn-danger my-account-btn-delete" onclick="return confirm('Tem a certeza de que deseja excluir a sua conta? Esta ação não pode ser desfeita.');">
+                        <button type="submit" class="btn btn-danger my-account-btn-delete" onclick="return confirm('Tem certeza de que deseja excluir sua conta? Esta ação não pode ser desfeita.');">
                             Excluir a minha conta
                         </button>
                     </form>

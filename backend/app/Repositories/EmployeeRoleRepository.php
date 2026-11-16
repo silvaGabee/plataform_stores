@@ -14,14 +14,16 @@ class EmployeeRoleRepository
         $this->pdo = Database::getConnection();
     }
 
-    public function getRolesByUser(int $userId): array
+    /** Cargos da pessoa nesta loja — ela pode ter cargos em outras lojas também. */
+    public function getRolesByUser(int $userId, int $storeId): array
     {
         $stmt = $this->pdo->prepare(
             "SELECT r.* FROM roles r 
              INNER JOIN employee_roles er ON er.role_id = r.id 
-             WHERE er.user_id = ?"
+             WHERE er.user_id = ? AND r.store_id = ?
+             ORDER BY r.name"
         );
-        $stmt->execute([$userId]);
+        $stmt->execute([$userId, $storeId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -58,12 +60,21 @@ class EmployeeRoleRepository
         return $stmt->execute([$userId, $roleId]);
     }
 
-    public function setUserRoles(int $userId, array $roleIds): void
+    /**
+     * Define os cargos da pessoa nesta loja (substitui só os desta loja).
+     * Antes apagava os cargos dela em todas as lojas.
+     */
+    public function setUserRoles(int $userId, array $roleIds, int $storeId): void
     {
-        $this->pdo->prepare("DELETE FROM employee_roles WHERE user_id = ?")->execute([$userId]);
+        $this->pdo->prepare(
+            "DELETE FROM employee_roles
+              WHERE user_id = ? AND role_id IN (SELECT id FROM roles WHERE store_id = ?)"
+        )->execute([$userId, $storeId]);
         $stmt = $this->pdo->prepare("INSERT INTO employee_roles (user_id, role_id) VALUES (?, ?)");
-        foreach ($roleIds as $rid) {
-            $stmt->execute([$userId, $rid]);
+        foreach (array_unique(array_map('intval', $roleIds)) as $rid) {
+            if ($rid > 0) {
+                $stmt->execute([$userId, $rid]);
+            }
         }
     }
 }

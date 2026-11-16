@@ -1,0 +1,186 @@
+/* ==========================================================================
+   plataforma.css — páginas públicas da plataforma
+   --------------------------------------------------------------------------
+   Carregado pelo layout.php depois do app.css e do ui.css.
+   1. Página inicial no celular
+   2. Janela de entrar / criar conta
+   3. Página não encontrada (404)
+   4. Privacidade e termos de uso
+   ========================================================================== */
+
+/* 1. Página inicial no celular ------------------------------------------ */
+@media (max-width: 900px) {
+  /* O título "A melhor experiência…" ficava abaixo da ilustração, na metade
+     de baixo da primeira tela. O texto e os botões vêm primeiro. */
+  .home-hero-visual {
+    order: 1;
+    max-width: 340px;
+  }
+}
+@media (max-width: 560px) {
+  /* No celular a ilustração não acrescenta informação e empurrava os
+     benefícios para baixo. */
+  .home-hero-visual {
+    display: none;
+  }
+  .home-hero-cta {
+    flex-wrap: wrap;
+  }
+  .home-hero-cta .btn {
+    flex: 1 1 10rem;
+  }
+}
+/* O botão de tema escuro fica no canto da tela; no celular ele passava por
+   cima do título e dos botões. Menor e mais discreto. */
+@media (max-width: 560px) {
+  body.has-public-header .theme-toggle {
+    width: 40px;
+    height: 40px;
+    opacity: 0.9;
+  }
+}
+
+/* 2. Janela de entrar / criar conta ------------------------------------- */
+.auth-modal-form {
+  display: grid;
+  gap: 0.9rem;
+}
+.auth-modal-form .form-actions {
+  margin-top: 0.25rem;
+}
+.auth-modal-terms {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+}
+.auth-modal-terms a {
+  color: var(--text);
+  font-weight: 600;
+}
+@media (max-width: 720px) {
+  /* A faixa azul de propaganda ocupava a metade de cima da janela e o
+     formulário só aparecia depois de rolar. */
+  .auth-modal-visual {
+    display: none;
+  }
+  .auth-modal-forms {
+    padding-top: 3rem;
+  }
+}
+
+/* 3. Página não encontrada ---------------------------------------------- */
+.not-found-page {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding-block: 3rem;
+}
+.not-found-inner {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  max-width: 520px;
+  text-align: center;
+}
+.not-found-code {
+  margin: 0;
+  font-size: clamp(3.5rem, 12vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--border);
+}
+.not-found-title {
+  margin: 0;
+  font-size: clamp(1.4rem, 4vw, 1.9rem);
+  font-weight: 800;
+  text-wrap: balance;
+  color: var(--text);
+}
+.not-found-text {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.not-found-action {
+  margin-top: 0.75rem;
+  min-height: 2.75rem;
+  padding-inline: 1.5rem;
+}
+
+/* 4. Privacidade e termos de uso --------------------------------------- */
+.legal-page {
+  padding-block: clamp(2rem, 5vw, 3.5rem) 4rem;
+}
+.legal-inner {
+  max-width: 760px;
+  color: var(--text);
+}
+.legal-eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.legal-title {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.legal-lead {
+  margin: 0 0 1.5rem;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 65ch;
+}
+.legal-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 2rem;
+}
+.legal-toc a {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.legal-toc a:hover {
+  border-color: var(--text);
+}
+.legal-section {
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 5rem;
+}
+.legal-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+.legal-section p,
+.legal-section li {
+  line-height: 1.65;
+  max-width: 68ch;
+}
+.legal-section ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.4rem;
+}
+.legal-updated {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

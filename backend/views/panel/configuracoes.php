@@ -92,6 +92,36 @@ $content = ob_start();
             </div>
         </section>
 
+        <section id="config-store-legal-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-legal-title">
+            <div class="panel-section-head">
+                <span class="panel-section-icon" aria-hidden="true"><?= ui_icon('shield', 20) ?></span>
+                <div class="panel-section-head-text">
+                    <h2 id="config-store-legal-title" class="panel-section-title">Dados da empresa no rodapé</h2>
+                    <p class="panel-section-desc">Razão social, CNPJ e endereço aparecem no rodapé da vitrine. A lei do comércio eletrônico (Decreto 7.962/2013) pede que a loja mostre esses dados.</p>
+                </div>
+            </div>
+            <div class="panel-section-body panel-config-card-body">
+                <form id="config-store-legal-form" class="panel-config-form">
+                    <div class="panel-config-field">
+                        <label for="config-store-legal-name">Razão social</label>
+                        <input type="text" id="config-store-legal-name" name="legal_name" value="<?= htmlspecialchars((string) ($store['legal_name'] ?? '')) ?>" maxlength="160" autocomplete="organization" placeholder="Ex.: Bora Vestir Comércio de Roupas Ltda.">
+                    </div>
+                    <div class="panel-config-field">
+                        <label for="config-store-legal-document">CNPJ</label>
+                        <input type="text" id="config-store-legal-document" name="document" value="<?= htmlspecialchars(store_document_format((string) ($store['document'] ?? ''))) ?>" maxlength="18" inputmode="numeric" placeholder="00.000.000/0000-00">
+                    </div>
+                    <div class="panel-config-field">
+                        <label for="config-store-legal-address">Endereço</label>
+                        <input type="text" id="config-store-legal-address" name="address" value="<?= htmlspecialchars((string) ($store['address'] ?? '')) ?>" maxlength="255" autocomplete="street-address" placeholder="Rua, número, bairro, cidade/UF, CEP">
+                    </div>
+                    <div class="panel-config-actions">
+                        <button type="submit" class="btn btn-primary btn-sm" id="config-store-legal-save">Salvar dados</button>
+                    </div>
+                </form>
+                <p id="config-store-legal-msg" class="panel-form-msg panel-config-feedback" role="status" aria-live="polite"></p>
+            </div>
+        </section>
+
         <section id="config-store-background-section" class="panel-section-card panel-config-card" aria-labelledby="config-store-background-title">
             <div class="panel-section-head">
                 <span class="panel-section-icon" aria-hidden="true"><?= $__configIc('M12 3a9 9 0 100 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 005-5c0-4.4-4-8-9-8z M7.5 11.5h.01 M10 7.5h.01 M14 7.5h.01 M16.5 11h.01') ?></span>

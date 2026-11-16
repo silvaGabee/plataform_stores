@@ -1,0 +1,917 @@
+/* ==========================================================================
+   store-pages.css — páginas e peças da loja fora da vitrine
+   --------------------------------------------------------------------------
+   Carregado pelo layout_store.php depois do vitrine.css. Fica separado do
+   app.css para não crescer o arquivo grande; aqui só entram regras da loja.
+    1. Acessibilidade (pular para o conteúdo, foco)
+    2. Cabeçalho: contador do carrinho e menu da conta
+    3. Aviso "Adicionado ao carrinho"
+    4. Botão flutuante do WhatsApp
+    5. Rodapé
+    6. Entrar / criar conta
+    7. Página não encontrada
+    8. Carrinho
+    9. Busca sem resultado
+   10. Produto: foto no celular e barra de compra
+   11. Faixas roláveis no celular (vantagens e categorias)
+   ========================================================================== */
+
+/* Botão principal da loja: neutro (o mesmo do "Adicionar ao carrinho"), e não
+   o azul da plataforma, que brigava com a identidade de cada loja. */
+body.store-front .btn-primary {
+  background: var(--vt-ink);
+  border-color: var(--vt-ink);
+  color: var(--vt-ink-text);
+}
+body.store-front .btn-primary:hover:not(:disabled) {
+  background: var(--vt-ink-hover);
+  border-color: var(--vt-ink-hover);
+  color: var(--vt-ink-text);
+}
+
+/* 1. Acessibilidade ------------------------------------------------------ */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10001;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: var(--vt-ink);
+  color: var(--vt-ink-text);
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+.store-main:focus {
+  outline: none;
+}
+/* O contorno de foco antigo sumia no fundo creme. */
+body.store-front a:focus-visible,
+body.store-front button:focus-visible,
+body.store-front select:focus-visible,
+body.store-front summary:focus-visible,
+body.store-front [tabindex]:focus-visible {
+  outline: 3px solid var(--vt-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--on-bg-card, #fff);
+}
+
+/* 2. Cabeçalho ----------------------------------------------------------- */
+.cart-link-icon {
+  position: relative;
+  display: inline-flex;
+}
+.store-cart-count {
+  position: absolute;
+  top: -0.55rem;
+  right: -0.7rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--vt-sale);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.15rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--store-bg, var(--bg-card));
+}
+.cart-link-icon:has(.store-cart-count:not(.hidden)) {
+  margin-right: 0.45rem;
+}
+/* O ícone e o número não podem herdar a regra do vitrine.css que esconde o
+   texto "Carrinho" no celular (ela vale para todo span dentro do link). */
+@media (max-width: 520px) {
+  body.store-front .store-header .cart-link .cart-link-icon {
+    position: relative;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    margin-right: 0;
+  }
+  body.store-front .store-header .cart-link .store-cart-count {
+    position: absolute;
+    width: auto;
+    height: 1.15rem;
+    overflow: visible;
+    clip: auto;
+  }
+}
+.store-cart-count.is-bump {
+  animation: store-cart-bump 0.45s ease;
+}
+@keyframes store-cart-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.store-user-popup-guest {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem 0.95rem;
+  border-bottom: 1px solid var(--border);
+  min-width: 15rem;
+}
+.store-user-popup-guest-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.store-user-popup-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.5rem;
+}
+.store-user-popup-secondary {
+  justify-self: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.store-user-popup-link--logout {
+  border-top: 1px solid var(--border);
+}
+.store-user-popup-link .ui-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* 3. Aviso do carrinho --------------------------------------------------- */
+/* Antes ficava embaixo, no meio da tela, por cima da descrição do produto. */
+.store-notice {
+  position: fixed;
+  top: 5.25rem;
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  max-width: min(92vw, 400px);
+  padding: 0.7rem 0.6rem 0.7rem 0.85rem;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.35);
+  font-size: 0.92rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.25s ease, visibility 0.2s;
+}
+.store-notice.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.store-notice-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--success-bg);
+  color: var(--success);
+}
+.store-notice-text {
+  font-weight: 600;
+}
+.store-notice-action {
+  margin-left: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  background: var(--vt-ink);
+  color: var(--vt-ink-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.store-notice-action:hover {
+  background: var(--vt-ink-hover);
+  color: var(--vt-ink-text);
+}
+.store-notice-close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.store-notice-close:hover {
+  background: var(--border-subtle);
+  color: var(--text);
+}
+@media (max-width: 760px) {
+  .store-notice {
+    top: auto;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    max-width: none;
+    transform: translateY(8px);
+  }
+  body.has-product-buybar .store-notice {
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+  .store-notice-text {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .store-notice,
+  .store-notice.is-visible {
+    transform: none;
+    transition: opacity 0.1s;
+  }
+  .store-cart-count.is-bump {
+    animation: none;
+  }
+}
+
+/* 4. WhatsApp flutuante -------------------------------------------------- */
+/* Espaço no fim da página para o botão não cobrir o rodapé. */
+body.store-front.has-whatsapp-fab .store-footer {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+body.store-front .store-whatsapp-fab {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease, visibility 0.2s;
+}
+/* store-ui.js: há um botão ou campo embaixo; o atalho sai da frente. */
+body.store-front .store-whatsapp-fab.is-dodging {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px) scale(0.9);
+}
+@media (max-width: 760px) {
+  body.store-front .store-whatsapp-fab {
+    width: 3rem;
+    height: 3rem;
+    right: max(0.85rem, env(safe-area-inset-right));
+    bottom: calc(0.85rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* 5. Rodapé -------------------------------------------------------------- */
+.store-footer.store-footer--full {
+  text-align: left;
+  letter-spacing: normal;
+  padding: 2.25rem 0 1.5rem;
+  font-size: 0.875rem;
+  color: var(--on-bg-muted, var(--text-muted));
+}
+.store-footer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
+  gap: 1.75rem 2rem;
+  padding-block: 0;
+}
+.store-footer-name {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--on-bg, var(--text));
+}
+.store-footer-text {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0 0 0.35rem;
+  line-height: 1.5;
+}
+.store-footer-text .ui-icon,
+.store-footer-list .ui-icon,
+.store-footer-policy .ui-icon {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+}
+.store-footer-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--on-bg, var(--text));
+}
+.store-footer-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+.store-footer-list li {
+  display: flex;
+  gap: 0.45rem;
+  line-height: 1.45;
+}
+.store-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
+.store-footer a:hover {
+  color: var(--on-bg, var(--text));
+  text-decoration-color: currentColor;
+}
+.store-footer-list a {
+  display: inline-flex;
+  gap: 0.45rem;
+}
+.store-footer-legal {
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  padding-bottom: 0;
+  border-top: 1px solid var(--vt-line);
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+.store-footer-policy {
+  display: flex;
+  gap: 0.45rem;
+  margin: 0;
+  line-height: 1.5;
+}
+.store-footer-company {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+}
+@media (max-width: 899px) {
+  .store-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .store-footer-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.35rem;
+  }
+}
+
+/* 6. Entrar / criar conta ------------------------------------------------ */
+.store-auth-page,
+.store-not-found,
+.store-cart-page {
+  --primary: var(--vt-ink);
+  --primary-hover: var(--vt-ink-hover);
+}
+.store-auth-page {
+  flex: 1;
+  padding-block: clamp(1.5rem, 4vw, 3rem) 3rem;
+}
+.store-auth-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 300px);
+  justify-content: center;
+  align-items: start;
+  gap: 2rem;
+  padding-block: 0;
+}
+.store-auth-card {
+  display: grid;
+  gap: 1.1rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px -24px rgba(15, 23, 42, 0.35);
+  color: var(--text);
+}
+.store-auth-head {
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  text-align: center;
+}
+.store-auth-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.store-auth-title {
+  margin: 0.25rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.store-auth-lead {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.store-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border-radius: 12px;
+  background: var(--border-subtle);
+}
+.store-auth-tab {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  border-radius: 9px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.store-auth-tab.is-active {
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+.store-auth-notice {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.store-auth-notice .ui-icon {
+  flex-shrink: 0;
+  margin-top: 0.1em;
+}
+/* Aviso de "entre para continuar" é informação, não erro: cor neutra. */
+.store-auth-notice--info {
+  background: var(--border-subtle);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.store-auth-notice--ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.store-auth-notice--error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.store-auth-form {
+  display: grid;
+  gap: 0.95rem;
+}
+.store-auth-submit {
+  min-height: 2.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.store-auth-terms,
+.store-auth-switch {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+}
+.store-auth-terms a,
+.store-auth-switch a {
+  color: var(--text);
+  font-weight: 700;
+}
+.store-auth-perks {
+  padding: 1.5rem 0.25rem;
+  color: var(--on-bg, var(--text));
+}
+.store-auth-perks-title {
+  margin: 0 0 0.9rem;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.store-auth-perks ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.8rem;
+}
+.store-auth-perks li {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--on-bg-muted, var(--text-muted));
+}
+.store-auth-perks .ui-icon {
+  flex-shrink: 0;
+  color: var(--on-bg, var(--text));
+}
+@media (max-width: 760px) {
+  .store-auth-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .store-auth-perks {
+    padding-top: 0.5rem;
+  }
+}
+
+/* 7. Página não encontrada ---------------------------------------------- */
+.store-not-found {
+  padding-block: clamp(2rem, 6vw, 4rem) 3rem;
+}
+.store-not-found-inner {
+  padding-block: 0;
+}
+.store-not-found-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+}
+.store-not-found-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: var(--border-subtle);
+  color: var(--text-muted);
+}
+.store-not-found-title {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.store-not-found-text {
+  margin: 0;
+  max-width: 38ch;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.store-not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.store-not-found-cta {
+  min-height: 2.75rem;
+  padding-inline: 1.5rem;
+}
+.store-not-found-related {
+  margin-top: 2.5rem;
+}
+
+/* 8. Carrinho ------------------------------------------------------------ */
+.store-cart-page .cart-table .subtotal,
+.store-cart-page .store-cart-total-value {
+  color: var(--text);
+}
+.store-cart-page .cart-table tbody tr:hover td {
+  background: transparent;
+}
+.store-cart-page .cart-qty-btn:active {
+  background: var(--vt-ink);
+  color: var(--vt-ink-text);
+}
+.cart-line-product {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 14rem;
+}
+.cart-line-thumb {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--vt-media);
+  color: var(--text-muted);
+}
+.cart-line-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cart-line-info {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.cart-line-name {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.cart-line-name:hover {
+  text-decoration: underline;
+}
+/* "Remover" discreto: antes era um botão vermelho, o que mais chamava atenção. */
+.store-cart-remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.store-cart-remove:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+/* Frete à esquerda, totais à direita (no celular, um embaixo do outro). */
+.store-cart-page .store-cart-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  align-items: start;
+  gap: 1.25rem 2.5rem;
+}
+.store-cart-totals {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.store-cart-page .store-cart-shipping .btn-secondary {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.store-cart-page .store-cart-shipping .btn-secondary:hover:not(:disabled) {
+  border-color: var(--text);
+}
+.store-cart-lines {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.store-cart-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.store-cart-lines dt {
+  color: var(--text-muted);
+}
+.store-cart-lines dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.store-cart-shipping-value {
+  color: var(--text-muted);
+  font-weight: 500 !important;
+}
+.store-cart-page .cart-total {
+  justify-content: space-between;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.store-cart-page .store-cart-pix {
+  margin: 0;
+  text-align: right;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.store-cart-page .store-cart-pix strong {
+  color: var(--vt-pix);
+}
+.store-cart-page .store-cart-checkout-btn {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+.store-cart-help {
+  margin: 0.2rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.store-cart-help a {
+  color: var(--text);
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .store-cart-page .cart-table td.cart-line-product {
+    display: flex;
+    padding-bottom: 0.65rem;
+  }
+  .store-cart-page .cart-table td.cart-line-product::before {
+    display: none;
+  }
+  .store-cart-page .cart-table td.store-cart-actions {
+    justify-items: end;
+  }
+  .store-cart-page .cart-table .remove-from-cart {
+    width: auto;
+  }
+  .store-cart-page .store-cart-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 9. Busca sem resultado ------------------------------------------------ */
+/* O contêiner antigo tinha borda e fundo próprios; agora a caixa é o bloco de dentro. */
+.store-vitrine-search-no-results:has(.store-search-empty) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.store-vitrine-search-no-results .store-search-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  max-width: 560px;
+  margin: 0.5rem auto 0;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  text-align: center;
+  background: var(--vt-card);
+  border: 1px dashed var(--vt-line);
+  border-radius: var(--vt-radius);
+}
+.store-search-empty-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--vt-heading);
+  overflow-wrap: anywhere;
+}
+.store-search-empty-text {
+  margin: 0 0 0.35rem;
+  color: var(--vt-muted);
+  line-height: 1.5;
+}
+.store-search-empty-label {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vt-muted);
+}
+.store-search-empty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.store-search-empty-chip {
+  display: inline-block;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--vt-line);
+  border-radius: 999px;
+  background: var(--vt-soft);
+  color: var(--vt-heading);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.store-search-empty-chip:hover {
+  border-color: var(--vt-ink);
+}
+
+/* 10. Produto ------------------------------------------------------------ */
+@media (max-width: 760px) {
+  /* Na primeira tela do celular a foto quadrada ocupava tudo; mais baixa,
+     o nome e o preço aparecem sem rolar. */
+  body.store-front .product-gallery-carousel--v2 .carousel-slide img {
+    aspect-ratio: 4 / 5;
+    max-height: 52vh;
+    object-fit: contain;
+    margin-inline: auto;
+  }
+  body.store-front .product-breadcrumb {
+    margin-bottom: 0.5rem;
+  }
+}
+.product-buybar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem max(1rem, env(safe-area-inset-right)) calc(0.65rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 30px -18px rgba(15, 23, 42, 0.45);
+}
+.product-buybar[hidden] {
+  display: none;
+}
+.product-buybar-price {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.product-buybar-price strong {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.product-buybar-price span {
+  font-size: 0.8rem;
+  color: var(--vt-pix);
+  font-weight: 600;
+}
+.product-buybar-btn {
+  flex-shrink: 0;
+  min-height: 2.85rem;
+  padding-inline: 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+body.has-product-buybar .store-footer {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+/* Aviso visual quando a barra leva até as opções. */
+.is-attention {
+  animation: store-attention 1.2s ease;
+  border-radius: 12px;
+}
+@keyframes store-attention {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  25%, 60% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--vt-sale) 45%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-attention {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--vt-sale) 45%, transparent);
+  }
+}
+
+/* 11. Faixas roláveis no celular ---------------------------------------- */
+@media (max-width: 639px) {
+  /* Vantagens: o próximo item aparece pela metade e a borda direita esmaece,
+     para ficar claro que a faixa rola. Antes o texto aparecia cortado
+     ("Até 3x se...") sem nenhum sinal de que havia mais. */
+  .store-benefits-list {
+    scroll-padding-inline: 0.5rem;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+  }
+  .store-benefit {
+    flex: 0 0 72%;
+    max-width: none;
+  }
+  .store-benefit-text {
+    white-space: normal;
+  }
+  /* Categorias: no celular a lista rola com o dedo. As setas cobriam o nome
+     da categoria ("Vestidos e Saias") e o espaço reservado para elas deixava
+     um vão à esquerda. */
+  .h-scroll-mask--store-vitrine .h-scroll-mask__btn {
+    display: none;
+  }
+  .h-scroll-mask--store-vitrine.h-scroll-mask--scrollable .h-scroll-mask__track {
+    padding-left: 0;
+    padding-right: 1.5rem;
+  }
+}

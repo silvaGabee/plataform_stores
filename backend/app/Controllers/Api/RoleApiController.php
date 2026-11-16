@@ -5,6 +5,7 @@ namespace App\Controllers\Api;
 use App\Controllers\Controller;
 use App\Repositories\RoleRepository;
 use App\Repositories\EmployeeRoleRepository;
+use App\Repositories\StoreMemberRepository;
 
 class RoleApiController extends Controller
 {
@@ -22,7 +23,14 @@ class RoleApiController extends Controller
             $r['users'] = $empRepo->getUsersByRole((int) $r['id']);
         }
         unset($r);
-        $this->json(['roles' => $roles]);
+        // Equipe da loja, para a tela mostrar quem está sem cargo ou acumula cargos.
+        // Só id, nome e tipo: quem tem apenas leitura de cargos não precisa do e-mail.
+        $members = array_map(static fn (array $m): array => [
+            'id'        => (int) $m['id'],
+            'name'      => (string) ($m['name'] ?? ''),
+            'user_type' => (string) ($m['user_type'] ?? ''),
+        ], (new StoreMemberRepository())->listMembers($storeId));
+        $this->json(['roles' => $roles, 'members' => $members]);
     }
 
     public function hierarchy(string $slug): void
@@ -85,8 +93,8 @@ class RoleApiController extends Controller
                 'name'           => $name,
                 'parent_role_id' => $parentRoleId,
             ]);
-            $userIds = $input['user_ids'] ?? [];
-            if (is_array($userIds) && $id > 0) {
+            $userIds = $this->onlyStoreMembers($input['user_ids'] ?? [], $storeId);
+            if ($id > 0) {
                 $empRepo = new EmployeeRoleRepository();
                 $empRepo->setRoleUsers($id, $userIds);
             }
@@ -148,7 +156,7 @@ class RoleApiController extends Controller
         $userIds = $input['user_ids'] ?? null;
         if (is_array($userIds)) {
             $empRepo = new EmployeeRoleRepository();
-            $empRepo->setRoleUsers((int) $id, $userIds);
+            $empRepo->setRoleUsers((int) $id, $this->onlyStoreMembers($userIds, $storeId));
         }
         $this->json(['success' => true, 'role' => $repo->find($id)]);
     }
@@ -217,5 +225,19 @@ class RoleApiController extends Controller
         $idParent('Operacional', $producao);
         $idParent('Compras', $producao);
         $this->json(['success' => true, 'created' => $created, 'message' => 'Organograma de exemplo criado. Total de cargos novos: ' . $created]);
+    }
+
+    /** Descarta ids de quem não faz parte da equipe desta loja. */
+    private function onlyStoreMembers($userIds, int $storeId): array
+    {
+        if (!is_array($userIds)) {
+            return [];
+        }
+        $memberIds = array_map(
+            static fn (array $m): int => (int) $m['id'],
+            (new StoreMemberRepository())->listMembers($storeId)
+        );
+
+        return array_values(array_intersect(array_unique(array_map('intval', $userIds)), $memberIds));
     }
 }

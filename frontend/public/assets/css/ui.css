@@ -729,3 +729,35 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 @media (max-width: 760px) {
   .bi-sim-form, .bi-sim-fin, .bi-sim-compare { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Campos de formulário: dica, erro embaixo do campo e "mostrar senha"
+   (form-helpers.js). Usado na entrada da plataforma e na entrada da loja.
+   ========================================================================== */
+.ui-form-field { display: grid; gap: .35rem; }
+.ui-form-field > label { margin: 0; font-weight: 600; font-size: .9rem; color: var(--text); }
+.ui-form-field input {
+  width: 100%; margin: 0; min-height: 2.85rem; padding: .65rem .85rem;
+  border: 1px solid var(--input-border); border-radius: 10px; background: var(--input-bg); color: var(--text);
+  font: inherit; font-size: 1rem; box-sizing: border-box;
+}
+.ui-form-field input::placeholder { color: var(--text-muted); opacity: .8; }
+.ui-form-field input:focus { outline: none; border-color: var(--text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent); }
+.ui-form-hint { margin: 0; font-size: .8rem; color: var(--text-muted); }
+.ui-field-error { display: flex; gap: .35rem; align-items: flex-start; margin: 0; font-size: .82rem; font-weight: 600; line-height: 1.4; color: var(--danger); }
+.ui-field-error::before { content: "!"; flex-shrink: 0; display: inline-grid; place-items: center; width: 1.05rem; height: 1.05rem; margin-top: .05rem; border-radius: 50%; background: var(--danger); color: #fff; font-size: .7rem; font-weight: 800; }
+.ui-form-field input[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent); }
+.ui-password { position: relative; }
+.ui-password input { padding-right: 2.9rem; }
+.ui-password-toggle {
+  position: absolute; top: 0; bottom: 0; right: .3rem; margin: auto 0; transform: none;
+  display: grid; place-items: center; width: 2.35rem; height: 2.35rem;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer;
+}
+.ui-password-toggle:hover { background: var(--border-subtle); color: var(--text); }
+/* Regras antigas de formulário (ex.: .form-login input) davam margem ao campo,
+   o que esticava o contêiner e tirava o olho do centro. */
+.ui-form-field .ui-password > input,
+.ui-form-field > input { margin: 0 !important; }
+/* .form-login button (app.css) dá margem a todo botão do formulário de entrada. */
+.ui-password > .ui-password-toggle { margin: auto 0; }
