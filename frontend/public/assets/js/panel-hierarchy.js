@@ -463,16 +463,72 @@
 
   /* ---------- Modal ---------- */
 
-  function fillUserSelect() {
-    var sel = document.getElementById('role-users');
-    if (!sel) return;
-    sel.innerHTML = '';
-    storeUsers.forEach(function (u) {
-      var opt = document.createElement('option');
-      opt.value = u.id;
-      opt.textContent = (u.name || '') + (u.email ? ' (' + u.email + ')' : '');
-      sel.appendChild(opt);
+  /**
+   * Lista de pessoas com caixa de marcar. Antes era um <select multiple>, e
+   * quem não sabia segurar Ctrl acabava trocando a pessoa em vez de somar.
+   * Ao abrir, quem já está no cargo aparece no topo.
+   */
+  function fillUserSelect(selectedIds) {
+    var box = document.getElementById('role-users');
+    if (!box) return;
+    var marcados = {};
+    (selectedIds || []).forEach(function (id) { marcados[String(id)] = true; });
+    var lista = storeUsers.slice().sort(function (a, b) {
+      var sa = marcados[String(a.id)] ? 0 : 1;
+      var sb = marcados[String(b.id)] ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
     });
+    if (!lista.length) {
+      box.innerHTML = '<p class="role-people-empty">Nenhuma pessoa na equipe ainda.</p>';
+      updatePeopleCount();
+      return;
+    }
+    box.innerHTML = lista.map(function (u) {
+      var on = !!marcados[String(u.id)];
+      var busca = ((u.name || '') + ' ' + (u.email || '')).toLowerCase();
+      return '<label class="role-person' + (on ? ' is-checked' : '') + '" data-search="' + esc(busca) + '">' +
+        '<input type="checkbox" value="' + esc(u.id) + '"' + (on ? ' checked' : '') + '>' +
+        '<span class="role-person-avatar" aria-hidden="true">' + esc(initials(u.name)) + '</span>' +
+        '<span class="role-person-text"><span class="role-person-name">' + esc(u.name || 'Sem nome') + '</span>' +
+        (u.email ? '<span class="role-person-email">' + esc(u.email) + '</span>' : '') + '</span>' +
+        '<span class="role-person-check" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>' +
+        '</label>';
+    }).join('') + '<p class="role-people-empty hidden" id="role-users-none">Ninguém encontrado.</p>';
+    var search = document.getElementById('role-users-search');
+    if (search) search.value = '';
+    updatePeopleCount();
+  }
+
+  function selectedUserIds() {
+    var ids = [];
+    document.querySelectorAll('#role-users input[type="checkbox"]:checked').forEach(function (c) {
+      ids.push(parseInt(c.value, 10));
+    });
+    return ids;
+  }
+
+  function updatePeopleCount() {
+    var n = selectedUserIds().length;
+    var count = document.getElementById('role-users-count');
+    if (count) {
+      count.textContent = n === 0 ? 'Ninguém marcado' : (n === 1 ? '1 pessoa marcada' : n + ' pessoas marcadas');
+      count.classList.toggle('is-active', n > 0);
+    }
+    var clear = document.getElementById('role-users-clear');
+    if (clear) clear.classList.toggle('hidden', n === 0);
+  }
+
+  function filterPeople(q) {
+    q = String(q || '').trim().toLowerCase();
+    var visiveis = 0;
+    document.querySelectorAll('#role-users .role-person').forEach(function (row) {
+      var show = !q || row.getAttribute('data-search').indexOf(q) !== -1;
+      row.classList.toggle('hidden', !show);
+      if (show) visiveis++;
+    });
+    var none = document.getElementById('role-users-none');
+    if (none) none.classList.toggle('hidden', visiveis > 0);
   }
 
   function fillParentSelect(excludeRoleId) {
@@ -501,13 +557,8 @@
     document.getElementById('role-name').value = role ? (role.name || '') : '';
     fillParentSelect(role ? role.id : null);
     document.getElementById('role-parent').value = role && role.parent_role_id != null ? String(role.parent_role_id) : '';
-    var userSel = document.getElementById('role-users');
-    if (userSel) {
-      var ids = role ? (role.users || []).map(function (u) { return String(u.id); }) : [];
-      for (var i = 0; i < userSel.options.length; i++) {
-        userSel.options[i].selected = ids.indexOf(String(userSel.options[i].value)) !== -1;
-      }
-    }
+    // form.reset() desmarcaria as caixas: a lista é refeita com quem está no cargo.
+    fillUserSelect(role ? (role.users || []).map(function (u) { return String(u.id); }) : []);
     modal.classList.remove('hidden');
     setTimeout(function () { document.getElementById('role-name').focus(); }, 30);
   }
@@ -675,6 +726,33 @@
       fillUserSelect();
     }).catch(function () { storeUsers = []; fillUserSelect(); });
 
+    // Lista de pessoas do cargo: marcar, buscar e desmarcar todas.
+    var peopleBox = document.getElementById('role-users');
+    if (peopleBox) {
+      peopleBox.addEventListener('change', function (e) {
+        var row = e.target.closest('.role-person');
+        if (row) row.classList.toggle('is-checked', e.target.checked);
+        updatePeopleCount();
+      });
+    }
+    var peopleSearch = document.getElementById('role-users-search');
+    if (peopleSearch) {
+      peopleSearch.addEventListener('input', function () { filterPeople(peopleSearch.value); });
+      // Enter na busca não pode enviar o formulário do cargo.
+      peopleSearch.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+    }
+    var peopleClear = document.getElementById('role-users-clear');
+    if (peopleClear) {
+      peopleClear.addEventListener('click', function () {
+        document.querySelectorAll('#role-users input[type="checkbox"]:checked').forEach(function (c) {
+          c.checked = false;
+          var row = c.closest('.role-person');
+          if (row) row.classList.remove('is-checked');
+        });
+        updatePeopleCount();
+      });
+    }
+
     btnNew.addEventListener('click', function () { openModal(null); });
 
     var btnSeed = document.getElementById('btn-seed-example');
@@ -703,13 +781,7 @@
       e.preventDefault();
       var id = document.getElementById('role-id').value;
       var parentVal = document.getElementById('role-parent').value;
-      var userSel = document.getElementById('role-users');
-      var userIds = [];
-      if (userSel) {
-        for (var i = 0; i < userSel.options.length; i++) {
-          if (userSel.options[i].selected && userSel.options[i].value) userIds.push(parseInt(userSel.options[i].value, 10));
-        }
-      }
+      var userIds = selectedUserIds();
       var payload = {
         name: document.getElementById('role-name').value.trim(),
         parent_role_id: (parentVal === '' || parentVal === null) ? null : parentVal,

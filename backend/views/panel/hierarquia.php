@@ -84,11 +84,22 @@
                 <select id="role-parent">
                     <option value="">Nenhum (topo da hierarquia)</option>
                 </select>
-                <label for="role-users">Quem está nesse cargo</label>
-                <select id="role-users" multiple size="5" style="min-width:200px">
-                    <option value="">Carregando...</option>
-                </select>
-                <small class="text-muted">Segure Ctrl (ou Cmd) para selecionar mais de uma pessoa.</small>
+                <?php // Caixas de marcar no lugar do <select multiple>: ninguém sabia que era preciso segurar Ctrl. ?>
+                <div class="role-people-field">
+                    <div class="role-people-top">
+                        <span class="role-people-label" id="role-users-label">Quem está nesse cargo</span>
+                        <span class="role-people-count" id="role-users-count" aria-live="polite">Ninguém marcado</span>
+                    </div>
+                    <p class="role-people-hint">Marque uma ou mais pessoas.</p>
+                    <div class="role-people-search">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+                        <input type="search" id="role-users-search" placeholder="Buscar por nome ou e-mail" autocomplete="off" aria-label="Buscar pessoa">
+                    </div>
+                    <div id="role-users" class="role-people-list" role="group" aria-labelledby="role-users-label">
+                        <p class="role-people-empty">Carregando…</p>
+                    </div>
+                    <button type="button" class="role-people-clear hidden" id="role-users-clear">Desmarcar todas</button>
+                </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Salvar</button>
                     <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
