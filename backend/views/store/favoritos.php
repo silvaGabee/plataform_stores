@@ -3,10 +3,10 @@ ob_start();
 ?>
 <div class="container store-vitrine-body store-favorites-page">
     <header class="store-category-page-head">
-        <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-category-back">
-            <?= ui_icon('arrow-left', 16) ?>
-            <span>Voltar à loja</span>
-        </a>
+        <?php // Mesmo "voltar" das outras páginas da conta (Meus pedidos, Meus endereços). ?>
+        <div class="store-subpage-top">
+            <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill"><?= ui_icon('arrow-left', 16) ?> Voltar à loja</a>
+        </div>
         <div class="store-category-page-bar">
             <div class="store-category-page-title-row">
                 <span class="store-category-page-icon store-favorites-icon" aria-hidden="true"><?= ui_icon('heart', 22) ?></span>

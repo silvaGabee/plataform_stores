@@ -168,12 +168,16 @@ class PromotionApiController extends Controller
         try {
             $r = (new CouponRepository())->evaluate($storeId, (string) ($in['code'] ?? ''), $subtotal);
         } catch (\InvalidArgumentException $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            // Código errado é resposta normal, não falha do pedido: 200 com
+            // valido=false. Com 400, o navegador registrava erro no console a
+            // cada cupom digitado errado. O checkout lê o campo "error".
+            $this->json(['valido' => false, 'error' => $e->getMessage()]);
             return;
         }
         $c = $r['coupon'];
         $this->json([
             'success' => true,
+            'valido' => true,
             'code' => $c['code'],
             'label' => $c['type'] === 'percent'
                 ? rtrim(rtrim(number_format((float) $c['value'], 2, ',', ''), '0'), ',') . '% de desconto'

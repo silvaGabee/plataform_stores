@@ -15,7 +15,13 @@
 $__info = (string) ($_SESSION['_info'] ?? '');
 $__erro = (string) ($_SESSION['_error'] ?? '');
 $__ok = (string) ($_SESSION['_success'] ?? '');
-unset($_SESSION['_info'], $_SESSION['_error'], $_SESSION['_success']);
+// O aviso ("Entre ou crie sua conta para concluir o pedido") vale enquanto
+// houver um destino guardado: assim ele continua ao trocar para a aba
+// "Criar conta". Sai junto com o destino, quando a pessoa entra.
+if (empty($_SESSION['_after_login'])) {
+    unset($_SESSION['_info']);
+}
+unset($_SESSION['_error'], $_SESSION['_success']);
 $__cadastro = $modo === 'cadastro';
 $__entrarUrl = base_url("loja/{$store['slug']}/entrar");
 ob_start();

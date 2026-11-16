@@ -38,15 +38,17 @@ $content = ob_start();
                 ?>
                 <section class="checkout-form-section">
                     <h2 class="checkout-form-section-title">Seus dados</h2>
-                    <div class="checkout-field">
-                        <label for="checkout-name">Seu nome</label>
-                        <input type="text" id="checkout-name" name="customer_name" readonly value="<?= htmlspecialchars($checkout_customer_name ?? '') ?>">
+                    <?php // Antes eram campos travados (readonly), que pareciam quebrados para quem tentava digitar. Agora é texto; os campos ocultos mantêm o que o checkout.js confere. ?>
+                    <input type="hidden" id="checkout-name" name="customer_name" value="<?= htmlspecialchars($checkout_customer_name ?? '') ?>">
+                    <input type="hidden" id="checkout-email" name="customer_email" value="<?= htmlspecialchars($checkout_customer_email ?? '') ?>">
+                    <div class="checkout-buyer">
+                        <span class="checkout-buyer-avatar" aria-hidden="true"><?= ui_icon('user', 18) ?></span>
+                        <div class="checkout-buyer-text">
+                            <strong class="checkout-buyer-name"><?= htmlspecialchars($checkout_customer_name ?? '') ?></strong>
+                            <span class="checkout-buyer-email"><?= htmlspecialchars($checkout_customer_email ?? '') ?></span>
+                        </div>
                     </div>
-                    <div class="checkout-field">
-                        <label for="checkout-email">E-mail</label>
-                        <input type="email" id="checkout-email" name="customer_email" readonly value="<?= htmlspecialchars($checkout_customer_email ?? '') ?>">
-                    </div>
-                    <p class="checkout-field-hint">Comprando como <strong><?= htmlspecialchars($checkout_customer_email ?? '') ?></strong>. Para alterar, edite em <a href="<?= base_url('minha-conta') ?>">Minha conta</a>.</p>
+                    <p class="checkout-field-hint">O pedido será registrado nesta conta, e o comprovante fica em Meus pedidos.</p>
                 </section>
                 <section class="checkout-form-section">
                     <h2 class="checkout-form-section-title">Entrega</h2>
@@ -119,17 +121,17 @@ $content = ob_start();
                         <div class="checkout-address-form-body">
                             <div class="checkout-field">
                                 <label for="addr-zipcode">CEP *</label>
-                                <input type="text" id="addr-zipcode" name="addr_zipcode" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" maxlength="9">
+                                <input type="text" id="addr-zipcode" data-required name="addr_zipcode" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" maxlength="9">
                                 <p id="addr-cep-status" class="cep-lookup-status" role="status" aria-live="polite"></p>
                             </div>
                             <div class="checkout-field">
                                 <label for="addr-street">Rua *</label>
-                                <input type="text" id="addr-street" name="addr_street" placeholder="Rua, avenida" autocomplete="street-address">
+                                <input type="text" id="addr-street" data-required name="addr_street" placeholder="Rua, avenida" autocomplete="street-address">
                             </div>
                             <div class="checkout-address-row checkout-address-row--double">
                                 <div class="checkout-field">
                                     <label for="addr-number">Número *</label>
-                                    <input type="text" id="addr-number" name="addr_number" placeholder="Nº">
+                                    <input type="text" id="addr-number" data-required name="addr_number" placeholder="Nº">
                                 </div>
                                 <div class="checkout-field">
                                     <label for="addr-complement">Complemento</label>
@@ -143,11 +145,11 @@ $content = ob_start();
                             <div class="checkout-address-row checkout-address-row--double">
                                 <div class="checkout-field">
                                     <label for="addr-city">Cidade *</label>
-                                    <input type="text" id="addr-city" name="addr_city" placeholder="Cidade" autocomplete="address-level2">
+                                    <input type="text" id="addr-city" data-required name="addr_city" placeholder="Cidade" autocomplete="address-level2">
                                 </div>
                                 <div class="checkout-field">
                                     <label for="addr-state">UF *</label>
-                                    <input type="text" id="addr-state" name="addr_state" placeholder="SC" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
+                                    <input type="text" id="addr-state" data-required name="addr_state" placeholder="SC" maxlength="2" autocomplete="address-level1" style="text-transform: uppercase">
                                 </div>
                             </div>
                         </div>

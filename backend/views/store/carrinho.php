@@ -7,7 +7,7 @@ ob_start();
     <div class="store-subpage-inner container">
         <?php if (!empty($cartItems)): ?>
             <div class="store-subpage-top">
-                <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill">Continuar comprando</a>
+                <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill"><?= ui_icon('arrow-left', 16) ?> Continuar comprando</a>
             </div>
             <header class="store-subpage-head">
                 <h1 class="store-subpage-title">Carrinho</h1>

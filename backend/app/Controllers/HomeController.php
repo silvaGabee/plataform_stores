@@ -398,7 +398,8 @@ class HomeController extends Controller
     private function consumeAfterLoginUrl(): ?string
     {
         $url = (string) ($_SESSION['_after_login'] ?? '');
-        unset($_SESSION['_after_login']);
+        // O aviso da tela de entrada da loja vive junto com este destino.
+        unset($_SESSION['_after_login'], $_SESSION['_info']);
         if ($url === '') {
             return null;
         }

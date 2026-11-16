@@ -16,6 +16,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require dirname(__DIR__) . '/bootstrap.php';
+require PLATAFORM_BACKEND . '/app/Helpers/functions.php';
 
 if (!function_exists('imagewebp')) {
     fwrite(STDERR, "A extensão GD com suporte a WebP não está ativa neste PHP.\n"

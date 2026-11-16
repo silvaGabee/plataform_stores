@@ -8,7 +8,7 @@ $can_add_address = true;
     <div class="store-subpage-inner container">
         <header class="store-subpage-head store-meus-enderecos-head">
             <div class="store-subpage-head-actions">
-                <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill">Voltar à loja</a>
+                <a href="<?= base_url("loja/{$store['slug']}") ?>" class="store-subpage-back-pill"><?= ui_icon('arrow-left', 16) ?> Voltar à loja</a>
             </div>
             <h1 id="store-meus-enderecos-title" class="store-subpage-title">Meus endereços</h1>
             <p class="store-subpage-lead">Endereços cadastrados na sua conta (<strong><?= htmlspecialchars($email ?? '') ?></strong>).</p>
