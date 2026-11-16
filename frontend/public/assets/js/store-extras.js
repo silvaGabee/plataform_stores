@@ -51,14 +51,47 @@
         var label = b.getAttribute('aria-label') || '';
         b.setAttribute('aria-label', label.replace(/^(Adicionar aos|Remover dos) favoritos/, r.favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos'));
       });
-      UI.toast(r.favorito ? 'Salvo nos favoritos.' : 'Removido dos favoritos.', 'ok', 2200);
+      var naPaginaFavoritos = !!document.querySelector('.store-favorites-page');
+      // Mesmo aviso do carrinho (antes era outro, escuro e no centro da tela).
+      if (window.StoreUI) {
+        StoreUI.notify(r.favorito ? 'Salvo nos favoritos' : 'Removido dos favoritos',
+          r.favorito && !naPaginaFavoritos ? { href: UI.base + '/loja/' + encodeURIComponent(slug) + '/favoritos', label: 'Ver favoritos' } : null);
+      } else {
+        UI.toast(r.favorito ? 'Salvo nos favoritos.' : 'Removido dos favoritos.', 'ok', 2200);
+      }
       // Na página "Meus favoritos", o card desmarcado sai da lista.
-      if (!r.favorito && document.querySelector('.store-favorites-page')) {
+      if (!r.favorito && naPaginaFavoritos) {
         var card = btn.closest('.product-card');
         if (card) card.remove();
+        atualizarFavoritos();
       }
     });
   });
+
+  /**
+   * Depois de tirar um card de "Meus favoritos": o contador acompanha e, se a
+   * lista acabar, aparece o mesmo aviso de lista vazia que o servidor mostra.
+   * Antes a página ficava em branco com "1 produto" no topo.
+   */
+  function atualizarFavoritos() {
+    var pagina = document.querySelector('.store-favorites-page');
+    if (!pagina) return;
+    var grade = pagina.querySelector('.products-grid');
+    var n = grade ? grade.querySelectorAll('.product-card').length : 0;
+    var sub = pagina.querySelector('.store-category-page-sub');
+    if (sub) sub.textContent = n === 0 ? 'Nenhum produto salvo' : (n === 1 ? '1 produto' : n + ' produtos');
+    if (n > 0 || !grade) return;
+    var vazio = document.createElement('div');
+    vazio.className = 'store-vitrine-empty';
+    vazio.innerHTML =
+      '<div class="store-vitrine-empty-card">' +
+        '<div class="store-vitrine-empty-visual" aria-hidden="true"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg></div>' +
+        '<h2 class="store-vitrine-empty-title">Sua lista de favoritos está vazia</h2>' +
+        '<p class="store-vitrine-empty-desc">Toque no coração de um produto para guardá-lo aqui e encontrar depois.</p>' +
+        '<p class="store-vitrine-empty-action"><a href="' + UI.esc(UI.base + '/loja/' + encodeURIComponent(slug)) + '" class="btn btn-primary btn-sm">Explorar a loja</a></p>' +
+      '</div>';
+    grade.replaceWith(vazio);
+  }
 
   // ------------------------------------------------------------ frete (carrinho)
   var ship = document.getElementById('cart-shipping');

@@ -67,6 +67,21 @@
     else showStoreToast('Adicionado ao carrinho');
   });
 
+  /**
+   * Sair da conta apaga também o carrinho guardado no navegador. O servidor
+   * já apagava o dele no logout, mas a cópia do sessionStorage voltava na
+   * visita seguinte ao carrinho: num computador compartilhado, a próxima
+   * pessoa via (e podia comprar) o que a anterior escolheu.
+   */
+  document.addEventListener('click', function (e) {
+    const link = e.target.closest && e.target.closest('a[href]');
+    if (!link) return;
+    let path = '';
+    try { path = new URL(link.href, window.location.href).pathname; } catch (err) { return; }
+    if (!/\/sair\/?$/.test(path)) return;
+    try { sessionStorage.removeItem('cart'); } catch (err) { /* navegador sem storage: nada a limpar */ }
+  }, true); // captura: o menu "Minha conta" interrompe a propagação do clique.
+
   document.querySelectorAll('.remove-from-cart').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const cartKey = this.dataset.cartKey;

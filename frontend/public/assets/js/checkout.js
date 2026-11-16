@@ -649,6 +649,8 @@
       var city = document.getElementById('addr-city') && document.getElementById('addr-city').value.trim();
       var state = document.getElementById('addr-state') && document.getElementById('addr-state').value.trim();
       var zipcode = document.getElementById('addr-zipcode') && document.getElementById('addr-zipcode').value.trim();
+      // Erro embaixo de cada campo que falta, como na entrada da loja.
+      if (window.FormHelpers && !window.FormHelpers.validar(addressForm)) return;
       if (!street || !number || !city || !state || !zipcode) {
         checkoutAlert('Preencha todos os campos obrigatórios do endereço (Rua, Número, Cidade, UF, CEP).');
         return;

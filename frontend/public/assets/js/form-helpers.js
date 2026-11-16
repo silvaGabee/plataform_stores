@@ -37,9 +37,16 @@
   });
 
   // ------------------------------------------------------------ validação
+  /** Nome do campo para a mensagem: "Rua *" → "rua"; siglas ficam como estão ("CEP", "UF"). */
+  function nomeCampo(input) {
+    var t = input.labels && input.labels[0] ? input.labels[0].textContent.replace('*', '').trim() : '';
+    if (!t) return 'obrigatório';
+    return /^[A-ZÀ-Ú]{2,4}$/.test(t) ? t : t.toLowerCase();
+  }
+
   function mensagem(input) {
     var v = input.validity;
-    var rotulo = input.labels && input.labels[0] ? input.labels[0].textContent.trim().toLowerCase() : 'este campo';
+    var rotulo = nomeCampo(input);
     if (v.valueMissing) {
       if (input.type === 'password') return 'Digite sua senha.';
       if (input.type === 'email') return 'Digite seu e-mail.';
@@ -81,6 +88,45 @@
     if (desc.length) input.setAttribute('aria-describedby', desc.join(' '));
     else input.removeAttribute('aria-describedby');
   }
+
+  /**
+   * Valida os campos de um bloco que não é <form> (os formulários de endereço
+   * usam botão comum e salvam por JavaScript). Mostra o erro embaixo de cada
+   * campo vazio, põe o foco no primeiro e devolve true se está tudo certo.
+   */
+  function validarBloco(container) {
+    if (!container) return true;
+    var primeiro = null;
+    container.querySelectorAll('input:not([type="hidden"]), textarea, select').forEach(function (input) {
+      // Campo que não aparece na tela (ex.: nome, quando a conta já tem) não conta.
+      if (input.offsetParent === null) return;
+      if (!input.dataset.fhLigado) {
+        input.dataset.fhLigado = '1';
+        input.addEventListener('input', function () {
+          if (input.getAttribute('aria-invalid') === 'true' && input.value.trim() !== '' && input.checkValidity()) limparErro(input);
+        });
+      }
+      // data-required: obrigatório só para esta validação, sem o "required"
+      // nativo (que travaria o formulário maior quando o bloco está escondido).
+      var obrigatorio = input.required || input.hasAttribute('data-required');
+      var vazio = obrigatorio && input.value.trim() === '';
+      if (vazio) {
+        mostrarErro(input, 'Preencha o campo ' + nomeCampo(input) + '.');
+        if (!primeiro) primeiro = input;
+      } else if (!input.checkValidity()) {
+        mostrarErro(input, mensagem(input));
+        if (!primeiro) primeiro = input;
+      } else {
+        limparErro(input);
+      }
+    });
+    if (primeiro) {
+      primeiro.focus();
+      return false;
+    }
+    return true;
+  }
+  window.FormHelpers = { validar: validarBloco };
 
   document.querySelectorAll('form[data-validate]').forEach(function (form) {
     form.setAttribute('novalidate', '');

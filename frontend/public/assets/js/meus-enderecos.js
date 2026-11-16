@@ -201,6 +201,11 @@
     var city = val('meus-addr-city');
     var state = val('meus-addr-state');
     var zipcode = val('meus-addr-zipcode');
+    // Erro embaixo de cada campo que falta (antes: uma frase listando todos).
+    if (window.FormHelpers && !window.FormHelpers.validar(document.querySelector('.meus-enderecos-add-panel-fields'))) {
+      setMsg('');
+      return;
+    }
     if (!street || !number || !city || !state || !zipcode) {
       setMsg('Preencha Rua, Número, Cidade, UF e CEP.', true);
       return;

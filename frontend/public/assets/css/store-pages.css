@@ -915,3 +915,121 @@ body.has-product-buybar .store-footer {
     padding-right: 1.5rem;
   }
 }
+
+/* ==========================================================================
+   Correções da segunda auditoria
+   ========================================================================== */
+
+/* A1 · O coração ao lado do nome do produto herdava o position: absolute do
+   coração dos cards (vitrine.css carrega depois do ui.css). No celular ele
+   ia parar atrás do cabeçalho e não dava para tocar. */
+body.store-front .product-detail-title-row .product-fav-btn--inline {
+  position: static;
+  top: auto;
+  right: auto;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+/* B1 · Área de toque de pelo menos 24 px (WCAG 2.5.8) nos links de texto. */
+.store-footer-list a,
+.store-footer-company a,
+.product-breadcrumb a,
+.store-auth-switch a,
+.store-auth-terms a,
+.product-reviews-hint a,
+.store-cart-help a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+.store-footer-list {
+  gap: 0.3rem;
+}
+
+/* B2 · Categorias em telas de toque maiores que celular (tablet): mesmas
+   regras do celular, sem setas e sem o vão reservado para elas. */
+@media (hover: none) and (pointer: coarse) {
+  .h-scroll-mask--store-vitrine .h-scroll-mask__btn {
+    display: none;
+  }
+  .h-scroll-mask--store-vitrine.h-scroll-mask--scrollable .h-scroll-mask__track {
+    padding-left: 0;
+    padding-right: 1.5rem;
+  }
+}
+
+/* B4 · "Voltar" igual em todas as páginas da conta: pílula com seta, à esquerda. */
+.store-subpage-top,
+.store-subpage-head-actions {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+}
+.store-subpage-back-pill {
+  gap: 0.4rem;
+}
+.store-favorites-page .store-subpage-top {
+  margin-bottom: 1rem;
+}
+
+/* M2 · Checkout com as cores da loja (antes: o azul da plataforma nas
+   barras de seção, nas opções marcadas e nos botões). */
+.checkout-page {
+  --primary: var(--vt-ink);
+  --primary-hover: var(--vt-ink-hover);
+}
+.checkout-page .btn-secondary {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.checkout-page .btn-secondary:hover:not(:disabled) {
+  border-color: var(--text);
+  color: var(--text);
+}
+.checkout-page .checkout-choice-icon--store,
+.checkout-page .checkout-choice-icon--delivery {
+  color: var(--text);
+}
+.checkout-buyer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--border-subtle);
+  min-width: 0;
+}
+.checkout-buyer-avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.checkout-buyer-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.checkout-buyer-name {
+  font-size: 0.95rem;
+  color: var(--text);
+}
+/* E-mail longo quebra dentro do cartão em vez de passar da borda. */
+.checkout-buyer-email,
+.checkout-field-hint,
+.store-subpage-lead strong {
+  overflow-wrap: anywhere;
+}
+.checkout-buyer-email {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
