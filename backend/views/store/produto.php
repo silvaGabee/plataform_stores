@@ -126,7 +126,22 @@ $content = ob_start();
                                 <?php endforeach; ?>
                             </div>
                         </fieldset>
-                        <fieldset class="product-variant-fieldset product-variant-fieldset--size hidden" id="product-variant-size-fieldset" aria-hidden="true">
+                        <?php
+                        // Uma única cor com estoque já vem escolhida pelo store-product.js.
+                        // Nesse caso o bloco de tamanhos nasce visível: antes ele aparecia
+                        // depois do carregamento e empurrava o botão de compra 94 px.
+                        $__coresComEstoque = 0;
+                        foreach ($variantsMatrix['colors'] as $__c) {
+                            foreach ($variantsMatrix['sizes'] as $__sz) {
+                                if ((int) ($variantsMatrix['stock'][$__sz][$__c] ?? 0) > 0) {
+                                    $__coresComEstoque++;
+                                    break;
+                                }
+                            }
+                        }
+                        $__tamanhosVisiveis = count($variantsMatrix['colors']) === 1 && $__coresComEstoque === 1;
+                        ?>
+                        <fieldset class="product-variant-fieldset product-variant-fieldset--size<?= $__tamanhosVisiveis ? '' : ' hidden' ?>" id="product-variant-size-fieldset" aria-hidden="<?= $__tamanhosVisiveis ? 'false' : 'true' ?>">
                             <legend class="product-variant-legend"><?= htmlspecialchars($variantsMatrix['axis_label'] ?? 'Tamanho') ?></legend>
                             <div class="product-variant-grid" id="product-variant-size-options" role="group"></div>
                         </fieldset>
@@ -183,7 +198,7 @@ $content = ob_start();
                 <?php endif; ?>
 
                 <?php // Depois das opções: antes o aviso "Selecione o tamanho" ficava acima de "Cor", fora de ordem. ?>
-                <p class="product-detail-stock" id="product-stock-label">
+                <p class="product-detail-stock" id="product-stock-label" aria-live="polite">
                     <?php if ($hasVariants): ?>
                         Selecione as opções para ver a disponibilidade
                     <?php elseif ($stockTotal > 5): ?>

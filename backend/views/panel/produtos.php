@@ -24,10 +24,13 @@
                 <option value="all">Todos os produtos</option>
                 <option value="promo">Em promoção</option>
                 <option value="alert">Estoque baixo ou esgotado</option>
+                <option value="nophoto">Sem foto</option>
             </select>
         </label>
         <span id="product-count" class="pp-count text-muted" aria-live="polite"></span>
     </div>
+    <?php // Preenchido pelo panel-products.js: na vitrine, produto sem foto aparece como uma caixa cinza. ?>
+    <div id="product-nophoto-notice" class="pp-nophoto-notice hidden" role="status"></div>
 
     <div id="product-list" class="pp-grid" aria-live="polite"></div>
 

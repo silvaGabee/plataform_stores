@@ -1085,3 +1085,13 @@ body.store-front .product-detail-title-row .product-fav-btn--inline {
 .checkout-address-row > .checkout-field + .checkout-field {
   margin-top: 0;
 }
+
+/* ==========================================================================
+   Correções da quarta auditoria
+   ========================================================================== */
+
+/* M4 · Os tamanhos chegam pelo JavaScript: a fileira já reserva a altura de
+   um botão para o bloco de compra não descer quando eles aparecem. */
+#product-variant-size-fieldset:not(.hidden) #product-variant-size-options:empty {
+  min-height: 2.9rem;
+}

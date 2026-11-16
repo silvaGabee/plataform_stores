@@ -4,6 +4,7 @@ use App\Controllers\HomeController;
 use App\Controllers\StoreFrontController;
 use App\Controllers\PanelController;
 use App\Controllers\AnalyzingBIController;
+use App\Controllers\SeoController;
 use App\Http\Guard;
 
 /**
@@ -22,6 +23,8 @@ return [
     'GET /criar-loja' => [HomeController::class, 'createStoreForm', Guard::AUTENTICADO],
     'POST /criar-loja' => [HomeController::class, 'createStore', Guard::AUTENTICADO],
     'GET /privacidade' => [HomeController::class, 'privacy', Guard::PUBLICO],
+    'GET /robots.txt' => [SeoController::class, 'robots', Guard::PUBLICO],
+    'GET /sitemap.xml' => [SeoController::class, 'sitemap', Guard::PUBLICO],
 
     // Vitrine pública.
     'GET /loja/{slug}' => [StoreFrontController::class, 'vitrine', Guard::PUBLICO],

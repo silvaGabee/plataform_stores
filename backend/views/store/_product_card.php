@@ -21,7 +21,8 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
     <button type="button" class="product-fav-btn js-fav<?= $favorito ? ' is-active' : '' ?>" data-product-id="<?= (int) $p['id'] ?>" aria-pressed="<?= $favorito ? 'true' : 'false' ?>" aria-label="<?= $favorito ? 'Remover dos favoritos' : 'Adicionar aos favoritos' ?>: <?= htmlspecialchars($p['name']) ?>">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 2.9 5 6.4 5c2.1 0 3.6 1.2 4.6 2.6C12 6.2 13.5 5 15.6 5 19.1 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg>
     </button>
-    <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-media">
+    <?php // Fora da leitura e do Tab: o nome do produto logo abaixo já leva ao mesmo lugar. Sem foto, este link ficava sem nome ("link"). ?>
+    <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-media" tabindex="-1" aria-hidden="true">
         <div class="product-card-img<?= $coverUrl ? '' : ' product-card-img--placeholder' ?>">
             <?php if ($coverUrl): ?>
                 <img src="<?= htmlspecialchars($coverUrl) ?>" alt="<?= htmlspecialchars($p['name']) ?>" loading="lazy" decoding="async">
@@ -50,7 +51,10 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
     </a>
     <div class="product-card-content">
         <a href="<?= htmlspecialchars($productUrl) ?>" class="product-card-info">
-            <h3 class="product-card-name"><?= htmlspecialchars($p['name']) ?></h3>
+            <h3 class="product-card-name"><?= htmlspecialchars($p['name']) ?><?php
+                // Os selos ficam na imagem, que o leitor de tela pula: repete aqui só para ele.
+                if ($descontoPct > 0): ?><span class="visually-hidden">, <?= $descontoPct ?>% de desconto</span><?php endif;
+                if ($stockTotal > 0 && $stockTotal <= 5): ?><span class="visually-hidden">, últimas unidades</span><?php endif; ?></h3>
             <?php if ($avaliacao): ?>
                 <p class="product-card-rating" aria-label="Nota <?= number_format($avaliacao['media'], 1, ',', '') ?> de 5, <?= $avaliacao['total'] ?> avaliaç<?= $avaliacao['total'] === 1 ? 'ão' : 'ões' ?>">
                     <?= ui_stars($avaliacao['media'], 13) ?>
@@ -120,7 +124,7 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
             <?php if ($stockTotal <= 0): ?>
                 <span class="btn btn-secondary btn-sm product-card-btn product-card-btn--disabled" aria-disabled="true">Indisponível</span>
             <?php elseif ($hasVariants): ?>
-                <a href="<?= htmlspecialchars($productUrl) ?>" class="btn btn-primary btn-sm product-card-btn product-card-btn--options">
+                <a href="<?= htmlspecialchars($productUrl) ?>" class="btn btn-primary btn-sm product-card-btn product-card-btn--options" aria-label="Escolher opção: <?= htmlspecialchars($p['name']) ?>">
                     <span class="product-card-btn-label product-card-btn-label--long">Escolher opção</span>
                     <span class="product-card-btn-label product-card-btn-label--short">Opções</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -131,7 +135,8 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
                     data-product-id="<?= (int) $p['id'] ?>"
                     data-name="<?= htmlspecialchars($p['name']) ?>"
                     data-price="<?= htmlspecialchars((string) $precoEfetivo) ?>"
-                    data-max="<?= $stockTotal ?>">
+                    data-max="<?= $stockTotal ?>"
+                    aria-label="Adicionar ao carrinho: <?= htmlspecialchars($p['name']) ?>">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6h15l-1.5 9h-12L6 6z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/><path d="M6 6L5 3H2" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/><circle cx="9" cy="20" r="1.25" fill="currentColor"/><circle cx="18" cy="20" r="1.25" fill="currentColor"/></svg>
                     <span>Adicionar</span>
                 </button>

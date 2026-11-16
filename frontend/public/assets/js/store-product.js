@@ -478,3 +478,25 @@
   syncLabel();
   render();
 })();
+
+/**
+ * Estado das opções de cor e tamanho para leitor de tela.
+ *
+ * A escolha aparecia só pela borda (classe is-selected). Aqui cada opção
+ * ganha aria-pressed="true" ou "false" sempre que a classe muda, inclusive
+ * nos botões de tamanho que o script recria ao trocar de cor.
+ */
+(function () {
+  'use strict';
+  var box = document.getElementById('product-variant-selectors');
+  if (!box || !('MutationObserver' in window)) return;
+  var SEL = '.product-variant-color, .product-variant-option';
+  function sync() {
+    box.querySelectorAll(SEL).forEach(function (b) {
+      var v = b.classList.contains('is-selected') ? 'true' : 'false';
+      if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v);
+    });
+  }
+  new MutationObserver(sync).observe(box, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  sync();
+})();

@@ -1054,8 +1054,9 @@
       var promo = parseFloat(p.promo_price) > 0 && parseFloat(p.promo_price) < parseFloat(p.sale_price);
       if (f === 'promo' && !promo) return '';
       if (f === 'alert' && st.key === 'ok') return '';
-      shown++;
       var coverIm = getCoverImageFromProduct(p);
+      if (f === 'nophoto' && coverIm && coverIm.url) return '';
+      shown++;
       var img = coverIm && coverIm.url
         ? '<img src="' + escHtml(coverIm.url) + '" alt="" loading="lazy" decoding="async">'
         : '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" stroke="currentColor" stroke-width="1.25" opacity="0.45"/></svg>';
@@ -1087,6 +1088,24 @@
     listEl.innerHTML = html;
   }
 
+  /**
+   * Aviso de produtos sem foto. Na vitrine eles aparecem como uma caixa cinza
+   * com um ícone de pacote, e o lojista não tinha como saber quantos eram.
+   */
+  function renderNoPhotoNotice() {
+    var box = document.getElementById('product-nophoto-notice');
+    if (!box) return;
+    var n = currentProducts.filter(function (p) { var c = getCoverImageFromProduct(p); return !(c && c.url); }).length;
+    if (!n) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    box.innerHTML = '<span><strong>' + n + (n === 1 ? ' produto está sem foto.' : ' produtos estão sem foto.') + '</strong> Na vitrine eles aparecem como uma caixa cinza, e produto sem foto vende menos.</span>' +
+      ' <button type="button" class="btn btn-secondary btn-sm" id="product-nophoto-show">Ver quais são</button>';
+    box.classList.remove('hidden');
+    document.getElementById('product-nophoto-show').addEventListener('click', function () {
+      var filterEl = document.getElementById('product-filter');
+      if (filterEl) { filterEl.value = 'nophoto'; renderProducts(); filterEl.focus(); }
+    });
+  }
+
   function load() {
     var listEl = document.getElementById('product-list');
     if (!listEl) return;
@@ -1095,6 +1114,7 @@
         return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
       });
       renderProducts();
+      renderNoPhotoNotice();
     }).catch(function (err) {
       listEl.innerHTML = '<div class="panel-products-empty"><p>Não foi possível carregar os produtos.</p><p class="text-muted">' + (err && err.message ? String(err.message).replace(/</g, '&lt;') : 'Erro desconhecido') + '</p></div>';
     });

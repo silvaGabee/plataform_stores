@@ -10,7 +10,7 @@
             </span>
             <div class="store-category-page-heading">
                 <h1 class="store-category-page-title"><?= htmlspecialchars($category['name']) ?></h1>
-                <p class="store-category-page-sub">
+                <p class="store-category-page-sub" aria-live="polite">
                     <?php if (!empty($products)): ?>
                         <?= count($products) === 1 ? '1 produto' : count($products) . ' produtos' ?>
                     <?php else: ?>

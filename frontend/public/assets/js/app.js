@@ -42,6 +42,10 @@
   document.addEventListener('click', function (e) {
     const btn = e.target.closest('.add-to-cart');
     if (!btn) return;
+    // Clique duplo não adiciona em dobro: o botão fica surdo por meio segundo.
+    if (btn.dataset.adding === '1') return;
+    btn.dataset.adding = '1';
+    setTimeout(function () { delete btn.dataset.adding; }, 600);
     const storeId = btn.dataset.storeId;
     const productId = btn.dataset.productId;
     const requireVariant = btn.dataset.requireVariant === '1';
@@ -151,7 +155,14 @@
       }
     }
 
+    // Botão que abriu a janela: o foco volta para ele ao fechar (antes ia
+    // para o topo da página e quem usa teclado perdia o lugar).
+    var origem = null;
+
     function open(which) {
+      if (document.activeElement && document.activeElement !== document.body && !modal.contains(document.activeElement)) {
+        origem = document.activeElement;
+      }
       setTab(which);
       modal.removeAttribute('hidden');
       requestAnimationFrame(function () {
@@ -169,7 +180,39 @@
       setTimeout(function () {
         modal.setAttribute('hidden', '');
       }, 220);
+      if (origem && document.contains(origem)) origem.focus();
+      origem = null;
     }
+
+    /**
+     * Foco preso na janela enquanto ela está aberta: Tab no último elemento
+     * volta ao primeiro, e Shift+Tab no primeiro vai ao último. Antes 9 de 14
+     * Tabs iam parar em botões atrás do desfoque.
+     */
+    function focaveis() {
+      return Array.prototype.filter.call(
+        modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])'),
+        function (el) { return el.offsetParent !== null && !el.closest('[hidden]'); }
+      );
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab' || !modal.classList.contains('is-open')) return;
+      var lista = focaveis();
+      if (!lista.length) return;
+      var primeiro = lista[0];
+      var ultimo = lista[lista.length - 1];
+      var atual = document.activeElement;
+      if (!modal.contains(atual)) {
+        e.preventDefault();
+        primeiro.focus();
+      } else if (e.shiftKey && atual === primeiro) {
+        e.preventDefault();
+        ultimo.focus();
+      } else if (!e.shiftKey && atual === ultimo) {
+        e.preventDefault();
+        primeiro.focus();
+      }
+    });
 
     openers.forEach(function (btn) {
       btn.addEventListener('click', function () {

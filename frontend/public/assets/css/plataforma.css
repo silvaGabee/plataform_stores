@@ -184,3 +184,26 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+/* 5. Rodapé das páginas da plataforma ---------------------------------- */
+.app-footer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.app-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  padding-block: 1.25rem;
+}
+.app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--text);
+  text-underline-offset: 3px;
+}

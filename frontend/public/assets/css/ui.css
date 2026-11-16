@@ -761,3 +761,7 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .ui-form-field > input { margin: 0 !important; }
 /* .form-login button (app.css) dá margem a todo botão do formulário de entrada. */
 .ui-password > .ui-password-toggle { margin: auto 0; }
+
+/* Painel · Produtos: aviso de produtos sem foto (panel-products.js). */
+.pp-nophoto-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem 1rem; margin: 0 0 1rem; padding: .8rem 1rem; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border)); border-radius: 10px; background: var(--warning-bg); color: var(--text); font-size: .9rem; line-height: 1.45; }
+.pp-nophoto-notice.hidden { display: none; }

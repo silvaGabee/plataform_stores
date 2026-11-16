@@ -12,7 +12,7 @@ ob_start();
                 <span class="store-category-page-icon store-favorites-icon" aria-hidden="true"><?= ui_icon('heart', 22) ?></span>
                 <div class="store-category-page-heading">
                     <h1 class="store-category-page-title">Meus favoritos</h1>
-                    <p class="store-category-page-sub">
+                    <p class="store-category-page-sub" aria-live="polite">
                         <?= empty($products) ? 'Nenhum produto salvo' : (count($products) === 1 ? '1 produto' : count($products) . ' produtos') ?>
                     </p>
                 </div>
@@ -21,6 +21,7 @@ ob_start();
     </header>
 
     <?php if (!empty($products)): ?>
+        <h2 class="visually-hidden">Produtos salvos</h2>
         <section class="products-grid products-grid--v2" aria-label="Produtos favoritos">
             <?php foreach ($products as $p): ?>
                 <?php require __DIR__ . '/_product_card.php'; ?>

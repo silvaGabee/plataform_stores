@@ -60,16 +60,25 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     </header>
     <?php endif; ?>
     <?= $content ?? '' ?>
+    <?php if (!$hide_app_header): ?>
+    <?php // Antes as páginas da plataforma não tinham rodapé, e a Política de privacidade só aparecia pelo link do cadastro. ?>
+    <footer class="app-footer">
+        <div class="container app-footer-inner">
+            <span>Plataforma de Lojas &copy; <?= date('Y') ?></span>
+            <a href="<?= base_url('privacidade') ?>">Privacidade e termos de uso</a>
+        </div>
+    </footer>
+    <?php endif; ?>
 
     <?php if (!logged_in()): ?>
-    <div id="auth-modal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" hidden>
+    <div id="auth-modal" class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-modal-name" hidden>
         <div class="auth-modal-backdrop js-auth-close" aria-hidden="true"></div>
         <div class="auth-modal-panel">
             <button type="button" class="auth-modal-close js-auth-close" aria-label="Fechar">&times;</button>
             <div class="auth-modal-layout">
                 <aside class="auth-modal-visual" aria-hidden="true">
                     <p class="auth-modal-visual-eyebrow">Tudo em um só lugar</p>
-                    <h2 id="auth-modal-title" class="auth-modal-visual-title">Venda online e no balcão com confiança</h2>
+                    <p class="auth-modal-visual-title">Venda online e no balcão com confiança</p>
                     <p class="auth-modal-visual-text">Catálogo, carrinho, checkout e painel para sua equipe, pensado para quem quer crescer sem complicar.</p>
                     <ul class="auth-modal-visual-list">
                         <li>Loja pública com vitrine e produtos</li>
@@ -78,6 +87,8 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
                     </ul>
                 </aside>
                 <div class="auth-modal-forms">
+                    <?php // Nome da janela para leitor de tela. O título da faixa azul some no celular junto com ela. ?>
+                    <h2 id="auth-modal-name" class="visually-hidden">Entrar ou criar conta na Plataforma de Lojas</h2>
                     <div class="auth-modal-tabs" role="tablist">
                         <button type="button" class="auth-modal-tab<?= $authModalInitial === 'cadastro' ? '' : ' is-active' ?>" role="tab" id="tab-login" aria-selected="<?= $authModalInitial === 'cadastro' ? 'false' : 'true' ?>" aria-controls="panel-login" data-auth-tab="login">Entrar</button>
                         <button type="button" class="auth-modal-tab<?= $authModalInitial === 'cadastro' ? ' is-active' : '' ?>" role="tab" id="tab-cadastro" aria-selected="<?= $authModalInitial === 'cadastro' ? 'true' : 'false' ?>" aria-controls="panel-cadastro" data-auth-tab="cadastro">Criar conta</button>
