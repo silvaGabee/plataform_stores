@@ -176,6 +176,9 @@ final class Guard
             redirect($referer);
         }
         redirect(base_url());
+        // redirect() já encerra; o exit explícito deixa isso visível para o
+        // PHPStan, que não sabe que a função nunca retorna.
+        exit;
     }
 
     private static function tokenRecebido(): string

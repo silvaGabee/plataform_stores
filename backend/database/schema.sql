@@ -386,6 +386,9 @@ CREATE TABLE `stores` (
   `category` varchar(100) DEFAULT NULL,
   `city` varchar(100) DEFAULT NULL,
   `phone` varchar(20) DEFAULT NULL,
+  `legal_name` varchar(160) DEFAULT NULL,
+  `document` varchar(14) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
   `banner_path` varchar(512) DEFAULT NULL,
   `store_icon_path` varchar(512) DEFAULT NULL,
   `background_color` varchar(7) DEFAULT NULL COMMENT 'Cor de fundo da vitrine em hex (#RRGGBB)',
@@ -465,3 +468,4 @@ INSERT INTO schema_migrations (version) VALUES ('0023_vitrine_whatsapp_pix_frete
 INSERT INTO schema_migrations (version) VALUES ('0024_estorno_codigo_barras.php');
 INSERT INTO schema_migrations (version) VALUES ('0025_remove_status_enviado.sql');
 INSERT INTO schema_migrations (version) VALUES ('0026_avaliacoes_moderacao.php');
+INSERT INTO schema_migrations (version) VALUES ('0027_dados_legais_loja.php');
