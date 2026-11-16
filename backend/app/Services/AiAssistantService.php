@@ -324,7 +324,131 @@ class AiAssistantService
     /**
      * @param list<array{role: string, content: string}> $messages
      */
+    /**
+     * Tenta os provedores em ordem e devolve a primeira resposta:
+     *
+     *   1. OpenRouter, se OPENROUTER_API_KEY estiver no .env;
+     *   2. Groq, se GROQ_API_KEY estiver no .env (a Groq não aceita chamada
+     *      sem chave: responde "Invalid API Key");
+     *   3. Pollinations, que não pede chave nem cadastro. É a rede de
+     *      segurança para o assistente nunca ficar mudo numa apresentação,
+     *      mesmo com as chaves vencidas. IA_SEM_CHAVE=0 no .env desliga.
+     *
+     * As falhas de cada um ficam juntas em getLastOpenRouterFailure().
+     */
     private function chamarOpenRouter(array $messages): ?string
+    {
+        $falhas = [];
+        $temOpenRouter = $this->env('OPENROUTER_API_KEY') !== '';
+        if ($temOpenRouter) {
+            $r = $this->chamarOpenRouterDireto($messages);
+            if ($r !== null) {
+                return $r;
+            }
+            $falhas[] = 'OpenRouter: ' . $this->lastOpenRouterFailure;
+        }
+        $groqKey = $this->env('GROQ_API_KEY');
+        if ($groqKey !== '') {
+            $r = $this->chamarCompativelOpenAI(
+                'Groq',
+                'https://api.groq.com/openai/v1/chat/completions',
+                $groqKey,
+                $this->env('GROQ_MODEL') ?: 'llama-3.1-8b-instant',
+                $messages
+            );
+            if ($r !== null) {
+                return $r;
+            }
+            $falhas[] = 'Groq: ' . $this->lastOpenRouterFailure;
+        }
+        $semChave = $this->env('IA_SEM_CHAVE');
+        if ($semChave !== '0' && strcasecmp($semChave, 'false') !== 0) {
+            $r = $this->chamarCompativelOpenAI(
+                'Pollinations',
+                $this->env('POLLINATIONS_URL') ?: 'https://text.pollinations.ai/openai',
+                '',
+                $this->env('POLLINATIONS_MODEL') ?: 'openai',
+                $messages
+            );
+            if ($r !== null) {
+                return $r;
+            }
+            $falhas[] = 'Pollinations: ' . $this->lastOpenRouterFailure;
+        }
+        $this->lastOpenRouterFailure = $falhas !== []
+            ? implode(' | ', $falhas)
+            : 'Nenhum provedor de IA ativo (sem chaves no .env e IA_SEM_CHAVE=0).';
+
+        return null;
+    }
+
+    private function env(string $nome): string
+    {
+        return trim((string) (getenv($nome) ?: ($_ENV[$nome] ?? '')));
+    }
+
+    /**
+     * Chamada a uma API no formato da OpenAI (/chat/completions). Sem chave,
+     * o cabeçalho Authorization não vai.
+     */
+    private function chamarCompativelOpenAI(string $nome, string $url, string $apiKey, string $model, array $messages): ?string
+    {
+        $this->lastOpenRouterFailure = '';
+        $body = json_encode(['model' => $model, 'messages' => $messages], JSON_UNESCAPED_UNICODE);
+        if ($body === false) {
+            $this->lastOpenRouterFailure = 'Falha ao montar JSON da requisição.';
+            return null;
+        }
+        $ch = curl_init($url);
+        if ($ch === false) {
+            $this->lastOpenRouterFailure = 'cURL não está disponível no PHP (habilite a extensão curl).';
+            return null;
+        }
+        $headers = ['Content-Type: application/json'];
+        if ($apiKey !== '') {
+            $headers[] = 'Authorization: Bearer ' . $apiKey;
+        }
+        $opts = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_TIMEOUT => self::CURL_TIMEOUT_SEC,
+        ];
+        $ca = $this->env('OPENROUTER_CURL_CAINFO');
+        if ($ca !== '' && is_readable($ca)) {
+            $opts[CURLOPT_CAINFO] = $ca;
+        }
+        curl_setopt_array($ch, $opts);
+        $response = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $curlErr = curl_error($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($errno !== 0) {
+            $this->lastOpenRouterFailure = 'cURL #' . $errno . ': ' . $curlErr;
+            return null;
+        }
+        $data = is_string($response) ? json_decode($response, true) : null;
+        if (!is_array($data)) {
+            $this->lastOpenRouterFailure = 'Resposta não é JSON (HTTP ' . $httpCode . ').';
+            return null;
+        }
+        if (!empty($data['error']) || $httpCode < 200 || $httpCode >= 300) {
+            $this->lastOpenRouterFailure = '[HTTP ' . $httpCode . '] '
+                . (!empty($data['error']) ? $this->formatOpenRouterErrorPayload($data['error']) : 'erro de ' . $nome);
+            return null;
+        }
+        $content = $data['choices'][0]['message']['content'] ?? null;
+        if (!is_string($content) || trim($content) === '') {
+            $this->lastOpenRouterFailure = $nome . ' não retornou texto na resposta.';
+            return null;
+        }
+
+        return trim($content);
+    }
+
+    private function chamarOpenRouterDireto(array $messages): ?string
     {
         $this->lastOpenRouterFailure = '';
         $messages = $this->openRouterCompatMessages($messages);

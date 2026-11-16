@@ -135,6 +135,8 @@ Requisitos: PHP 8.0+ (`pdo_mysql`, `json`, `session`, `fileinfo`), MySQL 5.7+ ou
 | `DB_NAME`, `DB_HOST`, `DB_USER`, `DB_PASSWORD` | Sobrescrevem `backend/config/database.php` |
 | `RAPIDAPI_KEY` | Imagem do QR Code PIX (opcional) |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, … | Assistente de IA do painel (opcional) |
+| `GROQ_API_KEY`, `GROQ_MODEL` | Assistente de IA pela Groq (opcional, tentado depois da OpenRouter) |
+| `IA_SEM_CHAVE` | `1` (padrão) usa a Pollinations, sem chave, quando as outras falham; `0` desliga |
 
 O `.env` é ignorado pelo Git e bloqueado por HTTP. As regras do assistente de IA ficam em `backend/config/regrasIA.txt`.
 
