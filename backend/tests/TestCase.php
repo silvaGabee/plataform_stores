@@ -93,6 +93,16 @@ abstract class TestCase
         $this->assertSame($esperado, is_countable($lista) ? count($lista) : -1, $msg);
     }
 
+    protected function assertStringContainsString(string $trecho, string $texto, string $msg = ''): void
+    {
+        $this->assertTrue(strpos($texto, $trecho) !== false, $msg !== '' ? $msg : "esperava encontrar \"{$trecho}\" em: {$texto}");
+    }
+
+    protected function assertStringNotContainsString(string $trecho, string $texto, string $msg = ''): void
+    {
+        $this->assertTrue(strpos($texto, $trecho) === false, $msg !== '' ? $msg : "não esperava \"{$trecho}\" em: {$texto}");
+    }
+
     /** Executa $fn e exige que ela lance a exceção informada. */
     protected function expectException(string $classe, callable $fn, string $msg = ''): \Throwable
     {

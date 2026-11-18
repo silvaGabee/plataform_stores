@@ -41,6 +41,8 @@ class AiAssistantService
     /** A última falha foi limite de uso do provedor (aguardar resolve). */
     private bool $ultimaFalhaFoiLimite = false;
 
+    private string $ultimoModelo = '';
+
     public function ultimaFalhaFoiLimite(): bool
     {
         return $this->ultimaFalhaFoiLimite;
@@ -174,6 +176,12 @@ class AiAssistantService
         if ($pergunta === '') {
             return null;
         }
+        $pronta = AiGuard::respostaPronta($pergunta, $this->nomesDasOutrasLojas($storeId));
+        if ($pronta !== null) {
+            $this->ultimoModelo = 'resposta pronta do servidor';
+
+            return $pronta;
+        }
         $contexto = $this->montarContextoLoja($storeId, $incluirFinanceiro);
         $regras = $this->carregarRegrasIA();
         $system = $regras . ($incluirFinanceiro
@@ -188,13 +196,36 @@ class AiAssistantService
             . $contexto
             . "\n--- FIM DO SNAPSHOT ---\n\n"
             . ($incluirFinanceiro ? 'PERGUNTA DO DONO:' : 'PERGUNTA DO FUNCIONÁRIO:') . "\n"
-            . $pergunta;
+            . $pergunta
+            . "\n\nLEMBRETES PARA ESTA PERGUNTA (siga antes de responder):\n- "
+            . implode("\n- ", AiGuard::lembretes($pergunta));
         $resposta = $this->chamarOpenRouter([
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $user],
         ]);
+        if ($resposta === null) {
+            return null;
+        }
+        if (AiGuard::vazaRegras($resposta, $regras)) {
+            return AiGuard::RECUSA_INSTRUCOES;
+        }
 
-        return $resposta === null ? null : self::filtrarResposta($resposta);
+        return self::filtrarResposta($resposta);
+    }
+
+    /** Qual provedor/modelo deu a última resposta (diagnóstico e testes). */
+    public function ultimoModelo(): string
+    {
+        return $this->ultimoModelo;
+    }
+
+    /** @return list<string> */
+    private function nomesDasOutrasLojas(int $storeId): array
+    {
+        $st = $this->pdo->prepare('SELECT name FROM stores WHERE id <> ? LIMIT 1000');
+        $st->execute([$storeId]);
+
+        return array_map('strval', $st->fetchAll(PDO::FETCH_COLUMN));
     }
 
     public const MSG_RECUSA_DESTRUTIVO = 'Não posso ajudar com isso. Comandos que apagam arquivos ou dados em massa podem causar perdas que não têm volta, e esse tipo de tarefa está fora do que o assistente da loja faz. Posso ajudar com vendas, produtos, estoque, pedidos e a gestão da loja.';
@@ -206,7 +237,9 @@ class AiAssistantService
      * confirmação). Esta checagem não depende da obediência do modelo:
      *
      *  - comando destrutivo em qualquer lugar → a resposta inteira vira recusa;
-     *  - bloco de código (```) → sai da resposta, com um aviso no lugar.
+     *  - bloco de código (```) → sai da resposta junto com as linhas que
+     *    falam dele (token, API, código inline), com um aviso só no fim;
+     *  - mais de 3 trechos em negrito → o excedente perde o negrito.
      */
     public static function filtrarResposta(string $texto): string
     {
@@ -226,9 +259,7 @@ class AiAssistantService
                 return self::MSG_RECUSA_DESTRUTIVO;
             }
         }
-        $semCodigo = preg_replace('/```.*?(```|$)/s', "_(Trecho de código omitido: o assistente da loja não gera scripts nem código.)_", $texto);
-
-        return trim((string) ($semCodigo ?? $texto));
+        return AiGuard::limitarNegrito(AiGuard::tirarCodigo(trim($texto)));
     }
 
     /**
@@ -503,6 +534,7 @@ class AiAssistantService
             $this->lastOpenRouterFailure = $nome . ' não retornou texto na resposta.';
             return null;
         }
+        $this->ultimoModelo = $nome . ': ' . (string) ($data['model'] ?? $model);
 
         return trim($content);
     }
@@ -631,6 +663,8 @@ class AiAssistantService
             $this->lastOpenRouterFailure = 'A API não retornou texto na resposta (modelo ou limite de tokens).';
             return null;
         }
+        $this->ultimoModelo = 'OpenRouter: ' . (string) ($data['model'] ?? $model);
+
         return trim($content);
     }
 }
