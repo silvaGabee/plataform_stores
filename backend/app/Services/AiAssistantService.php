@@ -26,9 +26,11 @@ class AiAssistantService
      * e ajuste aqui ou em OPENROUTER_MODEL_FALLBACKS no .env.
      */
     private const OPENROUTER_DEFAULT_FREE_FALLBACKS = [
-        'nvidia/nemotron-3-nano-30b-a3b:free',
-        'nvidia/nemotron-3-super-120b-a12b:free',
-        'liquid/lfm-2.5-2.6b:free',
+        // Conferidos em 18/11/2026; os anteriores (nemotron-3-nano, nemotron-3-super,
+        // lfm-2.5) passaram a responder "unavailable for free".
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'nvidia/nemotron-3.5-super-vl:free',
+        'google/gemma-4-31b-it:free',
     ];
 
     private PDO $pdo;
