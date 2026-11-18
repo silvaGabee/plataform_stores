@@ -38,6 +38,14 @@ class AiAssistantService
     /** Última falha na chamada OpenRouter (para diagnóstico com debug ativo). */
     private string $lastOpenRouterFailure = '';
 
+    /** A última falha foi limite de uso do provedor (aguardar resolve). */
+    private bool $ultimaFalhaFoiLimite = false;
+
+    public function ultimaFalhaFoiLimite(): bool
+    {
+        return $this->ultimaFalhaFoiLimite;
+    }
+
     public function __construct()
     {
         $this->pdo = Database::getConnection();
@@ -181,10 +189,46 @@ class AiAssistantService
             . "\n--- FIM DO SNAPSHOT ---\n\n"
             . ($incluirFinanceiro ? 'PERGUNTA DO DONO:' : 'PERGUNTA DO FUNCIONÁRIO:') . "\n"
             . $pergunta;
-        return $this->chamarOpenRouter([
+        $resposta = $this->chamarOpenRouter([
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $user],
         ]);
+
+        return $resposta === null ? null : self::filtrarResposta($resposta);
+    }
+
+    public const MSG_RECUSA_DESTRUTIVO = 'Não posso ajudar com isso. Comandos que apagam arquivos ou dados em massa podem causar perdas que não têm volta, e esse tipo de tarefa está fora do que o assistente da loja faz. Posso ajudar com vendas, produtos, estoque, pedidos e a gestão da loja.';
+
+    /**
+     * Última trava, no servidor, depois da IA responder. As regras do prompt
+     * pedem para não gerar código, mas o modelo pode desobedecer (num teste
+     * ele entregou um script que apagava a pasta pessoal inteira sem pedir
+     * confirmação). Esta checagem não depende da obediência do modelo:
+     *
+     *  - comando destrutivo em qualquer lugar → a resposta inteira vira recusa;
+     *  - bloco de código (```) → sai da resposta, com um aviso no lugar.
+     */
+    public static function filtrarResposta(string $texto): string
+    {
+        $destrutivo = [
+            '/\brm\s+-[a-z]*[rf][a-z]*\b/i',                 // rm -rf, rm -r
+            '/\bRemove-Item\b/i',
+            '/\b(del|erase)\s+\/[sqf]/i',                    // del /s /q
+            '/\b(rmdir|rd)\s+\/s\b/i',
+            '/\bformat(-volume)?\s+[a-z]:/i',
+            '/\bshutil\.rmtree\b|\bos\.(remove|unlink|rmdir)\b|\bunlinkSync\b|\brmSync\b/i',
+            '/\bDROP\s+(TABLE|DATABASE|SCHEMA)\b|\bTRUNCATE\s+TABLE\b/i',
+            '/\bDELETE\s+FROM\s+\w+\s*(;|$)/im',              // DELETE sem WHERE
+            '/\bmkfs\b|\bdd\s+if=/i',
+        ];
+        foreach ($destrutivo as $re) {
+            if (preg_match($re, $texto)) {
+                return self::MSG_RECUSA_DESTRUTIVO;
+            }
+        }
+        $semCodigo = preg_replace('/```.*?(```|$)/s', "_(Trecho de código omitido: o assistente da loja não gera scripts nem código.)_", $texto);
+
+        return trim((string) ($semCodigo ?? $texto));
     }
 
     /**
@@ -391,9 +435,10 @@ class AiAssistantService
      * Chamada a uma API no formato da OpenAI (/chat/completions). Sem chave,
      * o cabeçalho Authorization não vai.
      */
-    private function chamarCompativelOpenAI(string $nome, string $url, string $apiKey, string $model, array $messages): ?string
+    private function chamarCompativelOpenAI(string $nome, string $url, string $apiKey, string $model, array $messages, bool $repetindo = false): ?string
     {
         $this->lastOpenRouterFailure = '';
+        $this->ultimaFalhaFoiLimite = false;
         $body = json_encode(['model' => $model, 'messages' => $messages], JSON_UNESCAPED_UNICODE);
         if ($body === false) {
             $this->lastOpenRouterFailure = 'Falha ao montar JSON da requisição.';
@@ -437,6 +482,19 @@ class AiAssistantService
         if (!empty($data['error']) || $httpCode < 200 || $httpCode >= 300) {
             $this->lastOpenRouterFailure = '[HTTP ' . $httpCode . '] '
                 . (!empty($data['error']) ? $this->formatOpenRouterErrorPayload($data['error']) : 'erro de ' . $nome);
+            // Limite do plano grátis (a Pollinations sem chave aceita 1
+            // resposta a cada 45 s por IP). Espera o tempo pedido e tenta uma
+            // vez de novo: numa apresentação, demorar é melhor que falhar.
+            // 503 "at its limit right now. Retry after 10s" = fila cheia, mesmo caso.
+            if (in_array($httpCode, [402, 429, 503], true)) {
+                $this->ultimaFalhaFoiLimite = true;
+                if (!$repetindo && preg_match('/retry after (\d+)\s*s/i', (string) $response, $mm) && (int) $mm[1] <= 50) {
+                    @set_time_limit(self::CURL_TIMEOUT_SEC + 60);
+                    sleep((int) $mm[1] + 1);
+
+                    return $this->chamarCompativelOpenAI($nome, $url, $apiKey, $model, $messages, true);
+                }
+            }
             return null;
         }
         $content = $data['choices'][0]['message']['content'] ?? null;

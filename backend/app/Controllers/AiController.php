@@ -56,13 +56,18 @@ class AiController extends Controller
         // é o que protege: uma instrução no prompt o modelo poderia não seguir.
         $resposta = $service->responderPerguntaLoja($storeId, $pergunta, \App\Auth\Permissions::can('store.bi.read', $storeId));
         if ($resposta === null) {
-            $payload = ['resposta' => self::MSG_INDISPONIVEL];
+            // O motivo técnico (provedor, código HTTP) não vai para o chat:
+            // fica no log do PHP e, com debug ligado, no console do navegador.
+            $fail = $service->getLastOpenRouterFailure();
+            if ($fail !== '') {
+                error_log('[assistente IA] ' . $fail);
+            }
+            $payload = ['resposta' => $service->ultimaFalhaFoiLimite()
+                ? 'Muitas perguntas seguidas. Aguarde cerca de um minuto e pergunte de novo.'
+                : self::MSG_INDISPONIVEL];
             $cfg = @include PLATAFORM_BACKEND . '/config/app.php';
-            if (is_array($cfg) && !empty($cfg['debug'])) {
-                $fail = $service->getLastOpenRouterFailure();
-                if ($fail !== '') {
-                    $payload['detalhe_ia'] = $fail;
-                }
+            if (is_array($cfg) && !empty($cfg['debug']) && $fail !== '') {
+                $payload['detalhe_ia'] = $fail;
             }
             $this->json($payload, 200);
             return;

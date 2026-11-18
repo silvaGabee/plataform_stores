@@ -380,8 +380,10 @@
       .then(function (data) {
         removeTypingIndicator();
         var reply = data.resposta != null ? String(data.resposta) : 'Assistente temporariamente indisponível';
-        if (data.detalhe_ia) {
-          reply += '\n\n— ' + String(data.detalhe_ia);
+        // Detalhe técnico (só com APP_DEBUG): vai para o console, não para
+        // a conversa — antes aparecia o nome dos provedores e o erro HTTP.
+        if (data.detalhe_ia && window.console) {
+          console.warn('[assistente IA]', String(data.detalhe_ia));
         }
         appendBubble('assistant', reply);
       })
