@@ -294,9 +294,9 @@ class AiAssistantService
             $lines[] = 'Vendas no mês (pedidos pagos): ' . $this->fmtBrl($this->reports->storeRevenueByType($storeId, $monthStart, $monthEnd)['total']);
             $lines[] = 'Vendas últimos 30 dias (pedidos pagos): ' . $this->fmtBrl($this->reports->storeRevenueByType($storeId, $last30Start, $today)['total']);
         }
-        $lines[] = 'Produtos mais vendidos (semana): ' . $this->formatarTopProdutos($topSem);
-        $lines[] = 'Pedidos pendentes (status pendente): ' . $pendentes;
-        $lines[] = 'Produtos com estoque baixo: ' . count($low) . $this->nomesEstoqueBaixo($low);
+        $lines[] = 'Produtos mais vendidos (semana, pedidos pagos): ' . $this->formatarTopProdutos($topSem);
+        $lines[] = 'Pedidos pendentes (status pendente, todos os períodos): ' . $pendentes;
+        $lines[] = 'Produtos no estoque mínimo ou abaixo (só conta produtos com estoque mínimo cadastrado): ' . count($low) . $this->nomesEstoqueBaixo($low);
         $lines[] = 'Funcionários e gerentes (usuários da equipe): ' . $funcionarios;
 
         return implode("\n", $lines);
@@ -321,7 +321,7 @@ class AiAssistantService
     private function formatarTopProdutos(array $rows): string
     {
         if ($rows === []) {
-            return 'nenhum dado no período';
+            return 'nenhuma venda paga no período';
         }
         $parts = [];
         foreach ($rows as $i => $row) {
@@ -331,7 +331,7 @@ class AiAssistantService
                 $parts[] = $name . ' (' . (int) $qty . ' un.)';
             }
         }
-        return $parts === [] ? 'nenhum dado no período' : implode('; ', $parts);
+        return $parts === [] ? 'nenhuma venda paga no período' : implode('; ', $parts);
     }
 
     private function nomesEstoqueBaixo(array $low): string
