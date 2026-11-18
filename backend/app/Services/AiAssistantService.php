@@ -207,6 +207,8 @@ class AiAssistantService
             return null;
         }
         if (AiGuard::vazaRegras($resposta, $regras)) {
+            $this->ultimoModelo .= ' (resposta trocada: reproduzia as regras)';
+
             return AiGuard::RECUSA_INSTRUCOES;
         }
 
