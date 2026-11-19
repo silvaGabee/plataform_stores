@@ -96,7 +96,12 @@ $__aiSugestoes = !empty($panel_is_gerente)
     ? ['Como estão as vendas desta semana?', 'O que devo repor no estoque?', 'Ideia de promoção para os mais vendidos', 'Escreva um aviso de pedido pronto para o cliente']
     : ['Quantos pedidos estão pendentes?', 'Quais produtos estão no estoque mínimo?', 'Dicas para melhorar o atendimento', 'Escreva um aviso de pedido pronto para o cliente'];
 ?>
-    <div id="panel-ai-modal" class="panel-ai-modal" hidden>
+<?php
+// Dono da conversa guardada no navegador: outro usuário (ou outra loja) na
+// mesma aba não enxerga o histórico anterior. É um resumo, não o id em si.
+$__aiDono = substr(hash('sha256', (string) ($_SESSION['logged_user_id'] ?? '') . '|' . (string) ($store['id'] ?? '')), 0, 16);
+?>
+    <div id="panel-ai-modal" class="panel-ai-modal" data-chat-owner="<?= $__aiDono ?>" hidden>
         <div class="panel-ai-backdrop" aria-hidden="true"></div>
         <div id="panel-ai-dialog" class="panel-ai-dialog" role="dialog" aria-modal="true" aria-labelledby="panel-ai-title" aria-describedby="panel-ai-subtitle">
             <header class="panel-ai-header">
@@ -147,7 +152,7 @@ $__aiSugestoes = !empty($panel_is_gerente)
                     <span><kbd>Enter</kbd> envia · <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha</span>
                     <span class="panel-ai-count" id="panel-ai-count" hidden></span>
                 </p>
-                <p class="panel-ai-note">A IA pode errar. Confira os números importantes antes de decidir.</p>
+                <p class="panel-ai-note">A IA pode errar. Confira os números importantes antes de decidir. A conversa fica salva só nesta aba, até você fechá-la.</p>
             </form>
         </div>
     </div>

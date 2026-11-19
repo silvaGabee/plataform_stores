@@ -29,6 +29,38 @@
   var closeTimer = null;
   var busy = false;
 
+  /*
+   * Conversa temporária: fica no sessionStorage, então sobrevive a recarregar
+   * a página e a seguir um link do chat (ex.: abrir Configurações e voltar ao
+   * assistente para ler o passo a passo), e some ao fechar a aba. A chave
+   * leva o dono (usuário + loja), para outra pessoa na mesma aba não ver.
+   */
+  var MAX_SALVAS = 40;
+  var storageKey = 'panel-ai-chat:' + (modal.getAttribute('data-chat-owner') || slug);
+  var historico = [];
+
+  function salvarHistorico() {
+    try {
+      if (historico.length) {
+        sessionStorage.setItem(storageKey, JSON.stringify(historico.slice(-MAX_SALVAS)));
+      } else {
+        sessionStorage.removeItem(storageKey);
+      }
+    } catch (e) { /* armazenamento bloqueado ou cheio: segue sem salvar */ }
+  }
+
+  function lerHistorico() {
+    try {
+      var bruto = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+      if (!Array.isArray(bruto)) return [];
+      return bruto.filter(function (m) {
+        return m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string';
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+
   var ICON_MARK =
     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
     '<path d="M12 3L13.5 8L18 9L13.5 10L12 15L10.5 10L6 9L10.5 8L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
@@ -74,6 +106,8 @@
   }
 
   function restoreEmptyState() {
+    historico = [];
+    salvarHistorico();
     messagesEl.textContent = '';
     if (emptyTemplate) {
       var node = emptyTemplate.cloneNode(true);
@@ -127,6 +161,10 @@
   function appendMessage(role, text, opts) {
     opts = opts || {};
     removeEmptyState();
+    if (!opts.restaurando) {
+      historico.push({ role: role, text: text, erro: !!opts.erro });
+      salvarHistorico();
+    }
     var row = document.createElement('div');
     row.className = 'panel-ai-msg panel-ai-msg--' + role + (opts.erro ? ' panel-ai-msg--erro' : '');
     if (role === 'assistant') row.appendChild(avatar());
@@ -507,6 +545,9 @@
     document.body.classList.add('panel-ai-open');
     fab.setAttribute('aria-expanded', 'true');
     updateComposer();
+    // Com a janela escondida a rolagem não acontece; a conversa restaurada
+    // abre na última mensagem.
+    scrollToEnd();
     setTimeout(function () { if (isOpen()) input.focus(); }, 60);
   }
 
@@ -522,6 +563,12 @@
     var back = lastFocus && typeof lastFocus.focus === 'function' && lastFocus !== document.body ? lastFocus : fab;
     back.focus();
   }
+
+  // Conversa salva nesta aba volta ao carregar a página.
+  historico = lerHistorico();
+  historico.forEach(function (m) {
+    appendMessage(m.role, m.text, { erro: m.erro, restaurando: true });
+  });
 
   fab.setAttribute('aria-expanded', 'false');
   fab.addEventListener('click', open);
