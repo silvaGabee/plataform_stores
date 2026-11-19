@@ -327,6 +327,29 @@ final class InvestmentTest extends TestCase
         $this->assertSame(0.0, (float) $a['fluxos'][1]);
     }
 
+    public function testDespesasSobreAVendaReduzemAsEntradasNaoORitmo(): void
+    {
+        // O mesmo caso real com 20% de despesas (imposto, cartão, comissão):
+        // cada entrada × 0,8. Fluxo −975; 0; 36,37; 649,58; 649,58; 634,43.
+        $p = ['custo' => 25.0, 'preco' => 63.14, 'venda_mensal' => 12.86, 'estoque' => 25];
+        $sem = AnalyzingBIService::analisarCompra($p, 39, 1.5, true);
+        $com = AnalyzingBIService::analisarCompra($p, 39, 1.5, true, 0.0, 0, 20.0);
+
+        $this->assertSame(975.0, $com['investimento']);            // a compra custa o mesmo
+        $this->assertSame(count($sem['fluxos']), count($com['fluxos'])); // e vende no mesmo ritmo
+        $this->assertSame([-975.0, 0.0, 36.37, 649.58, 649.58, 634.43], array_map('floatval', $com['fluxos']));
+        $this->assertTrue(abs($com['entradas'] - 1969.96) < 0.01, 'entradas ' . $com['entradas']);
+        $this->assertTrue(abs($com['tir'] - 19.82) < 0.01, 'TIR ' . $com['tir']);
+        $this->assertTrue(abs($com['vpl'] - 882.46) < 0.02, 'VPL ' . $com['vpl']);
+        $this->assertTrue($com['payback_simples'] > $sem['payback_simples']);
+        $this->assertSame(20.0, $com['premissas']['despesas']);
+
+        // 0% (padrão) não muda nada.
+        $zero = AnalyzingBIService::analisarCompra($p, 39, 1.5, true, 0.0, 0, 0.0);
+        $this->assertSame($sem['fluxos'], $zero['fluxos']);
+        $this->assertSame($sem['tir'], $zero['tir']);
+    }
+
     public function testAnaliseDaCompraJuntaVplTirEDecisao(): void
     {
         // 10 peças a R$ 50, 4/mês a R$ 100, sem estoque antes: −500, 400, 400, 200.

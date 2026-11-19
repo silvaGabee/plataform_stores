@@ -160,6 +160,7 @@ ob_start();
             <label class="ui-field bi-sim-produto"><span>Produto</span><select name="produto" required></select></label>
             <label class="ui-field"><span>Quantidade</span><input name="quantidade" type="number" min="1" step="1" required></label>
             <label class="ui-field"><span>TMA (% ao mês)</span><input name="tma" type="number" min="0" max="20" step="0.01" value="1.5" required></label>
+            <label class="ui-field"><span>Despesas sobre a venda (%)</span><input name="despesas" type="number" min="0" max="99.99" step="0.01" value="0" aria-describedby="bi-sim-despesas-hint"><small class="bi-muted" id="bi-sim-despesas-hint">Opcional: impostos, taxa do cartão, comissão. Reduz as entradas, não o ritmo de venda.</small></label>
             <label class="bi-sim-check"><input type="checkbox" name="estoque" checked> <span>O estoque atual vende primeiro</span></label>
             <fieldset class="bi-sim-fin">
                 <legend>Financiar a compra (opcional)</legend>

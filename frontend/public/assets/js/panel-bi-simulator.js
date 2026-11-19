@@ -124,7 +124,8 @@
         stat('Investimento hoje', money(d.investimento), Number(d.premissas.quantidade).toLocaleString('pt-BR') + ' peças × ' + money(d.produto.custo)) +
         stat('VPL à TMA de ' + pct(d.premissas.tma), money(d.vpl), compensa ? 'rende mais que a TMA: compensa' : 'rende menos que a TMA: não compensa', compensa ? 'is-pos' : 'is-neg') +
         stat('TIR', d.tir === null ? 'não existe' : pct(d.tir), d.tir === null ? 'o dinheiro investido não volta' : (d.tir >= d.premissas.tma ? 'acima' : 'abaixo') + ' da TMA', d.tir === null ? 'is-neg' : (d.tir >= d.premissas.tma ? 'is-pos' : 'is-neg')) +
-        stat('Lucro sem descontar o tempo', money(d.lucro_nominal), 'entradas ' + money(d.entradas) + ' − investimento') +
+        stat('Lucro sem descontar o tempo', money(d.lucro_nominal), 'entradas ' + money(d.entradas) +
+          (Number(d.premissas.despesas) > 0 ? ' (já sem ' + Number(d.premissas.despesas).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '% de despesas)' : '') + ' − investimento') +
         stat('Payback simples', meses(d.payback_simples), 'quando a soma das entradas cobre a compra') +
         stat('Payback descontado', meses(d.payback_descontado), 'o mesmo, com as entradas trazidas a valor presente') +
         (avisos.length ? '<p class="bi-pix-note">' + avisos.map(UI.esc).join(' ') + '</p>' : '') +
@@ -140,6 +141,7 @@
       produto: String(p.produto_id),
       quantidade: form.elements.quantidade.value || '0',
       tma: form.elements.tma.value || '0',
+      despesas: form.elements.despesas.value || '0',
       estoque: form.elements.estoque.checked ? '1' : '0',
       parcelas: form.elements.parcelas.value,
       taxa: form.elements.taxa.value || '0'

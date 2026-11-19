@@ -523,7 +523,8 @@ Comprar um lote de mercadoria é um investimento: o dinheiro sai inteiro hoje e 
 
 - **saída em t = 0:** quantidade × custo atual do produto;
 - **ritmo de venda:** o mesmo da cobertura de estoque (seção 3.3.14), ou seja, o vendido na janela de 7 a 90 dias, levado a 30 dias. Com menos de 90 dias de vendas, a tela avisa que o ritmo é uma projeção e que o VPL, a TIR e o payback dependem dela;
-- **preço de cada peça vendida:** o preço médio que a loja de fato recebeu em 12 meses, já com descontos e sem frete. O preço de etiqueta só é usado quando o produto nunca vendeu, porque superestima a entrada de caixa.
+- **preço de cada peça vendida:** o preço médio que a loja de fato recebeu em 12 meses, já com descontos e sem frete. O preço de etiqueta só é usado quando o produto nunca vendeu, porque superestima a entrada de caixa;
+- **despesas sobre a venda (opcional, 0% por padrão):** custos proporcionais a cada venda, como impostos, taxa do cartão e comissão. Cada entrada do mês vira entrada × (1 − d). O investimento e o ritmo de venda não mudam; o VPL, a TIR e o payback são recalculados sobre o fluxo líquido. No caso de 39 camisetas a R$ 25,00 vendidas a R$ 63,14, a TIR cai de 27,06% para 19,82% ao mês com 20% de despesas, e o VPL à TMA de 1,5% vai de R$ 1.346,82 para R$ 882,45. Isso mostra que uma margem alta, sozinha, não garante uma TIR alta: o que sustenta a taxa é a combinação de margem com giro rápido, e as despesas reduzem as duas pontas do lucro.
 
 Se ainda há estoque do produto na prateleira, ele vende primeiro, e o lote novo só começa a virar dinheiro depois. Com venda de v peças por mês e E peças em estoque, o total de peças do lote novo vendidas até o fim do mês k é:
 
@@ -736,7 +737,7 @@ O objetivo geral foi alcançado, com ressalvas. O sistema registra as vendas pel
 6. **O estorno é sempre do pedido inteiro.** Para devolver só uma peça, é preciso estornar e registrar a venda de novo. O valor também sai do mês da venda, não do mês da devolução.
 7. **A venda de balcão não identifica o cliente.** O relatório de clientes considera apenas as compras da vitrine, e os cupons não são vinculados a um cliente específico.
 8. **O giro e a data de reposição são aproximações.** O giro usa o estoque atual, porque o sistema não guarda o estoque médio, e a data não considera o prazo do fornecedor.
-9. **O simulador de compra simplifica o fluxo de caixa.** Supõe que o ritmo de venda dos últimos 90 dias se mantém (em produto novo, uma projeção com piso de 7 dias, que pode ficar longe da demanda real), conta como entrada a receita da venda (sem impostos, comissões nem taxa do cartão), considera que a loja paga o fornecedor no ato e ignora o que não vender em 36 meses. A TMA é informada pelo gerente, não calculada.
+9. **O simulador de compra simplifica o fluxo de caixa.** Supõe que o ritmo de venda dos últimos 90 dias se mantém (em produto novo, uma projeção com piso de 7 dias, que pode ficar longe da demanda real), conta como entrada a receita da venda menos um percentual único de despesas informado pelo gerente (impostos, comissões e taxa do cartão; 0% se ele não informar), considera que a loja paga o fornecedor no ato e ignora o que não vender em 36 meses. A TMA é informada pelo gerente, não calculada.
 
 ## 5.3 Sugestões de trabalhos futuros
 

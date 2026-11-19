@@ -59,7 +59,8 @@ class AnalyzingBIApiController extends Controller
                 $num((string) ($_GET['tma'] ?? '0')),
                 ($_GET['estoque'] ?? '1') !== '0',
                 $num((string) ($_GET['taxa'] ?? '0')),
-                (int) ($_GET['parcelas'] ?? 0)
+                (int) ($_GET['parcelas'] ?? 0),
+                $num((string) ($_GET['despesas'] ?? '0'))
             ));
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);

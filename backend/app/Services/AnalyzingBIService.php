@@ -510,7 +510,8 @@ class AnalyzingBIService
         float $tmaPercent,
         bool $considerarEstoque,
         float $taxaFinanciamento,
-        int $parcelas
+        int $parcelas,
+        float $despesasPercent = 0.0
     ): array {
         $tz = new DateTimeZone((string) (config('app.timezone') ?: 'America/Sao_Paulo'));
         $now = new DateTimeImmutable('now', $tz);
@@ -536,11 +537,20 @@ class AnalyzingBIService
             throw new \InvalidArgumentException('A TMA deve estar entre 0% e ' . Installments::MAX_TAXA_MENSAL . '% ao mês.');
         }
 
-        return $resposta + self::analisarCompra($produto, $quantidade, $tmaPercent, $considerarEstoque, $taxaFinanciamento, $parcelas);
+        if ($despesasPercent < 0 || $despesasPercent >= 100) {
+            throw new \InvalidArgumentException('As despesas sobre a venda devem ficar entre 0% e 99,99%.');
+        }
+
+        return $resposta + self::analisarCompra($produto, $quantidade, $tmaPercent, $considerarEstoque, $taxaFinanciamento, $parcelas, $despesasPercent);
     }
 
     /**
      * A conta do simulador, sem banco: separada para ser testada.
+     *
+     * $despesasPercent: custos proporcionais à venda (imposto, taxa do cartão,
+     * comissão). Cada entrada do lote vira entrada × (1 − d); o investimento,
+     * o ritmo de venda e a cobertura não mudam. VPL, TIR e payback saem do
+     * fluxo já líquido. Com 0 (padrão) o resultado é o de antes.
      *
      * @param array{custo: float, preco: float, venda_mensal: float, estoque: int} $produto
      * @return array<string, mixed>
@@ -551,7 +561,8 @@ class AnalyzingBIService
         float $tmaPercent,
         bool $considerarEstoque,
         float $taxaFinanciamento = 0.0,
-        int $parcelas = 0
+        int $parcelas = 0,
+        float $despesasPercent = 0.0
     ): array {
         $f = Investment::stockPurchaseFlows(
             $quantidade,
@@ -560,6 +571,12 @@ class AnalyzingBIService
             (float) $produto['venda_mensal'],
             $considerarEstoque ? (float) $produto['estoque'] : 0.0
         );
+        $liquido = 1 - max(0.0, min(100.0, $despesasPercent)) / 100;
+        foreach ($f['fluxos'] as $t => $valor) {
+            if ($t > 0) {
+                $f['fluxos'][$t] = round($valor * $liquido, 2);
+            }
+        }
         $investimento = -$f['fluxos'][0];
         $vpl = Investment::npv($tmaPercent, $f['fluxos']);
         $tir = Investment::irr($f['fluxos']);
@@ -570,6 +587,7 @@ class AnalyzingBIService
                 'quantidade' => $quantidade,
                 'tma' => $tmaPercent,
                 'considerar_estoque' => $considerarEstoque,
+                'despesas' => max(0.0, min(100.0, $despesasPercent)),
             ],
             'investimento' => $investimento,
             'fluxos' => $f['fluxos'],
