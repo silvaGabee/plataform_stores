@@ -11,101 +11,192 @@
   var dialog = document.getElementById('panel-ai-dialog');
   var fab = document.getElementById('panel-ai-fab');
   var closeBtn = document.getElementById('panel-ai-close');
+  var clearBtn = document.getElementById('panel-ai-clear');
   var backdrop = modal && modal.querySelector('.panel-ai-backdrop');
   var form = document.getElementById('panel-ai-form');
   var input = document.getElementById('panel-ai-input');
   var messagesEl = document.getElementById('panel-ai-messages');
   var sendBtn = document.getElementById('panel-ai-send');
-  if (!modal || !fab || !form || !input || !messagesEl || !dialog) return;
+  var countEl = document.getElementById('panel-ai-count');
+  if (!modal || !fab || !form || !input || !messagesEl || !dialog || !sendBtn) return;
+
+  var MAX = parseInt(input.getAttribute('maxlength'), 10) || 2000;
+  var MSG_INDISPONIVEL = 'Assistente temporariamente indisponível';
+  var emptyTemplate = document.getElementById('panel-ai-empty');
+  emptyTemplate = emptyTemplate ? emptyTemplate.cloneNode(true) : null;
 
   var lastFocus = null;
-  var closeFallbackTimer = null;
+  var closeTimer = null;
+  var busy = false;
 
-  function restoreLastFocus() {
-    if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+  var ICON_MARK =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
+    '<path d="M12 3L13.5 8L18 9L13.5 10L12 15L10.5 10L6 9L10.5 8L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+  var ICON_COPY =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
+    '<rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/>' +
+    '<path d="M5 15V5a2 2 0 0 1 2-2h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+  /* ---------- Campo de pergunta ---------- */
+
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 144) + 'px';
   }
+
+  function updateComposer() {
+    var len = input.value.length;
+    sendBtn.disabled = busy || input.value.trim() === '';
+    if (countEl) {
+      // O contador só aparece perto do limite, para não poluir o campo.
+      var perto = len >= MAX * 0.8;
+      countEl.hidden = !perto;
+      countEl.textContent = len.toLocaleString('pt-BR') + ' / ' + MAX.toLocaleString('pt-BR');
+      countEl.classList.toggle('is-limit', len >= MAX);
+    }
+    autoGrow();
+  }
+
+  input.addEventListener('input', updateComposer);
+  input.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    // Enter envia; Shift+Enter quebra a linha (Ctrl/Cmd+Enter também envia).
+    if (e.shiftKey && !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    if (!sendBtn.disabled) send();
+  });
+
+  /* ---------- Mensagens ---------- */
 
   function removeEmptyState() {
     var empty = document.getElementById('panel-ai-empty');
-    if (empty && empty.parentNode) empty.parentNode.removeChild(empty);
+    if (empty) empty.remove();
   }
 
-  function removeTypingIndicator() {
-    var t = messagesEl.querySelector('.panel-ai-typing');
-    if (t) t.remove();
+  function restoreEmptyState() {
+    messagesEl.textContent = '';
+    if (emptyTemplate) {
+      var node = emptyTemplate.cloneNode(true);
+      messagesEl.appendChild(node);
+      bindChips(node);
+    }
+    if (clearBtn) clearBtn.hidden = true;
   }
 
-  function showTypingIndicator() {
-    removeEmptyState();
-    removeTypingIndicator();
-    var row = document.createElement('div');
-    row.className = 'panel-ai-typing';
-    row.setAttribute('role', 'status');
-    row.setAttribute('aria-live', 'polite');
-    row.setAttribute('aria-label', 'Assistente está preparando a resposta');
+  function scrollToEnd() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
 
+  function srLabel(text) {
+    var s = document.createElement('span');
+    s.className = 'visually-hidden';
+    s.textContent = text;
+    return s;
+  }
+
+  function avatar() {
     var av = document.createElement('div');
-    av.className = 'panel-ai-typing-avatar';
+    av.className = 'panel-ai-msg-avatar';
     av.setAttribute('aria-hidden', 'true');
-    av.innerHTML =
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
-      '<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>' +
-      '</svg>';
+    av.innerHTML = ICON_MARK;
+    return av;
+  }
 
+  function copyText(text, btn) {
+    var done = function () {
+      var label = btn.querySelector('.panel-ai-action-label');
+      if (!label) return;
+      label.textContent = 'Copiado';
+      setTimeout(function () { label.textContent = 'Copiar'; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () {});
+      return;
+    }
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (err) { /* sem cópia */ }
+    ta.remove();
+  }
+
+  function appendMessage(role, text, opts) {
+    opts = opts || {};
+    removeEmptyState();
+    var row = document.createElement('div');
+    row.className = 'panel-ai-msg panel-ai-msg--' + role + (opts.erro ? ' panel-ai-msg--erro' : '');
+    if (role === 'assistant') row.appendChild(avatar());
+
+    var col = document.createElement('div');
+    col.className = 'panel-ai-msg-col';
     var bubble = document.createElement('div');
-    bubble.className = 'panel-ai-typing-bubble';
+    bubble.className = 'panel-ai-bubble panel-ai-bubble--' + role;
+    bubble.appendChild(srLabel(role === 'user' ? 'Você: ' : 'Assistente: '));
+    if (role === 'assistant') {
+      var md = document.createElement('div');
+      md.className = 'panel-ai-bubble--md';
+      renderMarkdown(md, text);
+      bubble.appendChild(md);
+    } else {
+      bubble.appendChild(document.createTextNode(text));
+    }
+    col.appendChild(bubble);
 
+    if (role === 'assistant' && !opts.erro) {
+      var actions = document.createElement('div');
+      actions.className = 'panel-ai-msg-actions';
+      var copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'panel-ai-action';
+      copy.innerHTML = ICON_COPY + '<span class="panel-ai-action-label">Copiar</span>';
+      copy.setAttribute('aria-label', 'Copiar resposta');
+      copy.addEventListener('click', function () { copyText(text, copy); });
+      actions.appendChild(copy);
+      col.appendChild(actions);
+    }
+
+    row.appendChild(col);
+    messagesEl.appendChild(row);
+    if (clearBtn) clearBtn.hidden = false;
+    scrollToEnd();
+  }
+
+  function showTyping() {
+    removeTyping();
+    removeEmptyState();
+    var row = document.createElement('div');
+    row.className = 'panel-ai-msg panel-ai-msg--assistant panel-ai-typing';
+    row.setAttribute('role', 'status');
+    row.appendChild(avatar());
+    var col = document.createElement('div');
+    col.className = 'panel-ai-msg-col';
     var dots = document.createElement('span');
     dots.className = 'panel-ai-typing-dots';
     dots.setAttribute('aria-hidden', 'true');
     for (var i = 0; i < 3; i++) {
-      var dot = document.createElement('span');
-      dot.className = 'panel-ai-typing-dot';
-      dots.appendChild(dot);
+      var d = document.createElement('span');
+      d.className = 'panel-ai-typing-dot';
+      dots.appendChild(d);
     }
-    bubble.appendChild(dots);
-
-    var col = document.createElement('div');
-    col.className = 'panel-ai-msg-col';
-    var meta = document.createElement('span');
-    meta.className = 'panel-ai-bubble-meta panel-ai-bubble-meta--typing';
-    meta.textContent = 'A gerar resposta…';
-    col.appendChild(meta);
-    col.appendChild(bubble);
-    row.appendChild(av);
+    col.appendChild(dots);
+    col.appendChild(srLabel('O assistente está escrevendo a resposta.'));
     row.appendChild(col);
     messagesEl.appendChild(row);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    scrollToEnd();
   }
 
-  function api(path, body) {
-    var url = base + path;
-    return fetch(url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }).then(function (r) {
-      return r.text().then(function (text) {
-        var j = null;
-        try {
-          j = text ? JSON.parse(text) : null;
-        } catch (e) {
-          j = null;
-        }
-        if (!r.ok) {
-          var err = j && j.error ? j.error : text || 'Erro HTTP ' + r.status;
-          return Promise.reject(new Error(err));
-        }
-        return j || {};
-      });
-    });
+  function removeTyping() {
+    var t = messagesEl.querySelector('.panel-ai-typing');
+    if (t) t.remove();
   }
 
   /**
    * Formatação da resposta da IA (markdown simples) montada com nós do DOM —
-   * nunca innerHTML, então nada do texto vira HTML de verdade. Antes a
-   * resposta aparecia crua, com ** e | espalhados.
+   * nunca innerHTML, então nada do texto vira HTML de verdade.
    *
    * Entende: **negrito**, *itálico*, `código`, títulos (#), listas com - * •
    * ou 1., tabelas com | e linha separadora, e --- (vira um espaço).
@@ -147,7 +238,8 @@
   }
 
   function renderMarkdown(container, text) {
-    var lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+    // "R$ 579,70" não quebra entre o símbolo e o número.
+    var lines = String(text).replace(/\r\n?/g, '\n').replace(/R\$ (?=\d)/g, 'R$ ').split('\n');
     var i = 0;
     var para = [];
     function flushPara() {
@@ -253,148 +345,152 @@
     flushPara();
   }
 
-  function appendBubble(role, text) {
-    removeEmptyState();
-    var row = document.createElement('div');
-    row.className = 'panel-ai-msg panel-ai-msg--' + role;
-    if (role === 'assistant') {
-      var av = document.createElement('div');
-      av.className = 'panel-ai-msg-avatar';
-      av.setAttribute('aria-hidden', 'true');
-      av.innerHTML =
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">' +
-        '<path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>' +
-        '</svg>';
-      row.appendChild(av);
-    }
-    var col = document.createElement('div');
-    col.className = 'panel-ai-msg-col';
-    var meta = document.createElement('span');
-    meta.className = 'panel-ai-bubble-meta';
-    meta.textContent = role === 'user' ? 'Você' : 'Assistente';
-    var div = document.createElement('div');
-    div.className = 'panel-ai-bubble panel-ai-bubble--' + role;
-    if (role === 'assistant') {
-      div.classList.add('panel-ai-bubble--md');
-      renderMarkdown(div, text);
-    } else {
-      div.textContent = text;
-    }
-    col.appendChild(meta);
-    col.appendChild(div);
-    row.appendChild(col);
-    messagesEl.appendChild(row);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  /* ---------- Envio ---------- */
 
-  function setOpen(open) {
-    if (open) {
-      if (closeFallbackTimer) {
-        clearTimeout(closeFallbackTimer);
-        closeFallbackTimer = null;
-      }
-      lastFocus = document.activeElement;
-      modal.hidden = false;
-      modal.classList.remove('is-open');
-      void modal.offsetWidth;
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          modal.classList.add('is-open');
-        });
-      });
-      document.body.classList.add('panel-ai-open');
-      setTimeout(function () {
-        if (!modal.hidden && modal.classList.contains('is-open')) input.focus();
-      }, 320);
-    } else {
-      removeTypingIndicator();
-      if (modal.hidden || !modal.classList.contains('is-open')) {
-        modal.hidden = true;
-        modal.classList.remove('is-open');
-        document.body.classList.remove('panel-ai-open');
-        restoreLastFocus();
-        return;
-      }
-      var finished = false;
-      function finishClose() {
-        if (finished) return;
-        finished = true;
-        dialog.removeEventListener('transitionend', onDialogTransitionEnd);
-        if (closeFallbackTimer) {
-          clearTimeout(closeFallbackTimer);
-          closeFallbackTimer = null;
+  function api(path, body) {
+    return fetch(base + path, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        var j = null;
+        try { j = text ? JSON.parse(text) : null; } catch (e) { j = null; }
+        if (!r.ok) {
+          // Só a mensagem que o servidor escreveu para a pessoa (limite,
+          // pergunta longa); HTML de erro ou texto técnico não vai ao chat.
+          var err = new Error(j && j.error ? String(j.error) : '');
+          err.paraPessoa = !!(j && j.error);
+          return Promise.reject(err);
         }
-        modal.hidden = true;
-        modal.classList.remove('is-open');
-        document.body.classList.remove('panel-ai-open');
-        restoreLastFocus();
-      }
-      function onDialogTransitionEnd(e) {
-        if (e.target !== dialog) return;
-        if (e.propertyName !== 'transform') return;
-        finishClose();
-      }
-      dialog.addEventListener('transitionend', onDialogTransitionEnd);
-      modal.classList.remove('is-open');
-      closeFallbackTimer = setTimeout(finishClose, 420);
-    }
-  }
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      if (typeof form.requestSubmit === 'function') form.requestSubmit();
-      else if (sendBtn) sendBtn.click();
-    }
-  });
-
-  fab.addEventListener('click', function () {
-    setOpen(true);
-  });
-  closeBtn.addEventListener('click', function () {
-    setOpen(false);
-  });
-  if (backdrop) {
-    backdrop.addEventListener('click', function () {
-      setOpen(false);
+        return j || {};
+      });
     });
   }
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.hidden && modal.classList.contains('is-open')) {
-      e.preventDefault();
-      setOpen(false);
-    }
-  });
+
+  function setBusy(on) {
+    busy = on;
+    sendBtn.classList.toggle('is-busy', on);
+    sendBtn.setAttribute('aria-label', on ? 'Aguardando resposta' : 'Enviar pergunta');
+    input.setAttribute('aria-busy', on ? 'true' : 'false');
+    updateComposer();
+  }
+
+  function send(texto) {
+    var q = (texto != null ? texto : input.value).trim();
+    if (!q || busy) return;
+    if (q.length > MAX) q = q.slice(0, MAX);
+    appendMessage('user', q);
+    input.value = '';
+    setBusy(true);
+    showTyping();
+    api('/api/loja/' + encodeURIComponent(slug) + '/ai/chat', { pergunta: q })
+      .then(function (data) {
+        removeTyping();
+        var reply = data.resposta != null ? String(data.resposta) : MSG_INDISPONIVEL;
+        // Detalhe técnico (só com APP_DEBUG) vai para o console, não para a conversa.
+        if (data.detalhe_ia && window.console) console.warn('[assistente IA]', String(data.detalhe_ia));
+        var erro = reply === MSG_INDISPONIVEL || /^Muitas perguntas/.test(reply);
+        appendMessage('assistant', erro ? reply + '. Tente de novo em instantes.' : reply, { erro: erro });
+      })
+      .catch(function (err) {
+        removeTyping();
+        var msg = err && err.paraPessoa && err.message ? err.message : MSG_INDISPONIVEL + '. Tente de novo em instantes.';
+        appendMessage('assistant', msg, { erro: true });
+      })
+      .finally(function () {
+        setBusy(false);
+        input.focus();
+      });
+  }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var q = (input.value || '').trim();
-    if (!q) return;
-    appendBubble('user', q);
-    input.value = '';
-    sendBtn.disabled = true;
-    input.setAttribute('aria-busy', 'true');
-    showTypingIndicator();
-    var path = '/api/loja/' + encodeURIComponent(slug) + '/ai/chat';
-    api(path, { pergunta: q })
-      .then(function (data) {
-        removeTypingIndicator();
-        var reply = data.resposta != null ? String(data.resposta) : 'Assistente temporariamente indisponível';
-        // Detalhe técnico (só com APP_DEBUG): vai para o console, não para
-        // a conversa — antes aparecia o nome dos provedores e o erro HTTP.
-        if (data.detalhe_ia && window.console) {
-          console.warn('[assistente IA]', String(data.detalhe_ia));
-        }
-        appendBubble('assistant', reply);
-      })
-      .catch(function () {
-        removeTypingIndicator();
-        appendBubble('assistant', 'Assistente temporariamente indisponível');
-      })
-      .finally(function () {
-        sendBtn.disabled = false;
-        input.removeAttribute('aria-busy');
-        input.focus();
-      });
+    send();
   });
+
+  function bindChips(scope) {
+    scope.querySelectorAll('.panel-ai-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        send(chip.getAttribute('data-pergunta') || chip.textContent);
+      });
+    });
+  }
+  bindChips(messagesEl);
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (busy) return;
+      restoreEmptyState();
+      input.focus();
+    });
+  }
+
+  /* ---------- Abrir, fechar e foco ---------- */
+
+  function focusables() {
+    return Array.prototype.filter.call(
+      dialog.querySelectorAll('button, textarea, [href], [tabindex]:not([tabindex="-1"])'),
+      function (el) { return !el.disabled && !el.hidden && el.offsetParent !== null; }
+    );
+  }
+
+  // Tab fica dentro da janela enquanto ela está aberta.
+  dialog.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    var els = focusables();
+    if (!els.length) return;
+    var first = els[0];
+    var last = els[els.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  function isOpen() {
+    return !modal.hidden && modal.classList.contains('is-open');
+  }
+
+  function open() {
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    void modal.offsetWidth;
+    modal.classList.add('is-open');
+    document.body.classList.add('panel-ai-open');
+    fab.setAttribute('aria-expanded', 'true');
+    updateComposer();
+    setTimeout(function () { if (isOpen()) input.focus(); }, 60);
+  }
+
+  function close() {
+    if (modal.hidden) return;
+    modal.classList.remove('is-open');
+    document.body.classList.remove('panel-ai-open');
+    fab.setAttribute('aria-expanded', 'false');
+    closeTimer = setTimeout(function () {
+      modal.hidden = true;
+      closeTimer = null;
+    }, 320);
+    var back = lastFocus && typeof lastFocus.focus === 'function' && lastFocus !== document.body ? lastFocus : fab;
+    back.focus();
+  }
+
+  fab.setAttribute('aria-expanded', 'false');
+  fab.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  if (backdrop) backdrop.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isOpen()) {
+      e.preventDefault();
+      close();
+    }
+  });
+
+  updateComposer();
 })();

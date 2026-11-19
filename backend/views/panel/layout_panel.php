@@ -10,6 +10,7 @@
     <script src="<?= asset('js/theme.js') ?>"></script>
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
+    <link rel="stylesheet" href="<?= asset('css/panel-ai.css') ?>">
     <script src="<?= asset('js/csrf.js') ?>"></script>
     <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
@@ -88,74 +89,65 @@ $__ic = static function (string $d): string {
             </svg>
         </span>
     </button>
+<?php
+// Sugestões do painel do assistente. Quem não vê o faturamento (funcionário)
+// não recebe sugestão sobre vendas: a IA nem tem esse dado para ele.
+$__aiSugestoes = !empty($panel_is_gerente)
+    ? ['Como estão as vendas desta semana?', 'O que devo repor no estoque?', 'Ideia de promoção para os mais vendidos', 'Escreva um aviso de pedido pronto para o cliente']
+    : ['Quantos pedidos estão pendentes?', 'Quais produtos estão no estoque mínimo?', 'Dicas para melhorar o atendimento', 'Escreva um aviso de pedido pronto para o cliente'];
+?>
     <div id="panel-ai-modal" class="panel-ai-modal" hidden>
-        <div class="panel-ai-backdrop" tabindex="-1" aria-hidden="true"></div>
-        <div id="panel-ai-dialog" class="panel-ai-dialog" role="dialog" aria-modal="true" aria-labelledby="panel-ai-title">
-            <div class="panel-ai-header">
-                <div class="panel-ai-header-brand">
-                    <span class="panel-ai-header-mark" aria-hidden="true">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
-                            <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
-                        </svg>
-                    </span>
-                    <div class="panel-ai-header-text">
-                        <div class="panel-ai-title-row">
-                            <h2 id="panel-ai-title" class="panel-ai-title">Assistente da loja</h2>
-                            <span class="panel-ai-status" title="Serviço ativo">
-                                <span class="panel-ai-status-dot" aria-hidden="true"></span>
-                                Disponível
-                            </span>
-                        </div>
-                        <p class="panel-ai-subtitle">Copiloto para dados da sua loja · respostas em linguagem natural</p>
-                    </div>
+        <div class="panel-ai-backdrop" aria-hidden="true"></div>
+        <div id="panel-ai-dialog" class="panel-ai-dialog" role="dialog" aria-modal="true" aria-labelledby="panel-ai-title" aria-describedby="panel-ai-subtitle">
+            <header class="panel-ai-header">
+                <span class="panel-ai-mark" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
+                        <path d="M12 3L13.5 8L18 9L13.5 10L12 15L10.5 10L6 9L10.5 8L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                        <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <div class="panel-ai-header-text">
+                    <h2 id="panel-ai-title" class="panel-ai-title">Assistente da loja</h2>
+                    <p id="panel-ai-subtitle" class="panel-ai-subtitle">Usa os dados de <?= htmlspecialchars($store['name']) ?></p>
                 </div>
-                <button type="button" class="panel-ai-close" id="panel-ai-close" aria-label="Fechar">
-                    <svg class="panel-ai-close-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                <button type="button" class="panel-ai-icon-btn" id="panel-ai-clear" aria-label="Limpar conversa" title="Limpar conversa" hidden>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
+                <button type="button" class="panel-ai-icon-btn" id="panel-ai-close" aria-label="Fechar assistente" title="Fechar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </header>
+            <div id="panel-ai-messages" class="panel-ai-messages" aria-live="polite">
+                <div class="panel-ai-empty" id="panel-ai-empty">
+                    <p class="panel-ai-empty-title">Pergunte sobre a sua loja</p>
+                    <p class="panel-ai-empty-desc">Uso os números de vendas, pedidos e estoque do painel e dou ideias de gestão. Cada pergunta é respondida sozinha, então coloque todo o contexto nela.</p>
+                    <p class="panel-ai-suggest-label" id="panel-ai-suggest-label">Comece por aqui</p>
+                    <ul class="panel-ai-suggestions" aria-labelledby="panel-ai-suggest-label">
+                        <?php foreach ($__aiSugestoes as $__s): ?>
+                        <li><button type="button" class="panel-ai-chip" data-pergunta="<?= htmlspecialchars($__s) ?>"><?= htmlspecialchars($__s) ?></button></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
             </div>
-            <div class="panel-ai-scroll">
-                <div class="panel-ai-disclaimer" role="note">
-                    <span class="panel-ai-disclaimer-icon" aria-hidden="true">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
-                            <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <form id="panel-ai-form" class="panel-ai-form" novalidate>
+                <label class="visually-hidden" for="panel-ai-input">Sua pergunta</label>
+                <div class="panel-ai-composer">
+                    <textarea id="panel-ai-input" class="panel-ai-input" rows="1" maxlength="2000" placeholder="Faça uma pergunta…" aria-describedby="panel-ai-hint"></textarea>
+                    <button type="submit" class="panel-ai-send" id="panel-ai-send" aria-label="Enviar pergunta" title="Enviar" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                    </span>
-                    <div class="panel-ai-disclaimer-body">
-                        <span class="panel-ai-disclaimer-label">Aviso</span>
-                        <p class="panel-ai-disclaimer-text">Lembre-se: isso é uma IA. Algumas informações podem estar erradas — confirme dados sensíveis antes de agir.</p>
-                    </div>
-                </div>
-                <div id="panel-ai-messages" class="panel-ai-messages" aria-live="polite">
-                    <div class="panel-ai-empty" id="panel-ai-empty">
-                        <div class="panel-ai-empty-visual" aria-hidden="true">
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 3L13.5 8L18 9L13.5 10L12 15L10.5 10L6 9L10.5 8L12 3Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" opacity="0.5"/>
-                                <path d="M19 14L19.75 16.25L22 17L19.75 17.75L19 20L18.25 17.75L16 17L18.25 16.25L19 14Z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" opacity="0.4"/>
-                            </svg>
-                        </div>
-                        <p class="panel-ai-empty-title">Em que posso ajudar?</p>
-                        <p class="panel-ai-empty-desc">Pode perguntar por vendas, produtos, entregas ou pedir um resumo — as respostas usam os dados do painel quando aplicável.</p>
-                    </div>
-                </div>
-            </div>
-            <form id="panel-ai-form" class="panel-ai-form">
-                <label class="panel-ai-compose-label" for="panel-ai-input">A sua pergunta</label>
-                <div class="panel-ai-compose">
-                    <div class="panel-ai-input-shell">
-                        <textarea id="panel-ai-input" class="panel-ai-input" rows="2" maxlength="2000" placeholder="Ex.: Resumo das vendas da última semana…" required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary panel-ai-send" id="panel-ai-send">
-                        <span class="panel-ai-send-label">Enviar</span>
-                        <span class="panel-ai-send-icon" aria-hidden="true">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false">
-                                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
                     </button>
                 </div>
-                <p class="panel-ai-form-meta"><span class="panel-ai-form-meta-k">Enter</span> nova linha · <span class="panel-ai-form-meta-k">Ctrl+Enter</span> enviar · máx. 2000 caracteres</p>
+                <p class="panel-ai-hint" id="panel-ai-hint">
+                    <span><kbd>Enter</kbd> envia · <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha</span>
+                    <span class="panel-ai-count" id="panel-ai-count" hidden></span>
+                </p>
+                <p class="panel-ai-note">A IA pode errar. Confira os números importantes antes de decidir.</p>
             </form>
         </div>
     </div>
