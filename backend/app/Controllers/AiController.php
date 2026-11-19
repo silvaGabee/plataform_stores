@@ -54,7 +54,7 @@ class AiController extends Controller
         $service = new AiAssistantService();
         // O faturamento só entra no contexto de quem pode ver o BI. Tirar o dado
         // é o que protege: uma instrução no prompt o modelo poderia não seguir.
-        $resposta = $service->responderPerguntaLoja($storeId, $pergunta, \App\Auth\Permissions::can('store.bi.read', $storeId));
+        $resposta = $service->responderPerguntaLoja($storeId, $pergunta, \App\Auth\Permissions::can('store.bi.read', $storeId), $slug);
         if ($resposta === null) {
             // O motivo técnico (provedor, código HTTP) não vai para o chat:
             // fica no log do PHP e, com debug ligado, no console do navegador.

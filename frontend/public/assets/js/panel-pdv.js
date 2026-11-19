@@ -928,7 +928,7 @@
           var src = qr ? (/^(data:|https?:)/.test(qr) ? qr : 'data:image/png;base64,' + qr) : '';
           panel.innerHTML = '<div class="pdv-pix">' +
             (src ? '<img class="pdv-pix-qr" src="' + esc(src) + '" alt="QR Code PIX de ' + esc(money(amount)) + '">'
-                 : '<div class="pdv-pix-missing">' + icon(ICON.pix, 32) + '<p>QR Code indisponível. Verifique a chave PIX em Configurações.</p></div>') +
+                 : '<div class="pdv-pix-missing">' + icon(ICON.pix, 32) + '<p>QR Code indisponível. O gerente cadastra a chave PIX no Dashboard, na seção Chave PIX da loja.</p></div>') +
             (manual && manual.copia_cola
               ? '<div class="pdv-pix-copy"><input class="pdv-input" readonly value="' + esc(manual.copia_cola) + '" aria-label="PIX copia e cola">' +
                 '<button type="button" class="pdv-btn pdv-btn--ghost" id="pdv-pix-copy">' + icon(ICON.copy, 16) + ' Copiar</button></div>' +

@@ -201,7 +201,49 @@
    * Entende: **negrito**, *itálico*, `código`, títulos (#), listas com - * •
    * ou 1., tabelas com | e linha separadora, e --- (vira um espaço).
    */
+  /**
+   * Link só vira clicável se apontar para o painel desta loja ou para a
+   * vitrine dela, no mesmo site. O servidor já filtra; aqui é a segunda trava.
+   */
+  function internalHref(raw) {
+    try {
+      var u = new URL(raw, window.location.href);
+      if (u.origin !== window.location.origin) return null;
+      var basePath = base ? new URL(base, window.location.href).pathname.replace(/\/$/, '') : '';
+      var s = encodeURIComponent(slug);
+      var ok = [basePath + '/painel/' + s, basePath + '/loja/' + s];
+      var p = u.pathname.replace(/\/$/, '');
+      for (var k = 0; k < ok.length; k++) {
+        if (p === ok[k] || p.indexOf(ok[k] + '/') === 0) return u.href;
+      }
+    } catch (e) { /* endereço inválido */ }
+    return null;
+  }
+
   function inlineMd(parent, text) {
+    var link = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+    var lm;
+    var pos = 0;
+    var achou = false;
+    while ((lm = link.exec(text))) {
+      achou = true;
+      if (lm.index > pos) inlineMd(parent, text.slice(pos, lm.index));
+      var href = internalHref(lm[2]);
+      if (href) {
+        var a = document.createElement('a');
+        a.href = href;
+        a.className = 'panel-ai-link';
+        inlineMd(a, lm[1]);
+        parent.appendChild(a);
+      } else {
+        inlineMd(parent, lm[1]);
+      }
+      pos = link.lastIndex;
+    }
+    if (achou) {
+      if (pos < text.length) inlineMd(parent, text.slice(pos));
+      return;
+    }
     var re = /(\*\*|__)(.+?)\1|`([^`]+)`|(^|[^*\w])\*([^*\s][^*]*?)\*(?!\*)/g;
     var last = 0;
     var m;

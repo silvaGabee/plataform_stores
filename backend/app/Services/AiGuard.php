@@ -64,7 +64,8 @@ final class AiGuard
     public static function respostaPronta(string $pergunta, array $outrasLojas = []): ?string
     {
         $p = self::somenteOPedido($pergunta);
-        $alvo = '(regras?|instruc\w*|prompt|diretrizes?|orientac\w*|configurac\w*)';
+        // Sem "configurações": "onde ficam suas configurações?" é sobre a loja.
+        $alvo = '(regras?|instruc\w*|prompt|diretrizes?|orientac\w*)';
         $sobreRegras = preg_match('/\b(suas?|seus?|tuas?|teus?)\s+(\w+\s+){0,2}' . $alvo . '\b/', $p)
             || preg_match('/\b' . $alvo . '\s+(\w+\s+){0,2}(internas?|ocultas?|secretas?|originais?|do sistema|que (voce|vc) (recebeu|segue|tem))\b/', $p)
             || preg_match('/\b(voce|vc)\s+(\w+\s+){0,3}(recebeu|segue|obedece|tem)\s+(\w+\s+){0,2}' . $alvo . '\b/', $p)
@@ -135,8 +136,9 @@ final class AiGuard
             $l[] = 'Você não executa ações no sistema. Se pedirem para você fazer algo, responda "Não consigo …; isso é feito por você no painel da loja." Nunca diga "feito" nem finja que fez. '
                 . 'Se pedirem só um texto ou rascunho para a pessoa enviar, escreva o rascunho, sem dizer que enviou nem que conferiu o pedido.';
         }
-        if (preg_match('/\bcomo (eu )?(faco|fazer|cadastr|defin|alter|configur|mud|cri|adicion|coloc|remov|exclu|ativ)|\b(painel|botao|botoes|menu|tela|aba|caminho)\b|onde (fica|encontro|clico|acho)/', $p)) {
-            $l[] = 'Você não conhece as telas do painel: não cite menus, abas, botões, telas nem caminhos ("vá em …"), e não confirme que um botão ou função existe. Diga que não tem essa informação e explique o que decidir ou preencher. Se faltar informação sobre o produto ou a situação, pergunte.';
+        if (preg_match('/\bcomo (eu )?(faco|fazer|cadastr|defin|alter|configur|mud|troc|cri|adicion|coloc|remov|exclu|ativ|cancel|estorn|vej|ver)|\b(painel|botao|botoes|menu|tela|aba|caminho|link|pagina|sistema)\b|\bonde\b/', $p)) {
+            $l[] = 'Para dizer onde fica ou como fazer algo no sistema, use SÓ o MAPA DO PAINEL: página e seção com os nomes exatos, o passo, e o link no formato [Nome](URL) copiado do mapa (prefira o "link direto" da seção). '
+                . 'Página "SÓ O GERENTE ACESSA": diga que é com o gerente, sem link. Se não está no mapa, diga que não encontrou essa opção no painel; não invente tela, botão nem link, e nunca dê link de fora do sistema.';
         }
         if (preg_match('/\bsemana/', $p)) {
             $l[] = '"Semana" no snapshot é de segunda-feira até hoje: não diga "últimos 7 dias" nem "semana passada".';
@@ -155,7 +157,7 @@ final class AiGuard
             $l[] = 'Você só responde quando alguém pergunta: não monitora a loja, não envia mensagens a clientes, não cria avisos nem automações. Diga isso com clareza e ofereça o que consegue (explicar os números quando perguntarem, escrever o texto do aviso para a pessoa enviar).';
         }
         if (preg_match('/\b(repor|reposic\w*|estoque|acabando|esgot\w*|comprar mais)\b/', $p)) {
-            $l[] = 'A linha de estoque do snapshot só conta produtos com estoque mínimo cadastrado. Se for 0, isso NÃO garante que nada precisa de reposição: produtos sem estoque mínimo e a demanda futura não são avaliados. Diga isso.';
+            $l[] = 'Use o bloco ESTOQUE: ele lista cada cor e tamanho esgotado ou no mínimo, consultado agora. Cite produto, cor e tamanho. "No mínimo" só existe para produtos com estoque mínimo cadastrado; se o bloco avisar produtos sem mínimo, diga que neles só dá para ver quando zeram. Mesmo sem alertas, a demanda futura não está avaliada.';
         }
         if (preg_match('/\b(promoc\w*|desconto|precos?|precific\w*|cupom|garant\w*|lucro|margem)\b/', $p)) {
             $l[] = 'O snapshot não traz preços: não atribua preços a produtos da loja. Qualquer valor inventado deve vir escrito como "Exemplo hipotético:". Refaça cada conta (soma, desconto, porcentagem) antes de escrever e mostre o cálculo. Não garanta lucro nem vendas; diga que o efeito é possível e o que acompanhar.';
@@ -240,6 +242,38 @@ final class AiGuard
         $t = preg_replace('/(\n|^)[-*_]{3,}\s*$/', '', $t) ?? $t;
 
         return trim($t . "\n\n" . self::AVISO_CODIGO);
+    }
+
+    /**
+     * Só ficam links para as páginas do mapa do painel (as do sistema, desta
+     * loja). Link externo ou inventado perde o endereço e fica só o texto;
+     * endereço solto que não está no mapa sai da resposta.
+     *
+     * @param list<string> $permitidos URLs completas do mapa
+     */
+    public static function filtrarLinks(string $texto, array $permitidos): string
+    {
+        $ok = [];
+        foreach ($permitidos as $u) {
+            $ok[rtrim($u, '/')] = true;
+        }
+        $permitido = static function (string $url) use ($ok): bool {
+            $semFragmento = preg_replace('/[?#].*$/', '', $url) ?? $url;
+
+            return isset($ok[rtrim($semFragmento, '/')]);
+        };
+        $t = preg_replace_callback('/\[([^\]\n]{1,120})\]\(\s*<?([^)\s>]+)>?\s*\)/u', static function (array $m) use ($permitido): string {
+            return $permitido($m[2]) ? '[' . $m[1] . '](' . $m[2] . ')' : $m[1];
+        }, $texto) ?? $texto;
+        // Endereço solto (fora de [texto](url)).
+        $t = preg_replace_callback('/(?<!\]\()(?<![\w\/])(https?:\/\/|www\.)[^\s)<>\]]+/iu', static function (array $m) use ($permitido): string {
+            $url = rtrim($m[0], '.,;:!?');
+            $resto = substr($m[0], strlen($url));
+
+            return ($permitido($url) ? $url : '') . $resto;
+        }, $t) ?? $t;
+
+        return trim(preg_replace('/[ \t]{2,}/', ' ', $t) ?? $t);
     }
 
     /** Mantém os primeiros trechos em negrito e tira as marcas do resto. */

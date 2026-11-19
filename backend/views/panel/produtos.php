@@ -215,7 +215,7 @@ $content = ob_get_clean();
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script>
 <script>window.productVariantCatalog = ' . json_encode(product_variant_type_catalog(), JSON_UNESCAPED_UNICODE) . ';</script>
 <script>window.productVariantDefaultColorHex = ' . json_encode(product_variant_default_color_hex_map(), JSON_UNESCAPED_UNICODE) . ';</script>
-<script>window.panelProductsReadonly = false;</script>
+<script>window.panelProductsReadonly = ' . (!empty($panel_readonly) ? 'true' : 'false') . ';</script>
 <script>
 (function() {
   window._productNewFiles = [];

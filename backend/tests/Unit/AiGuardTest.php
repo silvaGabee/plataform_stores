@@ -107,6 +107,23 @@ final class AiGuardTest extends TestCase
         $this->assertSame(1, substr_count($out, 'código omitido'));
     }
 
+    public function testSoFicamLinksDoMapaDoPainel(): void
+    {
+        $ok = ['http://localhost/plataform_stores/painel/teste/configuracoes', 'http://localhost/plataform_stores/painel/teste'];
+        $r = 'Vá em [Configurações](http://localhost/plataform_stores/painel/teste/configuracoes) ou veja [este guia](https://exemplo.com/guia).';
+        $this->assertSame('Vá em [Configurações](http://localhost/plataform_stores/painel/teste/configuracoes) ou veja este guia.', AiGuard::filtrarLinks($r, $ok));
+
+        // Página inventada do próprio sistema também perde o link.
+        $this->assertSame('Abra Relatórios.', AiGuard::filtrarLinks('Abra [Relatórios](http://localhost/plataform_stores/painel/teste/relatorios).', $ok));
+        // Painel de outra loja não passa.
+        $this->assertSame('Veja Painel.', AiGuard::filtrarLinks('Veja [Painel](http://localhost/plataform_stores/painel/bora-vestir).', $ok));
+        // Endereço solto: o do mapa fica, o externo sai.
+        $this->assertSame('Acesse http://localhost/plataform_stores/painel/teste/configuracoes.', AiGuard::filtrarLinks('Acesse http://localhost/plataform_stores/painel/teste/configuracoes.', $ok));
+        $this->assertSame('Acesse para saber mais.', AiGuard::filtrarLinks('Acesse www.google.com para saber mais.', $ok));
+        // Âncora e barra final continuam valendo.
+        $this->assertSame('[Ir](http://localhost/plataform_stores/painel/teste/configuracoes/#banner)', AiGuard::filtrarLinks('[Ir](http://localhost/plataform_stores/painel/teste/configuracoes/#banner)', $ok));
+    }
+
     public function testNegritoAlemDoLimitePerdeAMarcacao(): void
     {
         $r = "**1. A**\ntexto\n**2. B**\n**3. C**\n**4. D**\n**5. E**";
