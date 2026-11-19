@@ -77,6 +77,9 @@ $__ic = static function (string $d): string {
             </div>
         </header>
         <div class="panel-main-body">
+            <?php if (!empty($_SESSION['_success'])): ?>
+            <div class="alert alert-success panel-flash" role="status"><?= htmlspecialchars((string) $_SESSION['_success']) ?></div>
+            <?php unset($_SESSION['_success']); endif; ?>
             <?= $content ?? '' ?>
         </div>
     </main>

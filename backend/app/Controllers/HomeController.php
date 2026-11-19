@@ -248,7 +248,9 @@ class HomeController extends Controller
             // reconhecer o gerente recém-criado.
             \App\Auth\Permissions::limparCache();
             $_SESSION['store_slug'] = $store['slug'];
-            redirect(base_url("loja/{$store['slug']}"));
+            // Quem cria a loja vai montá-la: abre o painel, não a vitrine vazia.
+            $_SESSION['_success'] = 'Loja criada! Comece cadastrando seus produtos e configurando a chave PIX. A vitrine pública fica no link "Ver vitrine", no menu.';
+            redirect(base_url("painel/{$store['slug']}"));
         } catch (\Throwable $e) {
             log_exception($e, ['acao' => 'criar-loja', 'user_id' => (int) $me['id']]);
             $_SESSION['_old'] = $_POST;
@@ -347,15 +349,13 @@ class HomeController extends Controller
             $_SESSION['_error'] = $e->getMessage();
             redirect($voltar);
         }
-        if ($loja !== null) {
-            // Na loja, a conta nasce no meio de uma compra: entra direto e
-            // segue para onde a pessoa ia (quase sempre o checkout), em vez de
-            // pedir que ela digite e-mail e senha de novo.
-            $novo = $userRepo->findByEmail($email);
-            if ($novo !== null) {
-                login_user($novo);
-                redirect($this->consumeAfterLoginUrl() ?? base_url('loja/' . $loja['slug']));
-            }
+        // Quem acabou de digitar a senha entra direto, em vez de digitá-la de
+        // novo. Na loja, segue para onde ia (quase sempre o checkout); na
+        // plataforma, para "Suas lojas", onde está o botão de criar a loja.
+        $novo = $userRepo->findByEmail($email);
+        if ($novo !== null) {
+            login_user($novo);
+            redirect($this->consumeAfterLoginUrl() ?? ($loja !== null ? base_url('loja/' . $loja['slug']) : base_url('lojas')));
         }
         $_SESSION['_success'] = 'Conta criada. Entre para continuar.';
         $_SESSION['_old'] = ['email' => $email];
