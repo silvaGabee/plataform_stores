@@ -187,9 +187,10 @@ final class AiGuard
         if (preg_match_all('/\[[a-g]\]|antes de responder,? confira|lembrete final|dados da loja \(snapshot\)|seguranca e limites|=== /', $r) >= 2) {
             return true;
         }
-        // A lista do que o assistente consegue fazer existe para ser contada à
-        // pessoa: repeti-la não é vazamento.
-        $regras = preg_replace('/=== O QUE VOC[^\n]*\n.*?(?=\n===)/su', ' ', $regras) ?? $regras;
+        // Seções feitas para a IA repetir à pessoa: a lista do que ela consegue
+        // fazer e o modo de explicar o BI ("dependem do produto, da quantidade,
+        // da TMA…"). Repeti-las numa resposta certa não é vazamento.
+        $regras = preg_replace('/=== (O QUE VOC|LER O ANALYZING BI)[^\n]*\n.*?(?=\n===)/su', ' ', $regras) ?? $regras;
         $semAspas = preg_replace('/"[^"]*"/u', ' ', $regras) ?? $regras;
         $base = array_flip(self::sequencias(self::normalizar($semAspas), 5));
         $iguais = 0;
@@ -274,6 +275,21 @@ final class AiGuard
         }, $t) ?? $t;
 
         return trim(preg_replace('/[ \t]{2,}/', ' ', $t) ?? $t);
+    }
+
+    /**
+     * Troca nomes internos do prompt que o modelo às vezes repete para a
+     * pessoa ("No mapa do painel…", "o snapshot mostra…"). "Resumo da loja"
+     * é masculino singular como "snapshot", então o artigo e o verbo seguem
+     * concordando.
+     */
+    public static function limparTermosInternos(string $texto): string
+    {
+        $t = preg_replace('/\bmapa do painel\b/iu', 'painel', $texto) ?? $texto;
+
+        return preg_replace_callback('/\bsnapshot\b/iu', static function (array $m): string {
+            return $m[0][0] === 'S' ? 'Resumo da loja' : 'resumo da loja';
+        }, $t) ?? $t;
     }
 
     /** Mantém os primeiros trechos em negrito e tira as marcas do resto. */

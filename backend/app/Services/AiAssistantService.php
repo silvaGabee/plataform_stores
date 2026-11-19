@@ -197,6 +197,14 @@ class AiAssistantService
         if ($incluirFinanceiro && preg_match('/\b(ontem|anteontem|dia|dias|diari\w*|semana|vend\w*|fatur\w*|movimento)\b/', $p)) {
             $extras[] = $dados->textoVendasPorDia($storeId);
         }
+        // Perguntas sobre o BI (um gráfico, a TIR, o markup…): o glossário vai
+        // para qualquer cargo; os números do BI só para quem pode ver o BI.
+        if (AiBiContext::ehPerguntaDoBi($pergunta)) {
+            $extras[] = AiBiContext::textoGlossario();
+            if ($incluirFinanceiro) {
+                $extras[] = (new AiBiContext())->textoNumeros($storeId);
+            }
+        }
         $extras = array_filter($extras);
         if ($extras !== []) {
             $contexto .= "\n\n" . implode("\n\n", $extras);
@@ -236,7 +244,7 @@ class AiAssistantService
             return AiGuard::RECUSA_INSTRUCOES;
         }
 
-        return AiGuard::filtrarLinks(self::filtrarResposta($resposta), AiPanelMap::links($mapa));
+        return AiGuard::limparTermosInternos(AiGuard::filtrarLinks(self::filtrarResposta($resposta), AiPanelMap::links($mapa)));
     }
 
     /** Qual provedor/modelo deu a última resposta (diagnóstico e testes). */

@@ -43,6 +43,18 @@ final class AiPanelMapTest extends TestCase
         $this->assertStringNotContainsString('#config-store-photo-section', $texto);
     }
 
+    public function testPerguntasSobreOBiTrazemOGlossario(): void
+    {
+        foreach (['oque é isso que aparece no meu BI TIR', 'O que significa markup?', 'Como leio a curva ABC?', 'Meu VPL deu negativo, e agora?', 'o que é a linha tracejada do gráfico?'] as $p) {
+            $this->assertTrue(\App\Services\AiBiContext::ehPerguntaDoBi($p), $p);
+        }
+        $this->assertFalse(\App\Services\AiBiContext::ehPerguntaDoBi('Dê três dicas para melhorar o atendimento.'));
+        $g = \App\Services\AiBiContext::textoGlossario();
+        // O que faltou na resposta real: a TIR existe e fica no simulador.
+        $this->assertStringContainsString('TIR (taxa interna de retorno) — onde aparece: cartão "TIR" do simulador', $g);
+        $this->assertStringContainsString('Curva ABC', $g);
+    }
+
     public function testProdutoCitadoPeloNomeOuPorPalavrasMarcantes(): void
     {
         $nomes = [1 => 'Tênis de Corrida Masculino', 2 => 'Tênis de Basquete Air Dunk High', 3 => 'Legging Yoga Compressão', 4 => 'Boné'];

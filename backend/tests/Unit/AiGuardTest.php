@@ -87,6 +87,12 @@ final class AiGuardTest extends TestCase
         $this->assertTrue(AiGuard::vazaRegras("[A] recusa\n[B] código\n[C] concorrente", $regras));
 
         $this->assertFalse(AiGuard::vazaRegras(AiGuard::RECUSA_COMPARACAO, $regras));
+        // Explicar a TIR com as palavras da seção do BI é resposta, não vazamento.
+        $this->assertFalse(AiGuard::vazaRegras(
+            'A TIR fica no simulador. TIR, VPL e payback do simulador não têm valor fixo: dependem do produto, da quantidade, da TMA e das despesas escolhidas na tela. '
+            . 'Se vierem os números da loja, aplique a explicação a eles.',
+            $regras
+        ));
         // Contar o que o assistente faz é permitido, mesmo com as palavras das regras.
         $this->assertFalse(AiGuard::vazaRegras(
             "Posso explicar os números que vêm no snapshot: vendas de hoje, da semana, do mês e dos últimos 30 dias, mais vendidos da semana, pedidos pendentes, produtos no estoque mínimo e tamanho da equipe.\n"
@@ -122,6 +128,14 @@ final class AiGuardTest extends TestCase
         $this->assertSame('Acesse para saber mais.', AiGuard::filtrarLinks('Acesse www.google.com para saber mais.', $ok));
         // Âncora e barra final continuam valendo.
         $this->assertSame('[Ir](http://localhost/plataform_stores/painel/teste/configuracoes/#banner)', AiGuard::filtrarLinks('[Ir](http://localhost/plataform_stores/painel/teste/configuracoes/#banner)', $ok));
+    }
+
+    public function testTermosInternosNaoChegamAPessoa(): void
+    {
+        // Resposta real: "No mapa do painel, a página Analyzing BI lista…"
+        $this->assertSame('No painel, a página Analyzing BI lista estes indicadores.', AiGuard::limparTermosInternos('No mapa do painel, a página Analyzing BI lista estes indicadores.'));
+        $this->assertSame('O resumo da loja mostra R$ 0,00 hoje; no resumo da loja não há custo.', AiGuard::limparTermosInternos('O snapshot mostra R$ 0,00 hoje; no snapshot não há custo.'));
+        $this->assertSame('Abra [Configurações](http://x/painel/a/configuracoes).', AiGuard::limparTermosInternos('Abra [Configurações](http://x/painel/a/configuracoes).'));
     }
 
     public function testNegritoAlemDoLimitePerdeAMarcacao(): void

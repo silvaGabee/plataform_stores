@@ -57,7 +57,9 @@ final class AiPanelMap
         ['hierarquia', 'Hierarquia', 'store.roles.read',
             'Cargos e organograma: Novo cargo, a quem cada cargo responde, quem ocupa cada cargo (o gerente edita; o funcionário só vê).'],
         ['analyzing-bi', 'Analyzing BI', 'store.bi.read',
-            'Indicadores e gráficos: faturamento ao longo do tempo, lucro por produto, mais e menos vendidos, produtos parados, Curva ABC, giro de estoque, cupons, simulador "Vale a pena comprar este estoque?".'],
+            'Indicadores e gráficos em grupos: Visão geral (vendido, lucro, margem, markup, pedidos, ticket médio, meta) [#bi-grupo-geral]; Vendas (faturamento ao longo do tempo, lucro por produto) [#bi-grupo-vendas]; '
+            . 'Produtos (mais e menos vendido, parados, estoque crítico, Curva ABC) [#bi-grupo-produtos]; Pagamentos e cupons (PIX × parcelamento, cupons) [#bi-grupo-pagamentos]; Estoque (capital em estoque, giro e cobertura) [#bi-grupo-estoque]; '
+            . 'Decisões (simulador "Vale a pena comprar este estoque?" com VPL, TIR, TMA, payback e financiamento Price × SAC; ideias de investimento) [#bi-grupo-decisoes]. Cada indicador tem um botão "!" com a explicação.'],
         ['configuracoes', 'Configurações', 'store.settings.write',
             'Seções: "Nome da loja" [#config-store-name-section]; "Slogan" [#config-store-slogan-section]; "WhatsApp da loja" [#config-store-whatsapp-section]; '
             . '"Dados da empresa no rodapé" (Razão social, CNPJ, Endereço) [#config-store-legal-section]; "Cor de fundo da vitrine" [#config-store-background-section]; '
