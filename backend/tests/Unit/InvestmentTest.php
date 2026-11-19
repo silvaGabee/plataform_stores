@@ -240,6 +240,93 @@ final class InvestmentTest extends TestCase
         $this->assertSame(0, $e['Camiseta']['dias_historico']);
     }
 
+    /** Linha de fetchProductIndicators() com os campos que o ritmo usa. */
+    private static function linhaProduto(array $campos): array
+    {
+        return $campos + [
+            'id' => 1, 'name' => 'Produto', 'stock_quantity' => 10, 'min_stock' => 3, 'cost_price' => '50.00',
+            'sale_price' => '100.00', 'promo_price' => null, 'quantidade' => '0', 'receita' => '0', 'cmv' => '0',
+            'quantidade_janela' => '0', 'created_at' => '2026-09-01 00:00:00', 'primeira_venda' => null,
+        ];
+    }
+
+    public function testProdutoSemVendasNaoTemRitmoCoberturaNemTir(): void
+    {
+        $agora = new \DateTimeImmutable('2026-11-19 15:00:00');
+        $l = self::linhaProduto([]);
+        $o = AnalyzingBIService::montarOpcoesCompra([$l], $agora)[0];
+        $this->assertSame(0.0, $o['venda_mensal']);
+        $e = AnalyzingBIService::montarEstoque([$l], $agora)[0];
+        $this->assertNull($e['cobertura_dias']);
+        $this->assertNull($e['repor_em_dias']);
+        // Sem venda, o lote não volta: só a saída, e nenhuma taxa zera o VPL.
+        $a = AnalyzingBIService::analisarCompra($o, 10, 1.5, true);
+        $this->assertSame(0.0, $a['entradas']);
+        $this->assertNull($a['tir']);
+        $this->assertSame('nao_compensa', $a['decisao']);
+    }
+
+    public function testProdutoComIdadeZeroESemVendas(): void
+    {
+        // Cadastrado agora: a janela vira 7 (não 0), então não há divisão por zero.
+        $agora = new \DateTimeImmutable('2026-11-19 15:00:00');
+        $l = self::linhaProduto(['created_at' => '2026-11-19 15:00:00']);
+        $o = AnalyzingBIService::montarOpcoesCompra([$l], $agora)[0];
+        $this->assertSame(0.0, $o['venda_mensal']);
+        $this->assertSame(0, $o['dias_historico']);
+        $this->assertNull(AnalyzingBIService::montarEstoque([$l], $agora)[0]['cobertura_dias']);
+    }
+
+    public function testVendasConcentradasNumDiaSeDiluemNaIdadeDoProduto(): void
+    {
+        // 60 dias de vida, as 30 vendas todas ontem (uma compra grande, por
+        // exemplo). O ritmo usa a idade do produto, não o dia do pico:
+        // 30 ÷ 60 × 30 = 15 por mês, e não 30 × 30 = 900.
+        $agora = new \DateTimeImmutable('2026-11-19 15:00:00');
+        $l = self::linhaProduto([
+            'created_at' => '2026-09-20 15:00:00', 'primeira_venda' => '2026-11-18 10:00:00',
+            'quantidade' => '30', 'receita' => '3000', 'cmv' => '1500', 'quantidade_janela' => '30',
+        ]);
+        $o = AnalyzingBIService::montarOpcoesCompra([$l], $agora)[0];
+        $this->assertSame(15.0, $o['venda_mensal']);
+        $this->assertSame(60, $o['dias_historico']);
+    }
+
+    public function testEstoqueInsuficienteParaADemanda(): void
+    {
+        // 2 em estoque, mínimo 3, 30 vendidos em 90 dias (1 a cada 3 dias).
+        $agora = new \DateTimeImmutable('2026-11-19 15:00:00');
+        $l = self::linhaProduto([
+            'stock_quantity' => 2, 'created_at' => '2025-01-01 00:00:00', 'primeira_venda' => '2025-01-02 00:00:00',
+            'quantidade' => '30', 'receita' => '3000', 'cmv' => '1500', 'quantidade_janela' => '30',
+        ]);
+        $e = AnalyzingBIService::montarEstoque([$l], $agora)[0];
+        $this->assertSame(0, $e['repor_em_dias']);   // já está abaixo do mínimo: "Repor agora"
+        $this->assertSame(6, $e['cobertura_dias']);  // 2 ÷ (30/90) = 6 dias até zerar
+        // Demanda maior que o lote: 10 peças, vende 30/mês e só 2 na prateleira.
+        // Tudo sai no primeiro mês: −500 e +1.000.
+        $p = ['custo' => 50.0, 'preco' => 100.0, 'venda_mensal' => 30.0, 'estoque' => 2];
+        $a = AnalyzingBIService::analisarCompra($p, 10, 1.5, true);
+        $this->assertSame([-500.0, 1000.0], array_map('floatval', $a['fluxos']));
+        $this->assertTrue(abs($a['tir'] - 100.0) < 0.01, 'TIR ' . $a['tir']);
+    }
+
+    public function testTirDoCasoRealConfereComOFluxoMontadoAMao(): void
+    {
+        // Simulador da loja do teste de ponta a ponta: 39 camisetas a R$ 25,
+        // vendem 12,86/mês a R$ 63,14, 25 na prateleira vendem primeiro.
+        // S(k) = mín(máx(12,86k − 25, 0), 39): 0; 0,72; 13,58; 26,44; 39.
+        // Fluxo: −975; 0; 45,46; 811,98; 811,98; 793,04 → TIR 27,06% a.m.
+        $p = ['custo' => 25.0, 'preco' => 63.14, 'venda_mensal' => 12.86, 'estoque' => 25];
+        $a = AnalyzingBIService::analisarCompra($p, 39, 1.5, true);
+        $this->assertSame(975.0, $a['investimento']);
+        $this->assertSame(2462.46, $a['entradas']);
+        $this->assertTrue(abs($a['vpl'] - 1346.82) < 0.01, 'VPL ' . $a['vpl']);
+        $this->assertTrue(abs($a['tir'] - 27.06) < 0.01, 'TIR ' . $a['tir']);
+        // O lote só começa a vender no mês 2: o mês 1 é do estoque que já existe.
+        $this->assertSame(0.0, (float) $a['fluxos'][1]);
+    }
+
     public function testAnaliseDaCompraJuntaVplTirEDecisao(): void
     {
         // 10 peças a R$ 50, 4/mês a R$ 100, sem estoque antes: −500, 400, 400, 200.

@@ -691,10 +691,10 @@
     return '<div class="bi-pix-stat' + (classe ? ' ' + classe : '') + '"><span>' + escapeHtml(rotulo) + '</span><strong>' + escapeHtml(valor) + '</strong><small>' + escapeHtml(nota) + '</small></div>';
   }
 
-  /** "menos de 1 dia de vendas", "1 dia de vendas", "12 dias de vendas". */
+  /** "menos de 7 dias de histórico" (o cálculo usa a janela mínima) ou "12 dias de histórico". */
   function historicoTexto(dias) {
     var d = Math.max(0, parseInt(dias, 10) || 0);
-    return d < 1 ? 'menos de 1 dia de vendas' : d + (d === 1 ? ' dia' : ' dias') + ' de vendas';
+    return d < 7 ? 'menos de 7 dias de histórico' : d + ' dias de histórico';
   }
 
   function dataBr(iso) {

@@ -53,10 +53,11 @@
   function avisoProjecao(p) {
     var d = parseInt(p.dias_historico, 10);
     if (isNaN(d) || d >= 90 || !(p.venda_mensal > 0)) return '';
-    var hist = d < 1 ? 'menos de 1 dia' : d + (d === 1 ? ' dia' : ' dias');
-    return ' Atenção: o ritmo é uma projeção feita com ' + hist + ' de vendas' +
-      (d < 7 ? ' (o cálculo considera no mínimo 7 dias)' : '') +
-      ', não vendas comprovadas. VPL, TIR e payback dependem dela.';
+    var fim = ' VPL, TIR e payback são projeções e podem variar conforme as vendas reais.';
+    if (d < 7) {
+      return ' Atenção: esta estimativa utiliza menos de 7 dias de histórico. Para reduzir distorções, o cálculo considera uma janela mínima de 7 dias.' + fim;
+    }
+    return ' Atenção: esta estimativa utiliza ' + d + ' dias de histórico, menos que os 90 dias de referência.' + fim;
   }
 
   function sugerirQuantidade() {
