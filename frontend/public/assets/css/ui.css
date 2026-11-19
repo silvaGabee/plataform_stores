@@ -688,17 +688,6 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .ui-card-foot .ui-field--inline input { width: 9rem; }
 .ui-row-highlight td { background: var(--success-bg); }
 
-/* BI: PIX à vista × parcelamento */
-.bi-pix-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }
-@media (max-width: 760px) { .bi-pix-grid { grid-template-columns: 1fr; } }
-.bi-pix-stat { display: flex; flex-direction: column; gap: .2rem; padding: .9rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
-.bi-pix-stat span { font-size: .78rem; color: var(--text-muted); }
-.bi-pix-stat strong { font-size: 1.35rem; color: var(--text); }
-.bi-pix-stat small { font-size: .75rem; color: var(--text-muted); }
-.bi-pix-stat.is-pos strong { color: var(--success); }
-.bi-pix-stat.is-neg strong { color: var(--danger); }
-.bi-pix-note { grid-column: 1 / -1; margin: .2rem 0 0; font-size: .88rem; color: var(--text-muted); line-height: 1.5; }
-
 /* Painel: moderação de avaliações. */
 .reviews-mod-list { display: flex; flex-direction: column; gap: .75rem; margin-top: 1rem; }
 .reviews-mod-item { padding: .9rem 1rem; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); display: flex; flex-direction: column; gap: .45rem; }
@@ -712,23 +701,6 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .reviews-mod-reply-label { font-size: .78rem; font-weight: 600; color: var(--text-muted); }
 .reviews-mod-item textarea { width: 100%; resize: vertical; }
 .reviews-mod-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
-
-/* BI: simulador de compra de estoque (VPL, TIR, Price × SAC). */
-.bi-sim-form { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; align-items: end; margin: .5rem 0 .4rem; }
-.bi-sim-check { display: flex; align-items: center; gap: .45rem; font-size: .85rem; color: var(--text); grid-column: 1 / -1; }
-.bi-sim-fin { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem 1rem; margin: 0; padding: .75rem 1rem 1rem; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
-.bi-sim-fin legend { padding: 0 .35rem; font-size: .78rem; font-weight: 600; color: var(--text-muted); }
-.bi-sim-grid { margin-top: .75rem; }
-.bi-sim-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; }
-.bi-sim-compare .bi-pix-stat strong { font-size: 1.15rem; }
-.bi-sim-subtitle { margin: 1.25rem 0 .6rem; font-size: 1rem; color: var(--text); }
-.bi-sim-details { margin-top: .9rem; }
-.bi-sim-details summary { cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--primary); }
-.bi-sim-details .ui-table-wrap { margin-top: .5rem; }
-.bi-sim-neg { color: var(--danger); }
-@media (max-width: 760px) {
-  .bi-sim-form, .bi-sim-fin, .bi-sim-compare { grid-template-columns: 1fr; }
-}
 
 /* ==========================================================================
    Campos de formulário: dica, erro embaixo do campo e "mostrar senha"

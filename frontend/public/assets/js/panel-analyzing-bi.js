@@ -10,7 +10,8 @@
   function formatMoney(n) {
     var v = n != null ? parseFloat(n) : 0;
     if (isNaN(v)) v = 0;
-    return 'R$ ' + v.toFixed(2).replace('.', ',');
+    // Com ponto de milhar, como o resto do painel: "R$ 2.695,00", não "R$ 2695,00".
+    return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function formatQty(n) {

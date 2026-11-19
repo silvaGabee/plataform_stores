@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/ui.css') ?>">
     <link rel="stylesheet" href="<?= asset('css/panel-ai.css') ?>">
+    <?php if (!empty($extra_css)): ?><?= $extra_css ?><?php endif; ?>
     <script src="<?= asset('js/csrf.js') ?>"></script>
     <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
