@@ -220,7 +220,12 @@ class AnalyzingBIService
     ): array {
         $ideias = [];
         $pctVendasMes = self::growthPercent($valorMensal, $valorMensalAnterior);
-        if ($valorMensalAnterior > 0 || $valorMensal > 0) {
+        if ($valorMensalAnterior <= 0 && $valorMensal > 0) {
+            // Sem venda no mês anterior não há crescimento a medir: growthPercent
+            // devolve 100 por convenção, e a frase dizia "cresceram 100%" para
+            // uma loja no primeiro mês.
+            $ideias[] = 'Primeiro mês com vendas registradas: ainda não há mês anterior para comparar. Acompanhe os próximos meses para ver a tendência.';
+        } elseif ($valorMensalAnterior > 0 || $valorMensal > 0) {
             if ($pctVendasMes > 1) {
                 $ideias[] = 'As vendas do mês cresceram ' . round($pctVendasMes, 1) . '% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões.';
             } elseif ($pctVendasMes < -1) {

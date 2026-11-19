@@ -378,7 +378,8 @@
         '<p class="pdv-field-label">Cor</p><div class="pdv-variant-colors" id="pdv-v-colors">' +
         m.colors.map(function (c, i) {
           var total = (m.sizes || []).reduce(function (s, sz) { return s + Math.max(0, parseInt(((m.stock || {})[sz] || {})[c], 10) || 0); }, 0);
-          var hex = meta[c] && (meta[c].hex || meta[c]);
+          // Cor sem hex próprio usa a tabela padrão, como a vitrine.
+          var hex = (meta[c] && (meta[c].hex || meta[c])) || (CFG.defaultColorHex || {})[c];
           return '<button type="button" class="pdv-swatch' + (total < 1 ? ' is-out' : '') + '" data-color="' + esc(c) + '"' + (total < 1 ? ' disabled' : '') + '>' +
             '<span class="pdv-swatch-dot"' + (typeof hex === 'string' ? ' style="background:' + esc(hex) + '"' : '') + '></span>' + esc(c) + '</button>';
         }).join('') + '</div>' +

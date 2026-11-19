@@ -316,7 +316,10 @@ ob_start();
 </script>
 <script>
 (function(){
-  if (typeof window.panelReadonly !== 'undefined' && window.panelReadonly) return;
+  // O cargo vem do servidor: window.panelReadonly só é definido no fim do
+  // layout, depois deste script, e a checagem por ele nunca parava o
+  // funcionário — que pedia a chave PIX (403) e quebrava sem o formulário.
+  if (<?= !empty($panel_readonly) ? 'true' : 'false' ?> || !document.getElementById('pix-config-form')) return;
   var slug = <?= json_encode($store['slug']) ?>;
   var base = document.querySelector('meta[name="base-url"]')?.content || '';
   base = base.replace(/\/$/, '');
@@ -536,9 +539,12 @@ ob_start();
     syncEditButton();
   }
 
-  if (ph) ph.classList.add('dashboard-banner-empty--loading');
+  // Ler o banner pela API é do gerente (store.settings.read); para o
+  // funcionário a chamada só devolvia 403 e a mensagem de erro no lugar da
+  // imagem. Ele fica com o aviso "Só o gerente pode carregar…".
+  if (!panelBannerReadonly && ph) ph.classList.add('dashboard-banner-empty--loading');
 
-  fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { credentials: 'same-origin' })
+  if (!panelBannerReadonly) fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { credentials: 'same-origin' })
     .then(function(r){ return r.json(); })
     .then(function(res){
       if (ph) ph.classList.remove('dashboard-banner-empty--loading');
