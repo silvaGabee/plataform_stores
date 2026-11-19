@@ -127,7 +127,7 @@ ob_start();
 
     <section id="bi-stock" class="bi-ideas hidden" aria-labelledby="bi-stock-title">
         <h2 id="bi-stock-title" class="bi-section-title">Giro e cobertura de estoque</h2>
-        <p class="bi-section-desc">A cobertura projeta quantos dias o estoque dura no ritmo de venda dos últimos 90 dias. "Repor até" é quando ele chega ao mínimo; desconte o prazo do seu fornecedor. O giro é o custo do vendido em 12 meses ÷ o estoque atual a custo.</p>
+        <p class="bi-section-desc">A cobertura projeta quantos dias o estoque dura no ritmo de venda dos últimos 90 dias (ou desde o cadastro, contando no mínimo 7 dias; com menos de 90 dias de vendas, é estimativa). "Repor até" é quando ele chega ao mínimo; desconte o prazo do seu fornecedor. O giro é o custo do vendido em 12 meses ÷ o estoque atual a custo.</p>
         <div class="ui-seg" role="group" aria-label="Ordenar">
             <button type="button" class="ui-seg-btn is-active" data-ordem="repor">Repor primeiro</button>
             <button type="button" class="ui-seg-btn" data-ordem="capital">Mais dinheiro em estoque</button>
@@ -155,7 +155,7 @@ ob_start();
 
     <section id="bi-sim" class="bi-ideas hidden" aria-labelledby="bi-sim-title">
         <h2 id="bi-sim-title" class="bi-section-title">Vale a pena comprar este estoque? <span class="bi-badge">VPL · TIR · Price × SAC</span></h2>
-        <p class="bi-section-desc">Simula a compra de um lote: o dinheiro sai hoje e volta conforme as peças vendem, no ritmo dos últimos 90 dias e pelo preço médio que a loja de fato recebeu. A TMA é quanto o dinheiro da loja renderia em outro uso, ao mês. Nada é gravado.</p>
+        <p class="bi-section-desc">Simula a compra de um lote: o dinheiro sai hoje e volta conforme as peças vendem, no ritmo dos últimos 90 dias (ou desde o cadastro, contando no mínimo 7 dias) e pelo preço médio que a loja de fato recebeu. A TMA é quanto o dinheiro da loja renderia em outro uso, ao mês. Nada é gravado.</p>
         <form class="bi-sim-form" id="bi-sim-form" autocomplete="off">
             <label class="ui-field bi-sim-produto"><span>Produto</span><select name="produto" required></select></label>
             <label class="ui-field"><span>Quantidade</span><input name="quantidade" type="number" min="1" step="1" required></label>

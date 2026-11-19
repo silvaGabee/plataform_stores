@@ -42,7 +42,21 @@
     info.textContent = 'Custo ' + money(p.custo) + ' · ' +
       (p.preco_origem === 'media_vendida' ? 'preço médio recebido ' : 'preço de cadastro (ainda sem vendas) ') + money(p.preco) +
       ' · vende cerca de ' + Number(p.venda_mensal).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' por mês · ' +
-      p.estoque + ' em estoque.';
+      p.estoque + ' em estoque.' + avisoProjecao(p);
+  }
+
+  /**
+   * Com menos de 90 dias de vendas, o ritmo (e o VPL, a TIR e o payback que
+   * saem dele) é estimativa: o cálculo usa no mínimo 7 dias, mas poucos dias
+   * de venda não comprovam a demanda de um mês.
+   */
+  function avisoProjecao(p) {
+    var d = parseInt(p.dias_historico, 10);
+    if (isNaN(d) || d >= 90 || !(p.venda_mensal > 0)) return '';
+    var hist = d < 1 ? 'menos de 1 dia' : d + (d === 1 ? ' dia' : ' dias');
+    return ' Atenção: o ritmo é uma projeção feita com ' + hist + ' de vendas' +
+      (d < 7 ? ' (o cálculo considera no mínimo 7 dias)' : '') +
+      ', não vendas comprovadas. VPL, TIR e payback dependem dela.';
   }
 
   function sugerirQuantidade() {

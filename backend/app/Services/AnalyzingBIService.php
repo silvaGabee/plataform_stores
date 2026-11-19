@@ -287,6 +287,14 @@ class AnalyzingBIService
     private const MESES_INDICADORES = 12;
     /** Ritmo de venda usado na cobertura: recente, para acompanhar a demanda atual. */
     private const DIAS_JANELA_COBERTURA = 90;
+    /**
+     * Piso da janela do ritmo de venda. Sem ele, um produto com 1 dia de vida
+     * que vendeu 3 virava "90 por mês" (3 ÷ 1 × 30) e o simulador mostrava uma
+     * TIR de 55% a.m. — conta certa, amostra pequena demais. Com 7 dias, as
+     * mesmas 3 vendas dão 12,9 por mês. Abaixo de 90 dias de histórico a tela
+     * avisa que o ritmo é projeção, não venda comprovada.
+     */
+    private const DIAS_JANELA_MINIMA = 7;
     /** Período do impacto dos cupons. */
     private const DIAS_CUPONS = 90;
 
@@ -395,6 +403,8 @@ class AnalyzingBIService
      *
      * A janela do ritmo de venda é a menor entre 90 dias e a idade do produto: um
      * item cadastrado há 10 dias que vendeu 10 vende 1 por dia, não 1 a cada 9.
+     * Mas nunca menos de 7 dias: o primeiro dia de vendas sozinho não sustenta
+     * uma projeção de mês (ver DIAS_JANELA_MINIMA).
      * A idade conta da venda mais antiga, se ela vier antes do cadastro, como em
      * histórico importado: senão, o ritmo seria dividido por quase nenhum dia.
      * O giro usa o estoque atual porque o sistema não guarda o estoque médio.
@@ -421,6 +431,7 @@ class AnalyzingBIService
                 'giro' => ProductMetrics::turnover((float) $l['cmv'], $estoque * $custo),
                 'vendido_janela' => $vendido,
                 'cobertura_dias' => ProductMetrics::daysUntil($estoque, 0, $vendido, $janela),
+                'dias_historico' => min(self::DIAS_JANELA_COBERTURA, self::diasDeHistorico($l, $now)),
                 'repor_em_dias' => $diasRepor,
                 'repor_em' => $diasRepor === null ? null : $now->modify('+' . $diasRepor . ' days')->format('Y-m-d'),
             ];
@@ -431,29 +442,37 @@ class AnalyzingBIService
 
     /**
      * Dias da janela do ritmo de venda: 90, ou a idade do produto se for mais
-     * novo (contada da venda mais antiga, se ela vier antes do cadastro).
+     * novo (contada da venda mais antiga, se ela vier antes do cadastro), com
+     * piso de 7 dias.
      *
      * @param array<string, mixed> $l linha de fetchProductIndicators()
      */
     private static function janelaDeVenda(array $l, DateTimeImmutable $now): int
     {
+        return max(self::DIAS_JANELA_MINIMA, min(self::DIAS_JANELA_COBERTURA, self::diasDeHistorico($l, $now)));
+    }
+
+    /** Dias de vida do produto (ou desde a venda mais antiga), sem o piso da janela. */
+    private static function diasDeHistorico(array $l, DateTimeImmutable $now): int
+    {
         $inicio = min(array_filter([(string) $l['created_at'], (string) ($l['primeira_venda'] ?? '')]));
         $criado = new DateTimeImmutable($inicio, $now->getTimezone());
-        $idade = (int) floor(($now->getTimestamp() - $criado->getTimestamp()) / 86400);
 
-        return max(1, min(self::DIAS_JANELA_COBERTURA, $idade));
+        return max(0, (int) floor(($now->getTimestamp() - $criado->getTimestamp()) / 86400));
     }
 
     /**
      * O que o simulador de compra precisa saber de cada produto.
      *
-     * venda_mensal: ritmo da cobertura (janela de até 90 dias) levado a 30 dias.
+     * venda_mensal: ritmo da cobertura (janela de 7 a 90 dias) levado a 30 dias.
+     * dias_historico: quantos dias de vendas o produto tem de fato (até 90);
+     * abaixo de 90, a tela avisa que o ritmo é projeção.
      * preco: o preço médio realmente recebido em 12 meses, já com desconto e
      * sem frete — o de cadastro só quando o produto nunca vendeu, porque o
      * preço de etiqueta superestima a entrada de caixa.
      *
      * @param list<array<string, mixed>> $linhas de fetchProductIndicators()
-     * @return list<array{produto_id: int, nome: string, custo: float, preco: float, preco_origem: string, venda_mensal: float, estoque: int}>
+     * @return list<array{produto_id: int, nome: string, custo: float, preco: float, preco_origem: string, venda_mensal: float, dias_historico: int, estoque: int}>
      */
     public static function montarOpcoesCompra(array $linhas, DateTimeImmutable $now): array
     {
@@ -468,6 +487,7 @@ class AnalyzingBIService
                 'preco' => $qtd > 0 ? round((float) $l['receita'] / $qtd, 2) : round($etiqueta, 2),
                 'preco_origem' => $qtd > 0 ? 'media_vendida' : 'cadastro',
                 'venda_mensal' => round((float) $l['quantidade_janela'] / self::janelaDeVenda($l, $now) * 30, 2),
+                'dias_historico' => min(self::DIAS_JANELA_COBERTURA, self::diasDeHistorico($l, $now)),
                 'estoque' => max(0, (int) $l['stock_quantity']),
             ];
         }

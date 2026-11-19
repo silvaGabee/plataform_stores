@@ -210,6 +210,36 @@ final class InvestmentTest extends TestCase
         $this->assertSame(3.0, $o[1]['venda_mensal']);
     }
 
+    public function testRitmoDeVendaTemJanelaMinimaDeSeteDias(): void
+    {
+        // Caso real do teste de ponta a ponta: produto cadastrado hoje, 3 vendidos.
+        // Sem o piso: 3 ÷ 1 × 30 = 90 por mês. Com o piso: 3 ÷ 7 × 30 = 12,857…
+        $agora = new \DateTimeImmutable('2026-11-19 15:00:00');
+        $base = [
+            'stock_quantity' => 25, 'min_stock' => 3, 'cost_price' => '25.00', 'sale_price' => '69.90', 'promo_price' => null,
+            'quantidade' => '3', 'receita' => '189.43', 'cmv' => '75',
+        ];
+        $novo = ['id' => 1, 'name' => 'Camiseta', 'created_at' => '2026-11-19 14:30:00', 'primeira_venda' => '2026-11-19 14:52:00', 'quantidade_janela' => '3'] + $base;
+        // Produto com 30 dias e 30 vendidos: acima do piso, nada muda (30 por mês).
+        $antigo = ['id' => 2, 'name' => 'Tênis', 'created_at' => '2026-10-20 15:00:00', 'primeira_venda' => '2026-10-21 10:00:00', 'quantidade_janela' => '30'] + $base;
+        // Produto com mais de 90 dias: histórico completo, sem aviso.
+        $velho = ['id' => 3, 'name' => 'Boné', 'created_at' => '2025-01-01 00:00:00', 'primeira_venda' => '2025-01-05 00:00:00', 'quantidade_janela' => '9'] + $base;
+
+        $o = AnalyzingBIService::montarOpcoesCompra([$novo, $antigo, $velho], $agora);
+        $porNome = array_column($o, null, 'nome');
+        $this->assertSame(12.86, $porNome['Camiseta']['venda_mensal']);
+        $this->assertSame(0, $porNome['Camiseta']['dias_historico']);
+        $this->assertSame(30.0, $porNome['Tênis']['venda_mensal']);
+        $this->assertSame(30, $porNome['Tênis']['dias_historico']);
+        $this->assertSame(3.0, $porNome['Boné']['venda_mensal']);
+        $this->assertSame(90, $porNome['Boné']['dias_historico']);
+
+        // A cobertura usa a mesma janela: 25 peças a 3/7 por dia ≈ 58 dias, não os 8 de antes.
+        $e = array_column(AnalyzingBIService::montarEstoque([$novo], $agora), null, 'nome');
+        $this->assertTrue($e['Camiseta']['cobertura_dias'] >= 58 && $e['Camiseta']['cobertura_dias'] <= 59, 'cobertura ' . $e['Camiseta']['cobertura_dias']);
+        $this->assertSame(0, $e['Camiseta']['dias_historico']);
+    }
+
     public function testAnaliseDaCompraJuntaVplTirEDecisao(): void
     {
         // 10 peças a R$ 50, 4/mês a R$ 100, sem estoque antes: −500, 400, 400, 200.

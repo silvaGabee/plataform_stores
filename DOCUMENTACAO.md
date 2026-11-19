@@ -505,7 +505,9 @@ Com receitas de 700, 150, 100 e 50 (total de 1.000), os acumulados são 70%, 85%
 
 O capital em estoque é Σ estoque × custo atual do cadastro. Produto com estoque e sem custo entra com zero, então o sistema avisa quantos estão nessa situação, porque o total fica abaixo do real. Capital em estoque não é o mesmo que capital parado: a tela separa o total do valor preso em produtos sem venda há pelo menos 30 dias.
 
-A cobertura divide o estoque pela venda média diária dos últimos 90 dias, ou do período de vida do produto, se ele for mais novo. Com 30 unidades em estoque e 60 vendidas em 90 dias, a venda é de 2/3 por dia e o estoque dura 45 dias. A data de reposição usa a mesma conta até o estoque mínimo, não até zero: com mínimo de 10, faltam 20 unidades, ou 30 dias.
+A cobertura divide o estoque pela venda média diária dos últimos 90 dias, ou do período de vida do produto, se ele for mais novo, com um piso de 7 dias. Com 30 unidades em estoque e 60 vendidas em 90 dias, a venda é de 2/3 por dia e o estoque dura 45 dias. A data de reposição usa a mesma conta até o estoque mínimo, não até zero: com mínimo de 10, faltam 20 unidades, ou 30 dias.
+
+O piso existe porque a conta, embora correta, fica estatisticamente frágil com amostra pequena. Num teste com uma loja recém-criada, um produto cadastrado no mesmo dia vendeu 3 peças; dividindo pelo único dia de vida, o ritmo seria 3 ÷ 1 × 30 = 90 peças por mês, e o simulador de compra (seção 3.3.16) mostrava uma TIR de 55,75% ao mês. Com o piso, a janela passa a ser de 7 dias e o ritmo cai para 3 ÷ 7 × 30 ≈ 12,9 peças por mês. Mesmo assim, enquanto o produto tem menos de 90 dias de vendas, a tela identifica a cobertura e o ritmo do simulador como estimativa, e não como vendas comprovadas.
 
 Há duas aproximações, indicadas na tela. O giro usa o estoque atual no denominador, e não o estoque médio, que o sistema não guarda. A projeção também não conhece o prazo do fornecedor, então a data é quando o estoque chega ao mínimo, e não quando o pedido de compra deve ser feito.
 
@@ -520,7 +522,7 @@ O estorno muda a situação do pedido para "estornado". Como todas as consultas 
 Comprar um lote de mercadoria é um investimento: o dinheiro sai inteiro hoje e volta aos poucos, conforme as peças vendem. A seção "Vale a pena comprar este estoque?" do BI monta esse fluxo de caixa a partir de dados que a loja já tem, sem cadastro novo:
 
 - **saída em t = 0:** quantidade × custo atual do produto;
-- **ritmo de venda:** o mesmo da cobertura de estoque (seção 3.3.14), ou seja, o vendido na janela de até 90 dias, levado a 30 dias;
+- **ritmo de venda:** o mesmo da cobertura de estoque (seção 3.3.14), ou seja, o vendido na janela de 7 a 90 dias, levado a 30 dias. Com menos de 90 dias de vendas, a tela avisa que o ritmo é uma projeção e que o VPL, a TIR e o payback dependem dela;
 - **preço de cada peça vendida:** o preço médio que a loja de fato recebeu em 12 meses, já com descontos e sem frete. O preço de etiqueta só é usado quando o produto nunca vendeu, porque superestima a entrada de caixa.
 
 Se ainda há estoque do produto na prateleira, ele vende primeiro, e o lote novo só começa a virar dinheiro depois. Com venda de v peças por mês e E peças em estoque, o total de peças do lote novo vendidas até o fim do mês k é:
@@ -734,7 +736,7 @@ O objetivo geral foi alcançado, com ressalvas. O sistema registra as vendas pel
 6. **O estorno é sempre do pedido inteiro.** Para devolver só uma peça, é preciso estornar e registrar a venda de novo. O valor também sai do mês da venda, não do mês da devolução.
 7. **A venda de balcão não identifica o cliente.** O relatório de clientes considera apenas as compras da vitrine, e os cupons não são vinculados a um cliente específico.
 8. **O giro e a data de reposição são aproximações.** O giro usa o estoque atual, porque o sistema não guarda o estoque médio, e a data não considera o prazo do fornecedor.
-9. **O simulador de compra simplifica o fluxo de caixa.** Supõe que o ritmo de venda dos últimos 90 dias se mantém, conta como entrada a receita da venda (sem impostos, comissões nem taxa do cartão), considera que a loja paga o fornecedor no ato e ignora o que não vender em 36 meses. A TMA é informada pelo gerente, não calculada.
+9. **O simulador de compra simplifica o fluxo de caixa.** Supõe que o ritmo de venda dos últimos 90 dias se mantém (em produto novo, uma projeção com piso de 7 dias, que pode ficar longe da demanda real), conta como entrada a receita da venda (sem impostos, comissões nem taxa do cartão), considera que a loja paga o fornecedor no ato e ignora o que não vender em 36 meses. A TMA é informada pelo gerente, não calculada.
 
 ## 5.3 Sugestões de trabalhos futuros
 

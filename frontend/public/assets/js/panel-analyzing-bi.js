@@ -691,6 +691,12 @@
     return '<div class="bi-pix-stat' + (classe ? ' ' + classe : '') + '"><span>' + escapeHtml(rotulo) + '</span><strong>' + escapeHtml(valor) + '</strong><small>' + escapeHtml(nota) + '</small></div>';
   }
 
+  /** "menos de 1 dia de vendas", "1 dia de vendas", "12 dias de vendas". */
+  function historicoTexto(dias) {
+    var d = Math.max(0, parseInt(dias, 10) || 0);
+    return d < 1 ? 'menos de 1 dia de vendas' : d + (d === 1 ? ' dia' : ' dias') + ' de vendas';
+  }
+
   function dataBr(iso) {
     var p = String(iso).split('-');
     return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
@@ -738,6 +744,10 @@
     });
     linhasOuVazio(document.getElementById('bi-stock-rows'), lista.slice(0, TOPO_TABELA).map(function (i) {
       var cobertura = i.estoque < 1 ? 'Esgotado' : i.cobertura_dias === null ? 'Sem venda em 90 dias' : 'Dura mais ' + i.cobertura_dias + ' dias';
+      // Menos de 90 dias de vendas: o ritmo é estimativa (com piso de 7 dias), não histórico.
+      if (i.cobertura_dias !== null && i.estoque > 0 && i.dias_historico < 90) {
+        cobertura += ' · estimativa com ' + historicoTexto(i.dias_historico);
+      }
       var repor = i.repor_em_dias === null ? '—'
         : i.repor_em_dias === 0 ? '<span class="ui-badge ui-badge--danger">Repor agora</span>'
         : dataBr(i.repor_em);
