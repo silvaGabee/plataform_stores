@@ -52,15 +52,17 @@ class AnalyzingBIApiController extends Controller
             return is_numeric($v) ? (float) $v : 0.0;
         };
         // Peças são inteiras. Antes 0,0004 peça dava investimento de R$ 0,00,
-        // VPL 0 e a decisão "compensa".
+        // VPL 0 e a decisão "compensa". Só vale quando há produto: sem ele, a
+        // rota devolve a lista de produtos que a tela carrega ao abrir.
+        $produto = is_scalar($_GET['produto'] ?? null) ? (int) $_GET['produto'] : 0;
         $quantidade = $num($_GET['quantidade'] ?? '0');
-        if ($quantidade < 1 || floor($quantidade) !== $quantidade) {
+        if ($produto > 0 && ($quantidade < 1 || floor($quantidade) !== $quantidade)) {
             $this->json(['error' => 'Informe a quantidade em peças inteiras (1 ou mais).'], 400);
         }
         try {
             $this->json((new AnalyzingBIService())->simulateStockPurchase(
                 $storeId,
-                (int) ($_GET['produto'] ?? 0),
+                $produto,
                 min(100000.0, $quantidade),
                 $num($_GET['tma'] ?? '0'),
                 ($_GET['estoque'] ?? '1') !== '0',
