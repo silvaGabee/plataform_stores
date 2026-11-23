@@ -52,37 +52,83 @@ class ProductVariantRepository
         return $porProduto;
     }
 
+    /**
+     * Grava as variações do produto atualizando as linhas no lugar.
+     *
+     * Antes apagava todas e inseria de novo: uma venda confirmada entre o
+     * DELETE e o INSERT não achava a variação, e um erro no meio deixava o
+     * produto sem variações. Agora a linha que continua é atualizada (mesmo
+     * id, mesmo código de barras), a nova é inserida e a que saiu é apagada.
+     *
+     * A comparação ignora maiúsculas e acentos, como a chave única do banco
+     * (collation utf8mb4_unicode_ci): "azul" → "Azul" é renomear, e "Azul" e
+     * "azul" na mesma grade são recusados antes de gravar qualquer coisa.
+     */
     public function replaceForProduct(int $productId, array $variants): void
     {
-        // A matriz é regravada a cada edição (inclusive na tela de Estoque) e não
-        // traz os códigos. Sem guardá-los aqui, salvar o estoque apagaria todos.
-        $st = $this->pdo->prepare('SELECT variant_type, variant_value, barcode FROM product_variants WHERE product_id = ? AND barcode IS NOT NULL');
-        $st->execute([$productId]);
-        $codigos = [];
-        foreach ($st->fetchAll() as $linha) {
-            $codigos[$linha['variant_type'] . "\0" . $linha['variant_value']] = $linha['barcode'];
-        }
-
-        $del = $this->pdo->prepare('DELETE FROM product_variants WHERE product_id = ?');
-        $del->execute([$productId]);
-
-        if ($variants === []) {
-            return;
-        }
-
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO product_variants (product_id, variant_type, variant_value, barcode, stock_quantity, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-        );
-        $order = 0;
+        $novas = [];
         foreach ($variants as $row) {
             $type = (string) ($row['variant_type'] ?? '');
             $value = trim((string) ($row['variant_value'] ?? ''));
-            $stock = max(0, (int) ($row['stock_quantity'] ?? 0));
             if ($type === '' || $value === '') {
                 continue;
             }
-            $stmt->execute([$productId, $type, $value, $codigos[$type . "\0" . $value] ?? null, $stock, $order++]);
+            $chave = $type . "\0" . self::chaveSemCaixaNemAcento($value);
+            if (isset($novas[$chave])) {
+                throw new \InvalidArgumentException(
+                    'A grade tem nomes repetidos: "' . str_replace('|', ' / ', $novas[$chave]['value']) . '" e "'
+                    . str_replace('|', ' / ', $value) . '" diferem só por maiúscula ou acento. Use um nome só para cada cor e tamanho.'
+                );
+            }
+            $novas[$chave] = ['type' => $type, 'value' => $value, 'stock' => max(0, (int) ($row['stock_quantity'] ?? 0))];
         }
+
+        $st = $this->pdo->prepare('SELECT id, variant_type, variant_value FROM product_variants WHERE product_id = ?');
+        $st->execute([$productId]);
+        $existentes = [];
+        foreach ($st->fetchAll() as $linha) {
+            $existentes[$linha['variant_type'] . "\0" . self::chaveSemCaixaNemAcento((string) $linha['variant_value'])] = (int) $linha['id'];
+        }
+
+        $del = $this->pdo->prepare('DELETE FROM product_variants WHERE id = ?');
+        foreach ($existentes as $chave => $id) {
+            if (!isset($novas[$chave])) {
+                $del->execute([$id]);
+            }
+        }
+        $up = $this->pdo->prepare('UPDATE product_variants SET variant_value = ?, stock_quantity = ?, sort_order = ? WHERE id = ?');
+        $ins = $this->pdo->prepare(
+            'INSERT INTO product_variants (product_id, variant_type, variant_value, stock_quantity, sort_order) VALUES (?, ?, ?, ?, ?)'
+        );
+        $order = 0;
+        try {
+            foreach ($novas as $chave => $n) {
+                if (isset($existentes[$chave])) {
+                    $up->execute([$n['value'], $n['stock'], $order++, $existentes[$chave]]);
+                } else {
+                    $ins->execute([$productId, $n['type'], $n['value'], $n['stock'], $order++]);
+                }
+            }
+        } catch (\PDOException $e) {
+            if ($e->getCode() === '23000') {
+                // Alguma equivalência da collation que a chave acima não cobre.
+                throw new \InvalidArgumentException('A grade tem cores ou tamanhos repetidos (diferem só por maiúscula ou acento). Use um nome só para cada.');
+            }
+            throw $e;
+        }
+    }
+
+    /** "Açaí|M" → "acai|m": aproximação da comparação da collation do banco. */
+    private static function chaveSemCaixaNemAcento(string $valor): string
+    {
+        return strtr(mb_strtolower(trim($valor), 'UTF-8'), [
+            'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ç' => 'c', 'ñ' => 'n',
+        ]);
     }
 
     /**

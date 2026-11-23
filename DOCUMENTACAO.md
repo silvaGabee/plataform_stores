@@ -571,7 +571,7 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 | Tabelas no banco | 28 |
 | Migrações de banco versionadas | 29 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 190, todos passando |
+| Testes automatizados | 191, todos passando |
 
 Fonte: os autores (2026).
 
@@ -672,6 +672,9 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 | Teste | Como foi feito | Resultado |
 |---|---|---|
 | Concorrência | `concurrency_check.php`: duas confirmações simultâneas do mesmo pagamento | Só uma passa; o estoque baixa uma vez |
+| Última peça | Dois checkouts simultâneos pela última unidade | Só um pedido é criado; o outro recebe "esgotou" |
+| Caixa | Dois cliques simultâneos em "Abrir caixa"; venda em dinheiro com o caixa fechado | Um caixa só é aberto; a venda é recusada e o estoque não baixa |
+| Grade de estoque | Repor +1 enquanto uma venda é confirmada | O saldo final soma as duas coisas; nada é sobrescrito |
 | Rotas | `routes_check.php`: varre todas as rotas | Nenhuma rota roda sem declarar permissão |
 | Permissões | `authz_check.php`: requisições HTTP reais com cada cargo | Funcionário é barrado no BI |
 | CSRF | Requisição de alteração sem token | Recusada com código 403 |
@@ -682,7 +685,7 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 
 Fonte: os autores (2026).
 
-Além disso, o projeto tem uma suíte própria de 190 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas, a regra de senha mínima e as fórmulas financeiras (rateio, regressão, tabela Price, SAC, VPL, TIR, payback, fluxo de caixa da compra de estoque, variação percentual, produtos parados, estoque crítico, meta, divisão da meta entre a equipe e de onde veio o vendido, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
+Além disso, o projeto tem uma suíte própria de 191 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas, a regra de senha mínima e as fórmulas financeiras (rateio, regressão, tabela Price, SAC, VPL, TIR, payback, fluxo de caixa da compra de estoque, variação percentual, produtos parados, estoque crítico, meta, divisão da meta entre a equipe e de onde veio o vendido, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
 
 ### 4.2.4 Conferência com grande volume
 

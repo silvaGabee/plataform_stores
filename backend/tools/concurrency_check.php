@@ -253,6 +253,11 @@ try {
     $pdo->prepare('UPDATE cash_registers SET closed_at = NOW() WHERE id = ?')->execute([$idCaixa]);
     $ok('estorno em dinheiro sem caixa aberto é recusado', $recusa(fn () => $svc->refundOrder((int) $pedido12['id'], $storeId, $customerId, 'x', true)));
     $ok('a recusa não altera o pedido', $statusDe('orders', (int) $pedido12['id']) === 'pago' && $estoqueDe($p12) === 4);
+    $pedido12b = $svc->createOrder($storeId, $customerId, [['product_id' => $p12, 'quantity' => 1]], 'pdv', $customerId);
+    $pag12b = $svc->addPayment((int) $pedido12b['id'], $storeId, 'dinheiro', (float) $pedido12b['total']);
+    $ok('venda em dinheiro com o caixa fechado é recusada', $recusa(fn () => $svc->confirmPayment((int) $pag12b['id'], $storeId)));
+    $ok('e não baixa o estoque', $statusDe('orders', (int) $pedido12b['id']) === 'pendente' && $estoqueDe($p12) === 4);
+    $svc->cancelOrder((int) $pedido12b['id'], $storeId, $customerId);
     $idCaixa2 = $caixaRepo->open(['store_id' => $storeId, 'opened_by' => $customerId, 'initial_amount' => 0]);
     $svc->refundOrder((int) $pedido12['id'], $storeId, $customerId, 'x', true);
     $sc = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_movements WHERE cash_register_id = ? AND type = 'saida'");

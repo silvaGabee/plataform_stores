@@ -1289,6 +1289,26 @@ body.create-store-unsaved-open {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+/* Editar nome e e-mail (Minha conta). */
+.my-account-edit {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+.my-account-edit-summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+}
+.my-account-edit-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  max-width: 420px;
+}
+.my-account-edit-form .btn {
+  justify-self: start;
+}
 .my-account-danger-card {
   padding: 1.15rem 1.25rem;
   border-radius: 16px;

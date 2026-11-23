@@ -175,6 +175,10 @@ $__cartCount = store_cart_count((int) $store['id']);
         </div>
     </header>
     <main class="store-main" id="conteudo" tabindex="-1">
+        <?php // Avisos de redirecionamento (ex.: "sem permissão" vindo do painel). As telas que mostram o próprio aviso já o consumiram. ?>
+        <?php if (!empty($_SESSION['_error'])): ?>
+        <div class="alert alert-error store-flash" role="alert"><?= htmlspecialchars((string) $_SESSION['_error']) ?></div>
+        <?php unset($_SESSION['_error']); endif; ?>
         <?= $content ?? '' ?>
     </main>
     <?php require __DIR__ . '/_store_footer.php'; ?>

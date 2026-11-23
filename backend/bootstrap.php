@@ -29,8 +29,15 @@ if (file_exists($envFile) && is_readable($envFile)) {
             // projeto é instalado copiando a pasta, o .env é a única fonte de
             // configuração que a pessoa realmente controla e enxerga.
             //
-            // Para apontar a outro banco sem editar o arquivo, use uma variável
-            // que NÃO esteja no .env (é assim que DB_NAME funciona).
+            // Exceção: valor VAZIO no .env não apaga uma variável já definida.
+            // O .env.example traz "DB_NAME=" em branco; copiado, ele anulava o
+            // `DB_NAME=copia php backend/scripts/migrate.php` documentado e a
+            // migração rodava em silêncio no banco real. Vazio no .env quer
+            // dizer "não configurei", não "quero vazio".
+            $doAmbiente = getenv($name);
+            if ($value === '' && $doAmbiente !== false && $doAmbiente !== '') {
+                continue;
+            }
             putenv("$name=$value");
             $_ENV[$name] = $value;
         }

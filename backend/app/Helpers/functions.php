@@ -150,14 +150,18 @@ if (!function_exists('base_url')) {
             // No Windows, dirname('/index.php') devolve '\' (e não '/'): sem
             // normalizar de novo, o `php -S` gerava links como "host\/login".
             $scriptDir = str_replace('\\', '/', dirname(str_replace('\\', '/', $_SERVER['SCRIPT_NAME'])));
-            if ($scriptDir !== '/' && $scriptDir !== '.' && $scriptDir !== '') {
-                $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-                $scheme = $https ? 'https' : 'http';
-                $host = $_SERVER['HTTP_HOST'] ?? '';
-                if ($host !== '') {
-                    $base = $scheme . '://' . $host . rtrim($scriptDir, '/');
-                }
+            // Site na raiz do domínio (DocumentRoot em frontend/public): a
+            // pasta é "/" e a base é só o host. Antes esse caso caía no
+            // APP_URL, que aponta para /plataform_stores/public.
+            if ($scriptDir === '/' || $scriptDir === '.') {
+                $scriptDir = '';
+            }
+            $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+            $scheme = $https ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'] ?? '';
+            if ($host !== '') {
+                $base = $scheme . '://' . $host . rtrim($scriptDir, '/');
             }
         }
         if ($base === '') {

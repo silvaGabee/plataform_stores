@@ -142,6 +142,58 @@ class HomeController extends Controller
         ]);
     }
 
+    /**
+     * A própria pessoa muda nome e e-mail (o e-mail é o login), confirmando a
+     * senha atual. Antes a página pedia para mantê-los atualizados e não havia
+     * como; e desde que o painel só edita contas criadas pela loja, este é o
+     * único caminho para quem tem conta própria.
+     */
+    public function updateAccount(): void
+    {
+        $userId = (int) $_SESSION['logged_user_id'];
+        $repo = new UserRepository();
+        $user = $repo->find($userId);
+        if ($user === null) {
+            logout();
+            redirect(base_url());
+        }
+        $name = trim(is_string($_POST['name'] ?? null) ? $_POST['name'] : '');
+        $email = trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : '');
+        $senha = is_string($_POST['current_password'] ?? null) ? $_POST['current_password'] : '';
+        $voltar = function (string $erro) use ($name, $email): void {
+            $_SESSION['_account_old'] = ['name' => $name, 'email' => $email];
+            $_SESSION['_error'] = $erro;
+            redirect(base_url('minha-conta'));
+        };
+        // Conferir a senha sem limite permitiria adivinhá-la numa sessão roubada.
+        if (!\App\Auth\RateLimiter::tentar('conta-dados', (string) $userId, 10, 900)) {
+            $voltar('Muitas tentativas. Aguarde alguns minutos e tente de novo.');
+        }
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 120) {
+            $voltar('Informe o nome (até 120 caracteres).');
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email, 'UTF-8') > 190) {
+            $voltar('Informe um e-mail válido.');
+        }
+        if (!password_verify($senha, (string) $user['password'])) {
+            $voltar('Senha atual incorreta.');
+        }
+        if (strcasecmp($email, (string) $user['email']) !== 0) {
+            $dono = $repo->findByEmail($email);
+            if ($dono !== null && (int) $dono['id'] !== $userId) {
+                $voltar('Já existe outra conta com este e-mail.');
+            }
+        }
+        try {
+            $repo->update($userId, ['name' => $name, 'email' => $email]);
+        } catch (\Throwable $e) {
+            log_exception($e, ['acao' => 'editar-conta', 'user_id' => $userId]);
+            $voltar('Não foi possível salvar. Tente de novo.');
+        }
+        $_SESSION['_success'] = 'Dados atualizados.';
+        redirect(base_url('minha-conta'));
+    }
+
     public function deleteAccount(): void
     {
         if (!logged_in()) {

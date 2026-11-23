@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Database\Database;
 use App\Repositories\CashRegisterRepository;
 use App\Repositories\CashMovementRepository;
 
@@ -19,20 +20,33 @@ class CashRegisterService
 
     public function open(int $storeId, int $userId, float $initialAmount = 0): array
     {
-        if ($this->cashRepo->findOpenByStore($storeId)) {
-            throw new \RuntimeException('Já existe um caixa aberto para esta loja.');
-        }
-        $id = $this->cashRepo->open([
-            'store_id'       => $storeId,
-            'opened_by'      => $userId,
-            'initial_amount' => $initialAmount,
-        ]);
-        return $this->cashRepo->find($id);
+        // A trava na loja faz a segunda abertura simultânea esperar a primeira
+        // e então ver o caixa já aberto. Antes as duas passavam pela checagem.
+        return Database::transaction(function () use ($storeId, $userId, $initialAmount): array {
+            $this->cashRepo->lockStore($storeId);
+            if ($this->cashRepo->findOpenByStoreForUpdate($storeId)) {
+                throw new \RuntimeException('Já existe um caixa aberto para esta loja.');
+            }
+            $id = $this->cashRepo->open([
+                'store_id'       => $storeId,
+                'opened_by'      => $userId,
+                'initial_amount' => $initialAmount,
+            ]);
+
+            return $this->cashRepo->find($id);
+        });
     }
 
     public function close(int $cashRegisterId, int $storeId, float $finalAmount): array
     {
-        $cash = $this->cashRepo->find($cashRegisterId);
+        // Travado: uma venda em dinheiro confirmada no mesmo instante ou entra
+        // antes da conta do esperado, ou encontra o caixa já fechado e é recusada.
+        return Database::transaction(fn (): array => $this->closeInTransaction($cashRegisterId, $storeId, $finalAmount));
+    }
+
+    private function closeInTransaction(int $cashRegisterId, int $storeId, float $finalAmount): array
+    {
+        $cash = $this->cashRepo->findForUpdate($cashRegisterId);
         if (!$cash || (int) $cash['store_id'] !== $storeId) {
             throw new \InvalidArgumentException('Caixa não encontrado');
         }

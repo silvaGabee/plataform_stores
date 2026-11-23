@@ -52,9 +52,14 @@ class AiController extends Controller
             $this->json(['error' => 'Pergunta muito longa. Limite de ' . $max . ' caracteres.'], 400);
         }
         $service = new AiAssistantService();
+        $podeVerBi = \App\Auth\Permissions::can('store.bi.read', $storeId);
+        // A IA pode levar até ~2 minutos. Com a sessão aberta, o PHP trava
+        // todas as outras requisições do mesmo navegador (outra aba, PDV) até
+        // ela responder. Daqui em diante só se LÊ a sessão.
+        session_write_close();
         // O faturamento só entra no contexto de quem pode ver o BI. Tirar o dado
         // é o que protege: uma instrução no prompt o modelo poderia não seguir.
-        $resposta = $service->responderPerguntaLoja($storeId, $pergunta, \App\Auth\Permissions::can('store.bi.read', $storeId), $slug);
+        $resposta = $service->responderPerguntaLoja($storeId, $pergunta, $podeVerBi, $slug);
         if ($resposta === null) {
             // O motivo técnico (provedor, código HTTP) não vai para o chat:
             // fica no log do PHP e, com debug ligado, no console do navegador.
@@ -82,11 +87,24 @@ class AiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
         $this->requireStorePanelAccess($storeId);
+        // Também é uma chamada paga: mesmo limite por pessoa do chat, contado à parte.
+        if (!\App\Auth\RateLimiter::tentar('ai-descricao', (string) ($_SESSION['logged_user_id'] ?? ''), 30, 600)) {
+            $this->json(['error' => 'Muitos pedidos em pouco tempo. Aguarde um instante.'], 429);
+        }
         $input = $this->getJsonInput();
+        foreach (['nome' => 150, 'categoria' => 100, 'caracteristicas' => 1000] as $campo => $limite) {
+            if (isset($input[$campo]) && !is_scalar($input[$campo])) {
+                $this->json(['error' => 'Campo inválido: ' . $campo . '.'], 400);
+            }
+            if (mb_strlen(trim((string) ($input[$campo] ?? '')), 'UTF-8') > $limite) {
+                $this->json(['error' => 'O campo ' . $campo . ' passa de ' . $limite . ' caracteres.'], 400);
+            }
+        }
         $nome = trim((string) ($input['nome'] ?? ''));
         if ($nome === '') {
             $this->json(['error' => 'Informe o nome do produto.'], 400);
         }
+        session_write_close();
         $service = new AiAssistantService();
         $out = $service->gerarDescricaoProduto($storeId, $input);
         if ($out === null || ($out['descricao_curta'] === '' && $out['descricao_completa'] === '')) {

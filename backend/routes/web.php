@@ -17,6 +17,7 @@ return [
     'GET /sair' => [HomeController::class, 'logout', Guard::PUBLICO],
     'GET /minha-conta' => [HomeController::class, 'myAccount', Guard::AUTENTICADO],
     'POST /minha-conta/excluir' => [HomeController::class, 'deleteAccount', Guard::AUTENTICADO],
+    'POST /minha-conta/dados' => [HomeController::class, 'updateAccount', Guard::AUTENTICADO],
     'GET /lojas' => [HomeController::class, 'listStores', Guard::AUTENTICADO],
     'GET /criar-conta' => [HomeController::class, 'createAccountForm', Guard::PUBLICO],
     'POST /criar-conta' => [HomeController::class, 'createAccount', Guard::PUBLICO],

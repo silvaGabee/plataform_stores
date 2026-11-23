@@ -178,7 +178,7 @@ class OrderService
                 continue;
             }
             if ($isPdv && strtolower((string) $pagamento['method']) === 'dinheiro') {
-                $caixa = $this->cashRegisterRepo->findOpenByStore($storeId);
+                $caixa = $this->cashRegisterRepo->findOpenByStoreForUpdate($storeId);
                 if (!$caixa) {
                     throw new \InvalidArgumentException('Esta venda foi em dinheiro: abra o caixa para registrar a devolução.');
                 }
@@ -231,6 +231,23 @@ class OrderService
             throw new \InvalidArgumentException('Pedido com itens demais.');
         }
         foreach ($items as $item) {
+            if (!is_array($item)) {
+                throw new \InvalidArgumentException('Item do pedido inválido.');
+            }
+        }
+        // Trava as linhas dos produtos antes de conferir o estoque livre. Sem
+        // isto, dois checkouts simultâneos liam a mesma reserva e os dois
+        // levavam a última peça. Ordem crescente de id evita deadlock. A trava
+        // é a primeira leitura da transação, então as reservas lidas depois já
+        // incluem o pedido que acabou de ser gravado pela outra requisição.
+        $idsProdutos = array_values(array_unique(array_map(static fn ($i) => (int) ($i['product_id'] ?? 0), $items)));
+        sort($idsProdutos);
+        $this->productRepo->lockForSale($storeId, $idsProdutos);
+        StockReservation::forget($storeId);
+        // Soma por produto + variação: a mesma peça em duas linhas do pedido
+        // era conferida linha a linha e passava do saldo.
+        $pedidoPorChave = [];
+        foreach ($items as $item) {
             $productId = (int) ($item['product_id'] ?? 0);
             $product = $this->productService()->getByIdAndStore($productId, $storeId);
             if (!$product) {
@@ -247,8 +264,10 @@ class OrderService
             if (product_has_variants($product) && $variantKey === null) {
                 throw new \InvalidArgumentException('Selecione cor e tamanho para: ' . ($product['name'] ?? ''));
             }
+            $chave = $productId . '#' . ($variantKey ?? '');
+            $pedidoPorChave[$chave] = ($pedidoPorChave[$chave] ?? 0) + $qty;
             $stock = StockReservation::available($product, $variantKey);
-            if ($stock < $qty) {
+            if ($stock < $pedidoPorChave[$chave]) {
                 $label = $variantKey !== null ? ' (' . product_variant_key_label($product, $variantKey) . ')' : '';
                 throw new \InvalidArgumentException(
                     $stock > 0
@@ -499,6 +518,12 @@ class OrderService
             $this->orderRepo->updateDeliveryStage((int) $order['id'], $storeId, 'entregue');
         }
         $items = $this->orderItemRepo->getByOrder((int) $order['id']);
+        // Mesma ordem de trava da edição de produto (produto antes das
+        // variações): uma venda e um ajuste de grade simultâneos esperam um
+        // pelo outro em vez de travarem em deadlock.
+        $idsProdutos = array_values(array_unique(array_map(static fn ($i) => (int) ($i['product_id'] ?? 0), $items)));
+        sort($idsProdutos);
+        $this->productRepo->lockForSale($storeId, $idsProdutos);
         foreach ($items as $item) {
             $productId = (int) ($item['product_id'] ?? 0);
             $product = $this->productService()->getByIdAndStore($productId, $storeId);
@@ -543,10 +568,17 @@ class OrderService
                 'reason'     => $reason,
             ]);
         }
-        $cash = $this->cashRegisterRepo->findOpenByStore($storeId);
         $isPdv = isset($order['order_type']) && strtolower((string) $order['order_type']) === 'pdv';
         $isDinheiro = isset($payment['method']) && strtolower((string) $payment['method']) === 'dinheiro';
-        if ($cash && $isPdv && $isDinheiro) {
+        if ($isPdv && $isDinheiro) {
+            // Dinheiro no balcão precisa entrar numa gaveta. Antes, com o caixa
+            // fechado (outro operador fechou com esta tela aberta), a venda
+            // ficava paga sem lançamento e o fechamento não batia. Lançar aqui
+            // desfaz a transação inteira, estoque incluído.
+            $cash = $this->cashRegisterRepo->findOpenByStoreForUpdate($storeId);
+            if (!$cash) {
+                throw new \InvalidArgumentException('O caixa está fechado. Abra o caixa para registrar a venda em dinheiro.');
+            }
             $this->cashMovementRepo->create([
                 'cash_register_id' => $cash['id'],
                 'order_id'         => $order['id'],

@@ -253,10 +253,11 @@ $content = ob_start();
                         <div class="order-product-qty" aria-hidden="true"><?= (int) $item['quantity'] ?></div>
                         <div class="order-product-body">
                             <div class="order-product-main">
-                                <span class="order-product-name"><?= htmlspecialchars($item['product_name']) ?></span>
+                                <span class="order-product-name"><?= htmlspecialchars((string) $item['product_name']) ?></span>
                                 <span class="order-product-line-total">R$ <?= number_format($lineTotal, 2, ',', '.') ?></span>
                             </div>
-                            <p class="order-product-meta">R$ <?= number_format($item['price'], 2, ',', '.') ?> cada</p>
+                            <?php $variacao = product_variant_key_label([], isset($item['variant_key']) ? (string) $item['variant_key'] : null); ?>
+                            <p class="order-product-meta"><?php if ($variacao !== ''): ?><?= htmlspecialchars($variacao) ?> · <?php endif; ?>R$ <?= number_format($item['price'], 2, ',', '.') ?> cada</p>
                         </div>
                     </li>
                     <?php endforeach; ?>

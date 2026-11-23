@@ -81,6 +81,9 @@ $__ic = static function (string $d): string {
             <?php if (!empty($_SESSION['_success'])): ?>
             <div class="alert alert-success panel-flash" role="status"><?= htmlspecialchars((string) $_SESSION['_success']) ?></div>
             <?php unset($_SESSION['_success']); endif; ?>
+            <?php if (!empty($_SESSION['_error'])): ?>
+            <div class="alert alert-error panel-flash" role="alert"><?= htmlspecialchars((string) $_SESSION['_error']) ?></div>
+            <?php unset($_SESSION['_error']); endif; ?>
             <?= $content ?? '' ?>
         </div>
     </main>

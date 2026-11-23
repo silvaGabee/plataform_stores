@@ -36,6 +36,12 @@ $initialEsc = htmlspecialchars($initial);
             </div>
             <?php unset($_SESSION['_error']); ?>
         <?php endif; ?>
+        <?php if (!empty($_SESSION['_success'])): ?>
+            <div class="alert alert-success my-account-alert" role="status">
+                <?= htmlspecialchars((string) $_SESSION['_success']) ?>
+            </div>
+            <?php unset($_SESSION['_success']); ?>
+        <?php endif; ?>
 
         <div class="my-account-shell">
             <section class="my-account-profile-card" aria-labelledby="my-account-profile-heading">
@@ -87,6 +93,31 @@ $initialEsc = htmlspecialchars($initial);
                         </div>
                     </li>
                 </ul>
+
+                <?php
+                // O que a pessoa digitou na última tentativa recusada (consumido aqui).
+                $contaOld = is_array($_SESSION['_account_old'] ?? null) ? $_SESSION['_account_old'] : null;
+                unset($_SESSION['_account_old']);
+                ?>
+                <details class="my-account-edit"<?= $contaOld !== null ? ' open' : '' ?>>
+                    <summary class="my-account-edit-summary">Editar nome e e-mail</summary>
+                    <form method="post" action="<?= base_url('minha-conta/dados') ?>" class="my-account-edit-form">
+                        <?= csrf_field() ?>
+                        <label class="ui-field">
+                            <span>Nome</span>
+                            <input type="text" name="name" required maxlength="120" autocomplete="name" value="<?= htmlspecialchars((string) ($contaOld['name'] ?? ($user['name'] ?? ''))) ?>">
+                        </label>
+                        <label class="ui-field">
+                            <span>E-mail (é com ele que você entra)</span>
+                            <input type="email" name="email" required maxlength="190" autocomplete="email" value="<?= htmlspecialchars((string) ($contaOld['email'] ?? ($user['email'] ?? ''))) ?>">
+                        </label>
+                        <label class="ui-field">
+                            <span>Senha atual, para confirmar</span>
+                            <input type="password" name="current_password" required autocomplete="current-password">
+                        </label>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </form>
+                </details>
             </section>
 
             <div class="my-account-footer-actions">

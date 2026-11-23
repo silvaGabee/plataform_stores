@@ -1,5 +1,8 @@
 RewriteEngine On
-RewriteBase /plataform_stores/public/
+# Sem RewriteBase: o Apache usa a pasta deste arquivo como base, então o
+# mesmo .htaccess funciona dentro do htdocs (/plataform_stores/public/) e com
+# o site apontado direto para esta pasta (DocumentRoot), sem editar nada.
+# Só seria preciso um RewriteBase se a pasta fosse servida por Alias.
 
 # Se a requisição for para um arquivo ou pasta que existe, usa direto
 RewriteCond %{REQUEST_FILENAME} !-f

@@ -339,7 +339,25 @@ class ProductService
         return $this->getByIdAndStore($id, $storeId) ?? $this->productRepo->find($id);
     }
 
+    /**
+     * Atualiza o produto numa transação, com a linha dele travada: uma venda
+     * confirmada no meio não vê a grade pela metade, e um erro desfaz tudo.
+     *
+     * `variants_stock_base` (opcional, mesmo formato de variants_matrix.stock)
+     * é o saldo que a tela mostrava quando a pessoa começou a editar. Com ele,
+     * cada célula recebe só a diferença digitada sobre o saldo ATUAL — antes o
+     * valor absoluto da tela sobrescrevia vendas confirmadas nesse meio-tempo.
+     */
     public function update(int $id, int $storeId, array $data): ?array
+    {
+        return \App\Database\Database::transaction(function () use ($id, $storeId, $data): ?array {
+            $this->productRepo->lockForSale($storeId, [$id]);
+
+            return $this->updateInTransaction($id, $storeId, $data);
+        });
+    }
+
+    private function updateInTransaction(int $id, int $storeId, array $data): ?array
     {
         $product = $this->productRepo->findByIdAndStore($id, $storeId);
         if (!$product) {
@@ -348,6 +366,8 @@ class ProductService
         $codigos = $this->validarCodigos($storeId, $id, $data);
         $hasVariantsKey = array_key_exists('variants', $data) || array_key_exists('variants_matrix', $data);
         $variants = null;
+        $base = is_array($data['variants_stock_base'] ?? null) ? $data['variants_stock_base'] : null;
+        unset($data['variants_stock_base']);
         if ($hasVariantsKey) {
             $rawVariants = $data['variants_matrix'] ?? $data['variants'] ?? [];
             unset($data['variants_matrix'], $data['variants']);
@@ -355,6 +375,15 @@ class ProductService
         }
         $data = self::validarPrecos($data, $product);
         $estoqueAntes = $this->stockSnapshot($id, $product);
+        if ($variants !== null && $base !== null) {
+            $variants = self::aplicarDiferencaSobreAtual($variants, $base, $estoqueAntes);
+        }
+        // Produto sem variações: a mesma ideia com o saldo único.
+        $baseUnica = $data['stock_quantity_base'] ?? null;
+        unset($data['stock_quantity_base']);
+        if (is_numeric($baseUnica) && array_key_exists('stock_quantity', $data) && ($variants === null || $variants === [])) {
+            $data['stock_quantity'] = max(0, (int) $product['stock_quantity'] + (int) $data['stock_quantity'] - (int) $baseUnica);
+        }
         if ($variants !== null) {
             $this->variantRepo->replaceForProduct($id, $variants);
             $data['stock_quantity'] = $variants !== []
@@ -387,6 +416,32 @@ class ProductService
         $this->registrarDiferencasDeEstoque($storeId, $id, $estoqueAntes, $this->stockSnapshot($id, null));
 
         return $this->getByIdAndStore($id, $storeId);
+    }
+
+    /**
+     * Saldo de cada combinação = atual + (digitado − base). Célula que não
+     * estava na base (cor ou tamanho novo) fica com o valor digitado.
+     *
+     * @param list<array<string, mixed>> $variants linhas normalizadas
+     * @param array<string, mixed> $base [tamanho][cor] => saldo que a tela mostrava
+     * @param array<string, int> $atual ["Cor|Tamanho"] => saldo no banco agora
+     * @return list<array<string, mixed>>
+     */
+    public static function aplicarDiferencaSobreAtual(array $variants, array $base, array $atual): array
+    {
+        foreach ($variants as $i => $row) {
+            if (($row['variant_type'] ?? '') !== 'combinacao' || !str_contains((string) $row['variant_value'], '|')) {
+                continue;
+            }
+            [$cor, $tam] = explode('|', (string) $row['variant_value'], 2);
+            if (!is_array($base[$tam] ?? null) || !isset($base[$tam][$cor]) || !isset($atual[$row['variant_value']])) {
+                continue;
+            }
+            $digitado = (int) $row['stock_quantity'];
+            $variants[$i]['stock_quantity'] = max(0, $atual[$row['variant_value']] + $digitado - (int) $base[$tam][$cor]);
+        }
+
+        return $variants;
     }
 
     /**

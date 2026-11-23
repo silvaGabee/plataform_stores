@@ -74,6 +74,24 @@ class ProductRepository
         return $stmt->fetchAll();
     }
 
+    /**
+     * Trava (FOR UPDATE) as linhas dos produtos até o fim da transação, para
+     * que só um pedido por vez confira e reserve o estoque deles.
+     *
+     * @param list<int> $ids em ordem crescente
+     */
+    public function lockForSale(int $storeId, array $ids): void
+    {
+        $ids = array_values(array_filter($ids, static fn ($id) => $id > 0));
+        if ($ids === []) {
+            return;
+        }
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+        $st = $this->pdo->prepare("SELECT id FROM products WHERE store_id = ? AND id IN ({$marcas}) ORDER BY id FOR UPDATE");
+        $st->execute(array_merge([$storeId], $ids));
+        $st->fetchAll();
+    }
+
     public function setBarcode(int $id, ?string $barcode): void
     {
         $this->pdo->prepare('UPDATE products SET barcode = ? WHERE id = ?')->execute([$barcode, $id]);

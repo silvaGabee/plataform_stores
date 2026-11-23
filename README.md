@@ -111,7 +111,7 @@ Requisitos: PHP 8.0+ (`pdo_mysql`, `json`, `session`, `fileinfo`), MySQL 5.7+ ou
 
    O `schema.sql` é o retrato do schema até a migração 0020 e as registra como aplicadas. Em seguida rode `php backend/scripts/migrate.php` para aplicar as posteriores (0021: reserva de estoque, cupons, preço promocional, parcelamento, conferência de caixa e aprovação de desconto; 0022: vendas do PDV como entregues). **Não execute o `schema.sql` em um banco que já tem dados** (ele contém `DROP TABLE IF EXISTS`); nesse caso use só o `migrate.php`.
 3. Copie `.env.example` para `.env` e preencha.
-4. Ajuste o `RewriteBase` em `public/.htaccess` para o caminho depois do `htdocs` (ex.: `/plataform_stores/public/`).
+4. Não é preciso editar `.htaccess`: sem `RewriteBase`, ele funciona tanto dentro do `htdocs` (`/plataform_stores/public/`) quanto com o site apontado direto para `frontend/public/`. Só se a pasta for servida por `Alias` acrescente um `RewriteBase` com o caminho do alias.
 5. Garanta permissão de escrita em `frontend/public/uploads/` e `storage/`.
 6. Opcional: popule com uma loja de exemplo.
 
@@ -136,7 +136,7 @@ Requisitos: PHP 8.0+ (`pdo_mysql`, `json`, `session`, `fileinfo`), MySQL 5.7+ ou
 | `RAPIDAPI_KEY` | Imagem do QR Code PIX (opcional) |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, … | Assistente de IA do painel (opcional) |
 | `GROQ_API_KEY`, `GROQ_MODEL` | Assistente de IA pela Groq (opcional, tentado depois da OpenRouter) |
-| `IA_SEM_CHAVE` | `1` (padrão) usa a Pollinations, sem chave, quando as outras falham; `0` desliga |
+| `IA_SEM_CHAVE` | `1` (padrão) usa a Pollinations, sem chave, quando as outras falham — sem enviar faturamento, lucro nem custos, por ser um serviço público; `0` desliga |
 
 O `.env` é ignorado pelo Git e bloqueado por HTTP. As regras do assistente de IA ficam em `backend/config/regrasIA.txt`.
 
@@ -257,7 +257,7 @@ Se o `DocumentRoot` apontar para `frontend/public/`, o Apache serve os estático
 
 | Sintoma | O que verificar |
 |---------|-----------------|
-| 404 nas rotas | `mod_rewrite`, `AllowOverride` e `RewriteBase` |
+| 404 nas rotas | `mod_rewrite` e `AllowOverride` (e `RewriteBase`, só se a pasta for servida por `Alias`) |
 | Login não redireciona | `localhost` × `127.0.0.1` misturados com `APP_URL` |
 | Erro de banco | MySQL ligado, `.env`/`database.php`, migrações aplicadas |
 | Imagens não gravam | Permissão de escrita em `frontend/public/uploads/` |

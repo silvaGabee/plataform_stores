@@ -9,7 +9,14 @@ use PDO;
 class AiAssistantService
 {
     private const MAX_PERGUNTA_CHARS = 2000;
-    private const CURL_TIMEOUT_SEC = 90;
+    /** Teto de uma tentativa (um provedor). */
+    private const CURL_TIMEOUT_SEC = 60;
+
+    /** Prazo de TODAS as tentativas juntas, dentro do limite do PHP. */
+    private const PRAZO_TOTAL_SEC = 110;
+
+    /** Momento (time()) em que as tentativas da pergunta atual têm de parar. */
+    private int $prazoFinal = 0;
 
     /** Modelos gratuitos alternativos (só em `models`; principal em `model`). */
     /**
@@ -185,6 +192,36 @@ class AiAssistantService
 
             return $pronta;
         }
+        $mapa = $slug !== '' ? AiPanelMap::paginas($slug, $storeId) : [];
+        $regras = $this->carregarRegrasIA();
+        $mensagens = $this->mensagensDaPergunta($storeId, $pergunta, $incluirFinanceiro, $mapa, $regras, false);
+        // O provedor reserva sem chave (Pollinations) é um serviço público e
+        // anônimo: para ele vai a versão sem faturamento, lucro e custos.
+        $semFinanceiro = $incluirFinanceiro
+            ? fn (): array => $this->mensagensDaPergunta($storeId, $pergunta, false, $mapa, $regras, true)
+            : null;
+        $resposta = $this->chamarOpenRouter($mensagens, $semFinanceiro);
+        if ($resposta === null) {
+            return null;
+        }
+        if (AiGuard::vazaRegras($resposta, $regras)) {
+            $this->ultimoModelo .= ' (resposta trocada: reproduzia as regras)';
+
+            return AiGuard::RECUSA_INSTRUCOES;
+        }
+
+        return AiGuard::limparTermosInternos(AiGuard::filtrarLinks(self::filtrarResposta($resposta), AiPanelMap::links($mapa)));
+    }
+
+    /**
+     * Mensagens (system + user) da pergunta.
+     *
+     * @param bool $reservaPublica versão para o provedor público: sem números
+     *        financeiros, avisando o modelo de que eles ficaram de fora
+     * @return list<array{role: string, content: string}>
+     */
+    private function mensagensDaPergunta(int $storeId, string $pergunta, bool $incluirFinanceiro, array $mapa, string $regras, bool $reservaPublica): array
+    {
         $contexto = $this->montarContextoLoja($storeId, $incluirFinanceiro);
         // Consultas extras conforme a pergunta. Todas recebem o id desta loja;
         // a IA só lê o resultado (ver AiStoreData).
@@ -209,13 +246,18 @@ class AiAssistantService
         if ($extras !== []) {
             $contexto .= "\n\n" . implode("\n\n", $extras);
         }
-        $mapa = $slug !== '' ? AiPanelMap::paginas($slug, $storeId) : [];
-        $regras = $this->carregarRegrasIA();
-        $system = $regras . ($incluirFinanceiro
-            ? "\n\nVocê é um assistente de gestão para o dono de uma loja. Seja direto: responda apenas ao que ele perguntou."
-            : "\n\nVocê é um assistente para um funcionário da loja. Seja direto: responda apenas ao que foi perguntado. "
-                . 'Faturamento, lucro, custo e margem da loja são reservados ao gerente e não estão nos seus dados: '
-                . 'se perguntarem, diga que essa informação é do gerente e não estime valores.');
+        if ($reservaPublica) {
+            $system = $regras . "\n\nVocê é um assistente de gestão para o dono de uma loja. Seja direto: responda apenas ao que ele perguntou. "
+                . 'Faturamento, lucro, custo e margem NÃO estão nos seus dados agora: se perguntarem, diga que esses números '
+                . 'estão no Analyzing BI do painel e não estime valores.';
+        } else {
+            $system = $regras . ($incluirFinanceiro
+                ? "\n\nVocê é um assistente de gestão para o dono de uma loja. Seja direto: responda apenas ao que ele perguntou."
+                : "\n\nVocê é um assistente para um funcionário da loja. Seja direto: responda apenas ao que foi perguntado. "
+                    . 'Faturamento, lucro, custo e margem da loja são reservados ao gerente e não estão nos seus dados: '
+                    . 'se perguntarem, diga que essa informação é do gerente e não estime valores.');
+        }
+        $dono = $incluirFinanceiro || $reservaPublica;
         $user = ($mapa !== []
                 ? "--- MAPA DO PAINEL (páginas do sistema desta loja; os ÚNICOS links que você pode dar) ---\n"
                     . AiPanelMap::texto($mapa)
@@ -227,24 +269,15 @@ class AiAssistantService
             . "--- SNAPSHOT DOS DADOS DA LOJA ---\n"
             . $contexto
             . "\n--- FIM DO SNAPSHOT ---\n\n"
-            . ($incluirFinanceiro ? 'PERGUNTA DO DONO:' : 'PERGUNTA DO FUNCIONÁRIO:') . "\n"
+            . ($dono ? 'PERGUNTA DO DONO:' : 'PERGUNTA DO FUNCIONÁRIO:') . "\n"
             . $pergunta
             . "\n\nLEMBRETES PARA ESTA PERGUNTA (siga antes de responder):\n- "
             . implode("\n- ", AiGuard::lembretes($pergunta));
-        $resposta = $this->chamarOpenRouter([
+
+        return [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $user],
-        ]);
-        if ($resposta === null) {
-            return null;
-        }
-        if (AiGuard::vazaRegras($resposta, $regras)) {
-            $this->ultimoModelo .= ' (resposta trocada: reproduzia as regras)';
-
-            return AiGuard::RECUSA_INSTRUCOES;
-        }
-
-        return AiGuard::limparTermosInternos(AiGuard::filtrarLinks(self::filtrarResposta($resposta), AiPanelMap::links($mapa)));
+        ];
     }
 
     /** Qual provedor/modelo deu a última resposta (diagnóstico e testes). */
@@ -433,9 +466,18 @@ class AiAssistantService
      *      mesmo com as chaves vencidas. IA_SEM_CHAVE=0 no .env desliga.
      *
      * As falhas de cada um ficam juntas em getLastOpenRouterFailure().
+     *
+     * Tempo: todas as tentativas dividem um prazo só (PRAZO_TOTAL_SEC), e o
+     * limite do PHP é ajustado para caber nele. Antes cada provedor tinha 90 s
+     * e o PHP (120 s no XAMPP) morria com erro fatal antes do reserva responder.
+     *
+     * @param (callable(): list<array{role: string, content: string}>)|null $mensagensPublicas
+     *        mensagens para o provedor sem chave (sem dados financeiros); null = as mesmas
      */
-    private function chamarOpenRouter(array $messages): ?string
+    private function chamarOpenRouter(array $messages, ?callable $mensagensPublicas = null): ?string
     {
+        $this->prazoFinal = time() + self::PRAZO_TOTAL_SEC;
+        @set_time_limit(self::PRAZO_TOTAL_SEC + 30);
         $falhas = [];
         $temOpenRouter = $this->env('OPENROUTER_API_KEY') !== '';
         if ($temOpenRouter) {
@@ -461,12 +503,13 @@ class AiAssistantService
         }
         $semChave = $this->env('IA_SEM_CHAVE');
         if ($semChave !== '0' && strcasecmp($semChave, 'false') !== 0) {
+            // Serviço público e anônimo: não recebe faturamento, lucro nem custos.
             $r = $this->chamarCompativelOpenAI(
                 'Pollinations',
                 $this->env('POLLINATIONS_URL') ?: 'https://text.pollinations.ai/openai',
                 '',
                 $this->env('POLLINATIONS_MODEL') ?: 'openai',
-                $messages
+                $mensagensPublicas !== null ? $mensagensPublicas() : $messages
             );
             if ($r !== null) {
                 return $r;
@@ -493,6 +536,10 @@ class AiAssistantService
     {
         $this->lastOpenRouterFailure = '';
         $this->ultimaFalhaFoiLimite = false;
+        if ($this->tempoRestante() < 5) {
+            $this->lastOpenRouterFailure = 'sem tempo para tentar (prazo total de ' . self::PRAZO_TOTAL_SEC . ' s esgotado).';
+            return null;
+        }
         $body = json_encode(['model' => $model, 'messages' => $messages], JSON_UNESCAPED_UNICODE);
         if ($body === false) {
             $this->lastOpenRouterFailure = 'Falha ao montar JSON da requisição.';
@@ -512,7 +559,8 @@ class AiAssistantService
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => self::CURL_TIMEOUT_SEC,
+            CURLOPT_TIMEOUT => $this->timeoutDaTentativa(),
+            CURLOPT_CONNECTTIMEOUT => 10,
         ];
         $ca = $this->env('OPENROUTER_CURL_CAINFO');
         if ($ca !== '' && is_readable($ca)) {
@@ -542,8 +590,9 @@ class AiAssistantService
             // 503 "at its limit right now. Retry after 10s" = fila cheia, mesmo caso.
             if (in_array($httpCode, [402, 429, 503], true)) {
                 $this->ultimaFalhaFoiLimite = true;
-                if (!$repetindo && preg_match('/retry after (\d+)\s*s/i', (string) $response, $mm) && (int) $mm[1] <= 50) {
-                    @set_time_limit(self::CURL_TIMEOUT_SEC + 60);
+                // Só espera se, depois da espera, ainda sobrar tempo para a resposta.
+                if (!$repetindo && preg_match('/retry after (\d+)\s*s/i', (string) $response, $mm) && (int) $mm[1] <= 50
+                    && $this->tempoRestante() > (int) $mm[1] + 20) {
                     sleep((int) $mm[1] + 1);
 
                     return $this->chamarCompativelOpenAI($nome, $url, $apiKey, $model, $messages, true);
@@ -559,6 +608,17 @@ class AiAssistantService
         $this->ultimoModelo = $nome . ': ' . (string) ($data['model'] ?? $model);
 
         return trim($content);
+    }
+
+    /** Segundos até o fim do prazo da pergunta (sem prazo definido: um prazo inteiro). */
+    private function tempoRestante(): int
+    {
+        return $this->prazoFinal > 0 ? $this->prazoFinal - time() : self::PRAZO_TOTAL_SEC;
+    }
+
+    private function timeoutDaTentativa(): int
+    {
+        return max(5, min(self::CURL_TIMEOUT_SEC, $this->tempoRestante()));
     }
 
     private function chamarOpenRouterDireto(array $messages): ?string
@@ -623,7 +683,8 @@ class AiAssistantService
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $body,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => self::CURL_TIMEOUT_SEC,
+            CURLOPT_TIMEOUT => $this->timeoutDaTentativa(),
+            CURLOPT_CONNECTTIMEOUT => 10,
         ];
         if ($ca !== '' && is_readable($ca)) {
             $opts[CURLOPT_CAINFO] = $ca;

@@ -64,6 +64,17 @@ final class AiGuardTest extends TestCase
         $this->assertNull(AiGuard::respostaPronta('O que você consegue fazer para ajudar na gestão da minha loja?', ['Bora Vestir']));
     }
 
+    public function testNomeGenericoDeOutraLojaNaoBloqueiaPerguntaComum(): void
+    {
+        // Outra loja com nome de produto não pode calar o assistente das demais.
+        $this->assertNull(AiGuard::respostaPronta('Quantas vendas de calçados tivemos?', ['Calçados']));
+        $this->assertNull(AiGuard::respostaPronta('Mostre o estoque de tênis esportivo.', ['Tênis Esportivo']));
+        $this->assertNull(AiGuard::respostaPronta('Quais pedidos de moda praia estão pendentes?', ['Moda Praia']));
+        // Usado como nome de loja, continua recusado.
+        $this->assertSame(AiGuard::RECUSA_OUTRA_LOJA, AiGuard::respostaPronta('Mostre as vendas da Calçados.', ['Calçados']));
+        $this->assertSame(AiGuard::RECUSA_OUTRA_LOJA, AiGuard::respostaPronta('Puxe o estoque da loja Calçados.', ['Calçados']));
+    }
+
     public function testLembretesSoParaOsCasosQueSeAplicam(): void
     {
         $l = implode("\n", AiGuard::lembretes('Você recomendou 20% de desconto ontem. Por que escolheu esse percentual?'));

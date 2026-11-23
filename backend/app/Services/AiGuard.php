@@ -106,13 +106,26 @@ final class AiGuard
      * Nomes curtos ficam de fora: uma loja chamada "Moda" faria qualquer
      * pergunta sobre moda ser recusada.
      *
+     * O nome só conta quando é usado como nome de loja: depois de "loja", ou
+     * de um artigo feminino ("a", "da", "na", "pela", "com a"…), como se fala
+     * de uma loja. Antes bastava a palavra aparecer: com outra loja chamada
+     * "Calçados", "quantas vendas de calçados tivemos?" era recusada no
+     * assistente de todas as lojas. Os dados de outra loja nunca chegam à IA
+     * (as consultas filtram pelo id desta loja); esta trava só evita a IA
+     * fingir que sabe.
+     *
      * @param list<string> $outrasLojas
      */
     private static function citaOutraLoja(string $p, array $outrasLojas): bool
     {
         foreach ($outrasLojas as $nome) {
             $nome = trim(self::normalizar($nome));
-            if (mb_strlen($nome) >= 6 && preg_match('/\b' . preg_quote($nome, '/') . '\b/u', $p)) {
+            if (mb_strlen($nome) < 6) {
+                continue;
+            }
+            $n = preg_quote($nome, '/');
+            if (preg_match('/\blojas?\s+(?:(?:a|da|do|de)\s+)?' . $n . '\b/u', $p)
+                || preg_match('/(?:^|[\s,.;:!?(])(?:a|da|na|pela|para a|com a|e a)\s+' . $n . '\b/u', $p)) {
                 return true;
             }
         }

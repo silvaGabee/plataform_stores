@@ -136,6 +136,11 @@ class ProductApiController extends Controller
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);
             return;
+        } catch (\Throwable $e) {
+            // A transação já desfez tudo; o produto fica como estava.
+            log_exception($e, ['acao' => 'editar-produto', 'store_id' => $storeId, 'product_id' => $id]);
+            $this->json(['error' => 'Não foi possível salvar o produto. Nada foi alterado; tente de novo.'], 500);
+            return;
         }
         if (!$product) {
             $this->json(['error' => 'Produto não encontrado'], 404);

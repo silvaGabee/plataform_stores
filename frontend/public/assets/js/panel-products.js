@@ -34,6 +34,10 @@
   var vitrineCategories = [];
   var productVitrineCategoryIds = [];
   var variantMatrix = { axis: null, colors: [], sizes: [], stock: {}, color_meta: {} };
+  // Saldo que o formulário mostrava ao abrir: o servidor aplica só a diferença
+  // digitada sobre o saldo atual (uma venda no meio-tempo não é sobrescrita).
+  var stockBase = null;
+  var stockQtyBase = null;
   var variantCatalog = window.productVariantCatalog || {};
   var defaultColorHexMap = window.productVariantDefaultColorHex || {};
   var productCoverKey = null;
@@ -983,6 +987,7 @@
     var matrix = (data && data.variants_matrix) ? data.variants_matrix : null;
     if (matrix && matrix.colors && matrix.colors.length) {
       variantMatrix = normalizeLoadedVariantMatrix(matrix);
+      stockBase = JSON.parse(JSON.stringify(variantMatrix.stock || {}));
     } else {
       variantMatrix = { axis: null, colors: [], sizes: [], stock: {}, color_meta: {} };
     }
@@ -990,6 +995,8 @@
   }
 
   function resetProductVariants() {
+    stockBase = null;
+    stockQtyBase = null;
     variantBarcodes = {};
     variantMatrix = { axis: null, colors: [], sizes: [], stock: {}, color_meta: {} };
     var picker = document.getElementById('variant-color-picker');
@@ -1287,6 +1294,7 @@
           document.getElementById('product-cost').value = formatBrCurrency(res.cost_price || 0);
           document.getElementById('product-sale').value = formatBrCurrency(res.sale_price || 0);
           document.getElementById('product-stock').value = res.stock_quantity || 0;
+          stockQtyBase = parseInt(res.stock_quantity, 10) || 0;
           document.getElementById('product-min-stock').value = res.min_stock || 0;
           document.getElementById('product-barcode').value = res.barcode || '';
           setProductVitrineCategories(res.vitrine_category_ids || res.vitrine_category_id);
@@ -1438,9 +1446,11 @@
       if (matrixPayload) {
         payload.variants_matrix = matrixPayload;
         payload.stock_quantity = variantMatrixTotalStock();
+        if (id && stockBase) payload.variants_stock_base = stockBase;
       } else {
         payload.variants_matrix = null;
         payload.variants = [];
+        if (id && stockQtyBase !== null) payload.stock_quantity_base = stockQtyBase;
       }
       if (!id) {
         var uploadOrder = getOrderedNewFilesForUpload();

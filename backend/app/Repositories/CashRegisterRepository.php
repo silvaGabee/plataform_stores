@@ -30,6 +30,39 @@ class CashRegisterRepository
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Caixa aberto travado (FOR UPDATE) até o fim da transação: o fechamento
+     * e um lançamento simultâneo esperam um pelo outro.
+     */
+    public function findOpenByStoreForUpdate(int $storeId): ?array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM cash_registers WHERE store_id = ? AND closed_at IS NULL ORDER BY opened_at DESC LIMIT 1 FOR UPDATE"
+        );
+        $stmt->execute([$storeId]);
+
+        return $stmt->fetch() ?: null;
+    }
+
+    public function findForUpdate(int $id): ?array
+    {
+        $stmt = $this->pdo->prepare('SELECT * FROM cash_registers WHERE id = ? FOR UPDATE');
+        $stmt->execute([$id]);
+
+        return $stmt->fetch() ?: null;
+    }
+
+    /**
+     * Trava a linha da loja: serializa a abertura de caixa, para dois cliques
+     * (ou dois operadores) não abrirem dois caixas ao mesmo tempo.
+     */
+    public function lockStore(int $storeId): void
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM stores WHERE id = ? FOR UPDATE');
+        $stmt->execute([$storeId]);
+        $stmt->fetchAll();
+    }
+
     public function listByStore(int $storeId, ?int $limit = 30): array
     {
         $sql = "SELECT * FROM cash_registers WHERE store_id = ? ORDER BY opened_at DESC";

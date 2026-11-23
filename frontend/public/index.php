@@ -66,7 +66,8 @@ session_start();
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $basePath = preg_replace('#/public/index\.php$#', '/public', $scriptName);
 if ($basePath === $scriptName) {
-    $basePath = preg_replace('#/index\.php$#', '', $scriptName) ?: '/plataform_stores';
+    // Na raiz do domínio (DocumentRoot em frontend/public) o prefixo é vazio.
+    $basePath = (string) preg_replace('#/index\.php$#', '', $scriptName);
 }
 
 $root = dirname(__DIR__, 2);

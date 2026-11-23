@@ -823,7 +823,10 @@
             sizes: activeAdjustMatrix.sizes,
             stock: activeAdjustMatrix.stock,
             color_meta: activeAdjustMatrix.color_meta || {}
-          }
+          },
+          // Saldo que a tela mostrava: o servidor aplica só a diferença sobre
+          // o saldo atual, sem apagar uma venda confirmada nesse meio-tempo.
+          variants_stock_base: prevMatrix.stock || {}
         };
         api('/api/loja/' + storeSlug + '/products/' + id, {
           method: 'PUT',
