@@ -475,3 +475,4 @@ INSERT INTO schema_migrations (version) VALUES ('0026_avaliacoes_moderacao.php')
 INSERT INTO schema_migrations (version) VALUES ('0027_dados_legais_loja.php');
 INSERT INTO schema_migrations (version) VALUES ('0028_conta_criada_pela_loja.php');
 INSERT INTO schema_migrations (version) VALUES ('0029_endereco_no_pedido.php');
+INSERT INTO schema_migrations (version) VALUES ('0030_retirada_sem_etapa_de_entrega.sql');

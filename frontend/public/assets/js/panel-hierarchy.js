@@ -440,7 +440,24 @@
     var cs = getComputedStyle(vp);
     var available = vp.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
     setZoom(natural > available ? available / natural : 1);
-    vp.scrollLeft = 0;
+    centralizarRaiz();
+  }
+
+  /**
+   * Leva a rolagem até o topo da hierarquia. O desenho é centralizado dentro
+   * de uma área que rola de lado; quando é mais largo que a tela, começar em
+   * scrollLeft = 0 mostrava só os ramos da esquerda e escondia o cargo do
+   * topo (no celular, CEO e Gerente ficavam fora da tela).
+   */
+  function centralizarRaiz() {
+    var vp = document.getElementById('org-viewport');
+    var raiz = vp && vp.querySelector('.org-card-root');
+    if (!vp) return;
+    vp.scrollTop = 0;
+    if (!raiz) { vp.scrollLeft = 0; return; }
+    var a = vp.getBoundingClientRect();
+    var b = raiz.getBoundingClientRect();
+    vp.scrollLeft += (b.left + b.width / 2) - (a.left + vp.clientWidth / 2);
   }
 
   function locate(roleId) {
@@ -579,7 +596,11 @@
         // Na primeira carga, reduz o zoom (até 70%) para o organograma caber na largura.
         didAutoFit = true;
         fitZoom();
-        if (zoom < 0.7) setZoom(0.7);
+        if (zoom < 0.7) {
+          // Abaixo de 70% o texto fica ilegível: mantém 70% e mostra o topo.
+          setZoom(0.7);
+          centralizarRaiz();
+        }
       }
     }).catch(function (err) {
       var treeEl = document.getElementById('hierarchy-tree');

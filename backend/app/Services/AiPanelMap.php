@@ -25,7 +25,7 @@ final class AiPanelMap
         ['', 'Dashboard', 'store.panel.view',
             'Resumo do dia; cartão "Endereço público da vitrine" (botão Copiar); "Categorias da vitrine" (Adicionar categoria) [#dashboard-vitrine-categories-section]; '
             . '"Banner da vitrine" (Escolher imagem, Editar, Salvar na vitrine, Remover banner; ideal 1920×512 px) [#dashboard-banner-section]; '
-            . 'alerta "Estoque baixo"; "Chave PIX da loja" (Tipo da chave, Chave PIX, Salvar chave PIX) [#pix-card] e "Pagamentos PIX pendentes" (Confirmar PIX) [#pending-payments] — estas duas só o gerente vê.'],
+            . 'alerta "Estoque baixo"; "Chave PIX da loja" (Tipo da chave, Chave PIX, Salvar chave PIX) [#pix-card] e "Pagamentos pendentes" (Confirmar PIX ou Recebi no cartão) [#pending-payments] — estas duas só o gerente vê.'],
         ['produtos', 'Produtos', 'store.catalog.read',
             'Botão "Novo produto"; busca e filtro (Em promoção, Estoque baixo ou esgotado, Sem foto); clicar no produto abre "Editar produto": Informações (Nome, Descrição, Categorias da vitrine), '
             . 'Fotos (Adicionar fotos, Definir capa), Preços e estoque (Preço de custo, Preço de venda, Estoque inicial, Estoque mínimo, Código de barras ou SKU), Variações (cores, tamanhos, estoque por cor e tamanho). '

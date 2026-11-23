@@ -105,7 +105,8 @@
       var atual = sel.value;
       sel.innerHTML = opts.map(function (o) {
         var txt = o.parcelas === 1 ? 'À vista: ' + brl(o.total)
-          : o.parcelas + 'x de ' + brl(o.parcela) + (o.sem_juros ? ' sem juros' : ' (total ' + brl(o.total) + ')');
+          // `descricao` traz as parcelas exatas (ex.: 2x de R$ 100,00 + 1x de R$ 99,99).
+          : (o.descricao || (o.parcelas + 'x de ' + brl(o.parcela))) + (o.sem_juros ? ' sem juros' : ' (total ' + brl(o.total) + ')');
         return '<option value="' + o.parcelas + '">' + txt + '</option>';
       }).join('') || '<option value="1">À vista</option>';
       if (atual && sel.querySelector('option[value="' + atual + '"]')) sel.value = atual;

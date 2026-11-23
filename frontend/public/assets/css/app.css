@@ -9061,7 +9061,9 @@ body.pdv-modal-open { overflow: hidden; }
 .variant-color-advanced-modal {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  /* Abre POR CIMA do modal "Editar produto" (body.panel .modal = 10020).
+     Com 1200 ficava atrás dele: invisível e aberta. */
+  z-index: 10030;
   display: flex;
   align-items: center;
   justify-content: center;

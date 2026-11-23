@@ -71,7 +71,14 @@ final class InstallmentPlan
         if ($semJuros) {
             $partes = Money::splitEvenly($amount, $n);
 
-            return ['parcelas' => $n, 'parcela' => (float) $partes[0], 'total' => round($amount, 2), 'juros' => 0.0, 'sem_juros' => true];
+            return [
+                'parcelas' => $n,
+                'parcela' => (float) $partes[0],
+                'total' => round($amount, 2),
+                'juros' => 0.0,
+                'sem_juros' => true,
+                'descricao' => self::descrever($partes),
+            ];
         }
         $p = Installments::price($amount, $r['rate'], $n);
 
@@ -81,10 +88,38 @@ final class InstallmentPlan
             'total' => (float) $p['total'],
             'juros' => round((float) $p['total'] - $amount, 2),
             'sem_juros' => false,
+            'descricao' => self::descrever(array_column($p['tabela'], 'parcela')),
         ];
     }
 
-    /** Texto curto para a vitrine: "ou 3x de R$ 39,97 sem juros". */
+    /**
+     * Parcelas por extenso, com os valores exatos: "3x de R$ 30,00" quando são
+     * iguais; "2x de R$ 100,00 + 1x de R$ 99,99" quando a divisão em centavos
+     * não fecha. Antes só a primeira parcela (a maior) era mostrada, e R$ 299,99
+     * aparecia como "3x de R$ 100,00", que somam R$ 300,00.
+     *
+     * @param list<float|int|string> $valores valor de cada parcela, na ordem
+     */
+    public static function descrever(array $valores): string
+    {
+        $grupos = [];
+        foreach ($valores as $v) {
+            $c = Money::toCents((float) $v);
+            $ultimo = count($grupos) - 1;
+            if ($ultimo >= 0 && $grupos[$ultimo][1] === $c) {
+                $grupos[$ultimo][0]++;
+            } else {
+                $grupos[] = [1, $c];
+            }
+        }
+
+        return implode(' + ', array_map(
+            static fn (array $g): string => $g[0] . 'x de R$ ' . number_format($g[1] / 100, 2, ',', '.'),
+            $grupos
+        ));
+    }
+
+    /** Texto curto para a vitrine: "ou 3x de R$ 40,00 sem juros" (ou "ou 2x de R$ 39,97 + 1x de R$ 39,96 sem juros"). */
     public static function headline(array $store, float $amount): ?string
     {
         $best = null;
@@ -97,6 +132,6 @@ final class InstallmentPlan
             return null;
         }
 
-        return 'ou ' . $best['parcelas'] . 'x de R$ ' . number_format($best['parcela'], 2, ',', '.') . ' sem juros';
+        return 'ou ' . $best['descricao'] . ' sem juros';
     }
 }

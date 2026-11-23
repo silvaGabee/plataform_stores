@@ -181,7 +181,8 @@
       if (r.error) { tb.innerHTML = '<tr><td colspan="4" class="ui-empty">' + UI.esc(r.error) + '</td></tr>'; return; }
       var linhas = (r.options || []).map(function (o) {
         return '<tr><td>' + o.parcelas + 'x ' + (o.sem_juros ? '<span class="ui-badge ui-badge--ok">sem juros</span>' : '') + '</td>' +
-          '<td class="ui-num">' + UI.money(o.parcela) + '</td><td class="ui-num">' + UI.money(o.total) + '</td>' +
+          // Parcelas diferentes (centavos que não fecham): mostra cada uma.
+          '<td class="ui-num">' + (o.descricao && o.descricao.indexOf('+') !== -1 ? UI.esc(o.descricao) : UI.money(o.parcela)) + '</td><td class="ui-num">' + UI.money(o.total) + '</td>' +
           '<td class="ui-num">' + (o.juros > 0 ? UI.money(o.juros) : '—') + '</td></tr>';
       });
       if (r.pix && r.pix.preco) {

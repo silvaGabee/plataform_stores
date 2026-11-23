@@ -230,15 +230,31 @@
     var main = document.createElement('div');
     main.className = 'bi-chart-vchart-main';
 
+    // Eixo Y: cada marca é posicionada pela mesma escala das barras (0% na
+    // base, 100% = yMax), dentro de uma faixa que cobre SÓ a área das barras.
+    // Antes as marcas se espalhavam pela altura toda, incluindo a faixa de
+    // nomes e valores abaixo das barras, e "R$ 0" ficava abaixo da base:
+    // lido pelo eixo, o lucro saía errado.
     var yAxis = document.createElement('div');
     yAxis.className = 'bi-chart-y-axis';
     yAxis.setAttribute('aria-hidden', 'true');
-    ticks.forEach(function (t) {
+    var yInner = document.createElement('div');
+    yInner.className = 'bi-chart-y-axis-inner';
+    var maisLargo = '';
+    ticks.forEach(function (t, i) {
       var span = document.createElement('span');
       span.className = 'bi-chart-y-tick';
       span.textContent = t;
-      yAxis.appendChild(span);
+      span.style.bottom = ((tickSteps - i) / tickSteps) * 100 + '%';
+      yInner.appendChild(span);
+      if (t.length > maisLargo.length) maisLargo = t;
     });
+    // Mantém a coluna do eixo com a largura do maior rótulo (as marcas são absolutas).
+    var medidor = document.createElement('span');
+    medidor.className = 'bi-chart-y-sizer';
+    medidor.textContent = maisLargo;
+    yAxis.appendChild(medidor);
+    yAxis.appendChild(yInner);
 
     var outer = document.createElement('div');
     outer.className = 'bi-chart-plot-outer';
@@ -326,6 +342,25 @@
     main.appendChild(outer);
     root.appendChild(main);
     wrap.appendChild(root);
+
+    // A faixa do eixo acompanha a área das barras (topo e base), descontando
+    // os rótulos e a barra de rolagem horizontal, que variam com a largura.
+    function alinharEixo() {
+      var eixo = yAxis.getBoundingClientRect();
+      var area = stackInner.getBoundingClientRect();
+      if (!eixo.height || !area.height) return;
+      yInner.style.top = Math.max(0, area.top - eixo.top) + 'px';
+      yInner.style.bottom = Math.max(0, eixo.bottom - area.bottom) + 'px';
+    }
+    alinharEixo();
+    if (window.requestAnimationFrame) window.requestAnimationFrame(alinharEixo);
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(alinharEixo);
+      ro.observe(outer);
+      ro.observe(rowLabels);
+    } else {
+      window.addEventListener('resize', alinharEixo);
+    }
   }
 
   function renderIdeas(list) {
@@ -342,6 +377,51 @@
 
   var biRevenueChart = null;
   var biRevenueFiltersBound = false;
+
+  /**
+   * Cores do gráfico de faturamento vêm das variáveis CSS do tema, lidas na
+   * hora de desenhar. Trocando o tema com a página aberta, o gráfico ficava
+   * com as cores antigas (legenda escura invisível no fundo escuro, grade
+   * quase branca). Aqui elas são relidas e aplicadas ao gráfico existente.
+   */
+  function aplicarTemaAoFaturamento() {
+    var ch = biRevenueChart;
+    if (!ch || !ch.options) return;
+    var primary = biCssVar('--primary', '#2563eb');
+    var card = biCssVar('--bg-card', '#fff');
+    var texto = biCssVar('--text', '#0f172a');
+    var mudo = biCssVar('--text-muted', '#64748b');
+    var borda = biCssVar('--border', '#e2e8f0');
+    var trend = biCssVar('--warning', '#d97706');
+    var ds = ch.data.datasets || [];
+    if (ds[0]) {
+      ds[0].borderColor = primary;
+      ds[0].backgroundColor = parseColorToRgba(primary, 0.14);
+      ds[0].pointBackgroundColor = primary;
+      ds[0].pointBorderColor = card;
+    }
+    if (ds[1]) {
+      ds[1].borderColor = trend;
+      ds[1].backgroundColor = trend;
+      ds[1].pointBackgroundColor = card;
+      ds[1].pointBorderColor = trend;
+    }
+    var o = ch.options;
+    if (o.plugins && o.plugins.legend && o.plugins.legend.labels) o.plugins.legend.labels.color = texto;
+    ['x', 'y'].forEach(function (eixo) {
+      var s = o.scales && o.scales[eixo];
+      if (!s) return;
+      if (s.ticks) s.ticks.color = mudo;
+      if (s.grid) s.grid.color = borda;
+    });
+    ch.update('none');
+  }
+  if (window.MutationObserver) {
+    new MutationObserver(aplicarTemaAoFaturamento).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
+  }
 
   function biCssVar(name, fallback) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();

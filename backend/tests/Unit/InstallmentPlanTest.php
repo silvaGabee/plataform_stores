@@ -48,7 +48,11 @@ final class InstallmentPlanTest extends TestCase
 
     public function testChamadaPeloTextoDaVitrine(): void
     {
-        $this->assertSame('ou 3x de R$ 39,97 sem juros', InstallmentPlan::headline($this->loja(), 119.90));
+        // 119,90 ÷ 3 não fecha em centavos: o texto mostra as parcelas exatas,
+        // que somam o preço (39,97 + 39,97 + 39,96 = 119,90).
+        $this->assertSame('ou 2x de R$ 39,97 + 1x de R$ 39,96 sem juros', InstallmentPlan::headline($this->loja(), 119.90));
+        $this->assertSame('ou 2x de R$ 100,00 + 1x de R$ 99,99 sem juros', InstallmentPlan::headline($this->loja(), 299.99));
+        $this->assertSame('ou 3x de R$ 40,00 sem juros', InstallmentPlan::headline($this->loja(), 120.00));
         $this->assertNull(InstallmentPlan::headline($this->loja(['installments_free' => 1]), 119.90));
     }
 

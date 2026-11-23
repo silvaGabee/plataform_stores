@@ -538,6 +538,16 @@
     }
   }
 
+  // Esc fecha só esta janela (ela fica por cima do modal do produto).
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var modal = document.getElementById('variant-color-advanced-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      e.stopPropagation();
+      closeColorAdvancedModal();
+    }
+  }, true);
+
   function getOrderedSizes() {
     var seen = {};
     var out = [];

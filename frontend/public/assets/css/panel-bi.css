@@ -197,7 +197,8 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  padding: 0.25rem 0 0;
+  /* Espaço para o rótulo do topo do eixo, centrado na linha do valor máximo. */
+  padding: 0.6rem 0 0;
 }
 .bi-chart-vchart-main {
   display: grid;
@@ -209,9 +210,7 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
   width: 100%;
 }
 .bi-chart-y-axis {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
   height: 100%;
   min-height: 10rem;
   box-sizing: border-box;
@@ -223,9 +222,29 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
   padding-top: 0;
   user-select: none;
 }
+/* Faixa com a altura exata da área das barras (o JS ajusta top/bottom). */
+.bi-chart-y-axis-inner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+/* Cada marca fica com o CENTRO na linha do seu valor. */
 .bi-chart-y-tick {
+  position: absolute;
+  right: 0;
   display: block;
   line-height: 1;
+  white-space: nowrap;
+  transform: translateY(50%);
+}
+/* Dá à coluna a largura do maior rótulo sem ocupar altura. */
+.bi-chart-y-sizer {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
   white-space: nowrap;
 }
 .bi-chart-plot-outer {

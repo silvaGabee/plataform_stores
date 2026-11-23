@@ -73,6 +73,12 @@
       if (r.error) { UI.toast(r.error, 'error'); return; }
       orders = (r.orders || []).map(function (o) {
         o.delivery_type = (o.delivery_type || 'retirada').toLowerCase();
+        if (!FLUXO[o.delivery_type]) o.delivery_type = 'retirada';
+        // Etapa que não existe no fluxo do pedido (ex.: retirada em
+        // "empacotando", gravada antes da validação do servidor) fazia o
+        // pedido sumir de todas as colunas. Ele vai para a primeira etapa,
+        // de onde pode ser avançado normalmente.
+        if (FLUXO[o.delivery_type].indexOf(o.delivery_stage || 'solicitado') === -1) o.delivery_stage = 'solicitado';
         return o;
       });
       render();

@@ -272,8 +272,8 @@ ob_start();
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
             <div class="panel-section-head-text">
-                <h2 class="panel-section-title">Pagamentos PIX pendentes</h2>
-                <p class="panel-section-desc">Confirme manualmente quando o valor tiver entrado na sua conta.</p>
+                <h2 class="panel-section-title">Pagamentos pendentes</h2>
+                <p class="panel-section-desc">PIX: confirme quando o valor entrar na sua conta. Cartão na retirada: confirme quando o cliente passar o cartão.</p>
             </div>
         </div>
         <div class="panel-section-body">
@@ -382,18 +382,26 @@ ob_start();
   var emptyPendingHtml = '<div class="panel-empty-state" role="status">' +
     '<div class="panel-empty-icon" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
     '<p class="panel-empty-title">Nenhum pagamento pendente</p>' +
-    '<p class="panel-empty-desc">Quando um cliente finalizar com PIX aguardando confirmação, o pedido aparece aqui.</p></div>';
+    '<p class="panel-empty-desc">Quando um cliente finalizar com PIX ou com cartão na retirada, o pedido aparece aqui até você confirmar.</p></div>';
+
+  // Rótulo e botão conforme a forma de pagamento. Antes saía o valor cru do
+  // banco ("CARTAO") com o botão "Confirmar PIX" também para cartão.
+  var METODO = { pix: 'PIX', cartao: 'Cartão na retirada', dinheiro: 'Dinheiro' };
+  var BOTAO = { pix: 'Confirmar PIX', cartao: 'Recebi no cartão', dinheiro: 'Recebi em dinheiro' };
+  var brl = function (v) { return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
 
   fetch(base + '/api/loja/' + slug + '/payments/pending').then(function(r){ return r.json(); }).then(function(res){
     var list = res.payments || [];
     var el = document.getElementById('pending-payments');
     if (!list.length) { el.innerHTML = emptyPendingHtml; return; }
     el.innerHTML = list.map(function(p){
+      var m = String(p.method || 'pix').toLowerCase();
       return '<div class="panel-pending-row card">' +
-        '<div class="panel-pending-info"><span class="panel-pending-order">Pedido #' + p.order_id + '</span>' +
-        '<span class="panel-pending-amount">R$ ' + parseFloat(p.amount).toFixed(2).replace('.', ',') + '</span>' +
-        '<span class="panel-pending-method">' + (p.method || 'PIX') + '</span></div>' +
-        '<button type="button" class="btn btn-sm btn-primary confirm-pix" data-payment-id="' + p.id + '">Confirmar PIX</button></div>';
+        '<div class="panel-pending-info"><span class="panel-pending-order">Pedido #' + esc(p.order_id) + '</span>' +
+        '<span class="panel-pending-amount">' + brl(p.amount) + '</span>' +
+        '<span class="panel-pending-method">' + esc(METODO[m] || m) + '</span></div>' +
+        '<button type="button" class="btn btn-sm btn-primary confirm-pix" data-payment-id="' + esc(p.id) + '">' + esc(BOTAO[m] || 'Confirmar pagamento') + '</button></div>';
     }).join('');
     el.querySelectorAll('.confirm-pix').forEach(function(btn){
       btn.addEventListener('click', function(){

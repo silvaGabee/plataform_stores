@@ -569,7 +569,7 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 |---|---|
 | Telas | 30 (6 da plataforma, 9 da vitrine, 15 do painel) |
 | Tabelas no banco | 28 |
-| Migrações de banco versionadas | 29 |
+| Migrações de banco versionadas | 30 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
 | Testes automatizados | 195, todos passando |
 
