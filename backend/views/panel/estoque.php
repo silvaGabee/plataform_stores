@@ -142,7 +142,7 @@
                         <button type="submit" class="btn btn-primary stock-modal-submit">Confirmar</button>
                         <button type="button" class="btn btn-secondary close-modal">Cancelar</button>
                     </div>
-                    <?php if (empty($panel_readonly)): ?>
+                    <?php if (!empty($panel_pode_excluir_produto)): ?>
                     <div class="stock-modal-footer-danger">
                         <button type="button" class="btn btn-ghost-danger" id="btn-delete-product-from-stock">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -157,7 +157,7 @@
 </div>
 <?php
 $content = ob_get_clean();
-$readonly = !empty($panel_readonly);
+$readonly = empty($panel_pode_catalogo);
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script>'
     . '<script>window.panelStockReadonly = ' . ($readonly ? 'true' : 'false') . ';</script>'
     . '<script src="' . asset('js/panel-stock.js') . '"></script>';

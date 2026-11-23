@@ -26,9 +26,10 @@ final class Permissions
     /**
      * Permissão => cargos que a possuem.
      *
-     * A divisão segue o que o painel já comunicava ao funcionário:
-     * ele OPERA a loja (PDV, caixa, entregas) mas não a GERENCIA
-     * (catálogo, estoque, equipe, BI, configurações).
+     * O funcionário OPERA a loja: PDV, caixa, entregas, catálogo e estoque,
+     * vendas e estornos, clientes. Fica com o gerente o que é de GESTÃO:
+     * equipe, metas, BI e números financeiros, custo dos produtos,
+     * configurações, promoções, excluir produto.
      *
      * @var array<string, list<string>>
      */
@@ -36,19 +37,24 @@ final class Permissions
         // Entrar no painel e ver os números do dia.
         'store.panel.view'      => [self::GERENTE, self::FUNCIONARIO],
 
-        // Catálogo e estoque: o funcionário vê, o gerente altera.
+        // Catálogo e estoque: os dois criam e editam produto, ajustam estoque
+        // e mexem nas categorias (decisão do dono em 2026-11-23). O custo
+        // continua fora do alcance do funcionário (store.costs.read).
         'store.catalog.read'    => [self::GERENTE, self::FUNCIONARIO],
-        'store.catalog.write'   => [self::GERENTE],
+        'store.catalog.write'   => [self::GERENTE, self::FUNCIONARIO],
+        // Excluir produto apaga fotos, variações e histórico de estoque: gerente.
+        'store.catalog.delete'  => [self::GERENTE],
 
         // Pedidos e entregas: o funcionário movimenta o kanban.
         'store.orders.read'     => [self::GERENTE, self::FUNCIONARIO],
         'store.orders.write'    => [self::GERENTE, self::FUNCIONARIO],
         'store.orders.cancel'   => [self::GERENTE],
-        // Estornar devolve dinheiro e mexe na receita já registrada.
-        'store.orders.refund'   => [self::GERENTE],
+        // Vendas e estornos: o funcionário também estorna (o estorno devolve
+        // o dinheiro, tira a venda da receita e pode repor as peças).
+        'store.orders.refund'   => [self::GERENTE, self::FUNCIONARIO],
 
         // Clientes: nome, e-mail e quanto cada um gastou.
-        'store.customers.read'  => [self::GERENTE],
+        'store.customers.read'  => [self::GERENTE, self::FUNCIONARIO],
 
         'store.stock.history'   => [self::GERENTE],
         'store.discounts.approve' => [self::GERENTE],

@@ -29,10 +29,10 @@ final class AiPanelMap
         ['produtos', 'Produtos', 'store.catalog.read',
             'Botão "Novo produto"; busca e filtro (Em promoção, Estoque baixo ou esgotado, Sem foto); clicar no produto abre "Editar produto": Informações (Nome, Descrição, Categorias da vitrine), '
             . 'Fotos (Adicionar fotos, Definir capa), Preços e estoque (Preço de custo, Preço de venda, Estoque inicial, Estoque mínimo, Código de barras ou SKU), Variações (cores, tamanhos, estoque por cor e tamanho). '
-            . 'Só o gerente cria e edita. Não há excluir aqui: excluir fica em Estoque.'],
+            . 'Gerente e funcionário criam e editam; o Preço de custo só o gerente vê. Não há excluir aqui: excluir fica em Estoque e é só do gerente.'],
         ['estoque', 'Estoque', 'store.catalog.read',
             'Tabela com quantidade, mínimo e status de cada produto; painel "Avisos de estoque" (cores e tamanhos no mínimo ou zerados); '
-            . 'botão "Ajustar" abre "Ajustar estoque" (Entrada, Saída ou Ajuste; Cor, Tamanho, Quantidade, Motivo) e tem "Excluir produto do catálogo". Ajustar e excluir são do gerente.'],
+            . 'botão "Ajustar" abre "Ajustar estoque" (Entrada, Saída ou Ajuste; Cor, Tamanho, Quantidade, Motivo) e tem "Excluir produto do catálogo". Gerente e funcionário ajustam; excluir é só do gerente.'],
         ['historico-estoque', 'Histórico de estoque', 'store.stock.history',
             'Todas as movimentações (entradas, vendas, ajustes, devoluções) com filtros por tipo, responsável e datas; botão "Exportar CSV".'],
         ['entregas', 'Entregas', 'store.orders.read',

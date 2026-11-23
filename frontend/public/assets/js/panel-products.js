@@ -1280,7 +1280,7 @@
       if (p) {
         document.getElementById('product-name').value = p.name || '';
         document.getElementById('product-description').value = p.description || '';
-        document.getElementById('product-cost').value = formatBrCurrency(p.cost_price || 0);
+        if (document.getElementById('product-cost')) document.getElementById('product-cost').value = formatBrCurrency(p.cost_price || 0);
         document.getElementById('product-sale').value = formatBrCurrency(p.sale_price || 0);
         document.getElementById('product-stock').value = p.stock_quantity || 0;
         document.getElementById('product-min-stock').value = p.min_stock || 0;
@@ -1291,7 +1291,7 @@
         if (res && res.id) {
           document.getElementById('product-name').value = res.name || '';
           document.getElementById('product-description').value = res.description || '';
-          document.getElementById('product-cost').value = formatBrCurrency(res.cost_price || 0);
+          if (document.getElementById('product-cost')) document.getElementById('product-cost').value = formatBrCurrency(res.cost_price || 0);
           document.getElementById('product-sale').value = formatBrCurrency(res.sale_price || 0);
           document.getElementById('product-stock').value = res.stock_quantity || 0;
           stockQtyBase = parseInt(res.stock_quantity, 10) || 0;
@@ -1306,7 +1306,7 @@
       });
     } else {
       document.getElementById('product-form').reset();
-      document.getElementById('product-cost').value = '';
+      if (document.getElementById('product-cost')) document.getElementById('product-cost').value = '';
       document.getElementById('product-sale').value = '';
       setProductVitrineCategories([]);
       resetProductVariants();
@@ -1433,7 +1433,8 @@
       var payload = {
         name: document.getElementById('product-name').value,
         description: document.getElementById('product-description').value,
-        cost_price: parseBrCurrency(document.getElementById('product-cost').value),
+        // Sem o campo (funcionário), o custo não vai: o servidor mantém o atual.
+        cost_price: document.getElementById('product-cost') ? parseBrCurrency(document.getElementById('product-cost').value) : undefined,
         sale_price: parseBrCurrency(document.getElementById('product-sale').value),
         stock_quantity: parseInt(document.getElementById('product-stock').value, 10) || 0,
         min_stock: parseInt(document.getElementById('product-min-stock').value, 10) || 0,

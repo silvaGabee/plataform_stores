@@ -38,7 +38,7 @@ ob_start();
                     <ul id="dashboard-categories-list" class="dashboard-categories-list" role="list" hidden></ul>
                 </div>
             </div>
-            <?php if (empty($panel_readonly)): ?>
+            <?php if (!empty($panel_pode_catalogo)): ?>
             <div class="dashboard-categories-actions">
                 <button type="button" class="btn btn-primary btn-sm dashboard-categories-add-btn" id="dashboard-categories-add-btn">
                     <span class="btn-icon" aria-hidden="true"><?= btn_icon_plus(16) ?></span>
@@ -47,12 +47,12 @@ ob_start();
             </div>
             <p id="dashboard-categories-msg" class="panel-form-msg dashboard-categories-msg" role="status" aria-live="polite"></p>
             <?php else: ?>
-            <p class="dashboard-categories-readonly-note">Só o gerente pode adicionar ou remover categorias.</p>
+            <p class="dashboard-categories-readonly-note">Você não tem permissão para adicionar ou remover categorias.</p>
             <?php endif; ?>
         </div>
     </section>
 
-    <?php if (empty($panel_readonly)): ?>
+    <?php if (!empty($panel_pode_catalogo)): ?>
     <div id="dashboard-category-modal" class="modal modal--vitrine-category hidden" role="dialog" aria-modal="true" aria-labelledby="dashboard-category-modal-title">
         <div class="modal-content modal-content--vitrine-category">
             <header class="dashboard-category-modal-head">

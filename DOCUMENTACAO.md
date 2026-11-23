@@ -591,7 +591,7 @@ O painel (`/painel/{slug}`) reúne dashboard do dia, cadastro de produtos com pr
 
 O PDV foi refeito para o ritmo do balcão: tem atalhos de teclado, desconto no pedido (em reais ou em porcentagem), cálculo de troco e emissão de cupom. No pagamento com cartão, há um simulador de parcelamento pela tabela Price que mostra a parcela, o total, os juros e a tabela de amortização mês a mês.
 
-O funcionário opera a loja (PDV, caixa e entregas), mas não a gerencia. Catálogo, equipe, configurações e BI são do gerente, e o funcionário também não recebe o custo dos produtos nem o faturamento da loja, seja nas respostas da API, seja no contexto do assistente de IA. Essa regra fica no servidor, em uma matriz de permissões consultada antes de qualquer controlador. Esconder botões na tela não basta, porque qualquer um pode chamar o endereço da API diretamente.
+O funcionário opera a loja: PDV, caixa, entregas, cadastro e edição de produtos, ajuste de estoque, categorias da vitrine, vendas e estornos e a lista de clientes. Equipe, metas, configurações, BI e a exclusão de produtos ficam com o gerente. O funcionário também não recebe o custo dos produtos nem o faturamento da loja, seja nas respostas da API, seja no contexto do assistente de IA; ao editar um produto, ele não vê o campo de custo, e o servidor ignora esse campo vindo dele, para não zerar o custo que alimenta o lucro e a margem. Essa regra fica no servidor, em uma matriz de permissões consultada antes de qualquer controlador. Esconder botões na tela não basta, porque qualquer um pode chamar o endereço da API diretamente.
 
 Na tela de vendas, o gerente estorna um pedido pago informando o motivo e se as peças voltam ao estoque. Em uma única transação, pedido e pagamento mudam de situação, o uso do cupom é devolvido e o estoque é reposto na variação vendida. Como o pagamento é simulado, o sistema só registra o estorno; a exceção é a venda em dinheiro no balcão, que lança a saída no caixa aberto. O PDV também aceita leitor de código de barras, que funciona como um teclado: lê o código e tecla Enter. Cada variação tem o próprio código, porque cada tamanho é um item diferente na prateleira. A tela de clientes lista quem mais compra e quem não compra há 60 dias ou mais, considerando apenas compras da vitrine, já que a venda de balcão não identifica o cliente.
 
@@ -676,7 +676,7 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 | Caixa | Dois cliques simultâneos em "Abrir caixa"; venda em dinheiro com o caixa fechado | Um caixa só é aberto; a venda é recusada e o estoque não baixa |
 | Grade de estoque | Repor +1 enquanto uma venda é confirmada | O saldo final soma as duas coisas; nada é sobrescrito |
 | Rotas | `routes_check.php`: varre todas as rotas | Nenhuma rota roda sem declarar permissão |
-| Permissões | `authz_check.php`: requisições HTTP reais com cada cargo | Funcionário é barrado no BI |
+| Permissões | `authz_check.php`: requisições HTTP reais com cada cargo | Funcionário é barrado no BI, nas configurações e ao excluir produto; cria e edita produto sem gravar o custo |
 | CSRF | Requisição de alteração sem token | Recusada com código 403 |
 | Login | Tentativas seguidas com senha errada | Bloqueio após 8 tentativas em 15 minutos |
 | Conta de outra pessoa | Gerente vincula o e-mail de alguém à loja e tenta trocar a senha | Recusado com código 403; a senha continua a mesma |

@@ -41,6 +41,22 @@ class ProductApiController extends Controller
      * @param list<array<string, mixed>> $produtos
      * @return list<array<string, mixed>>
      */
+    /**
+     * Quem não vê o custo também não o grava. O funcionário cria e edita
+     * produto, mas a tela dele não tem o campo: sem isto, o custo chegaria
+     * vazio e zeraria o do cadastro, estragando lucro e margem no BI. Na
+     * edição o custo atual é mantido; no cadastro novo fica 0 até o gerente
+     * preencher.
+     */
+    private function semCustoDeQuemNaoVe(array $input, int $storeId): array
+    {
+        if (!\App\Auth\Permissions::can('store.costs.read', $storeId)) {
+            unset($input['cost_price']);
+        }
+
+        return $input;
+    }
+
     private function semCustoSemPermissao(array $produtos, int $storeId): array
     {
         if (\App\Auth\Permissions::can('store.costs.read', $storeId)) {
@@ -76,7 +92,7 @@ class ProductApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
         $this->requireStorePanelAccess($storeId);
-        $input = $this->getProductInput();
+        $input = $this->semCustoDeQuemNaoVe($this->getProductInput(), $storeId);
         if (empty($input['name'])) {
             $this->json(['error' => 'Nome é obrigatório'], 400);
         }
@@ -122,7 +138,7 @@ class ProductApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
         $this->requireStorePanelAccess($storeId);
-        $input = $this->getJsonInput();
+        $input = $this->semCustoDeQuemNaoVe($this->getJsonInput(), $storeId);
         if (array_key_exists('vitrine_category_id', $input) || array_key_exists('vitrine_category_ids', $input)) {
             $categoryError = $this->validateVitrineCategoriesForStore($storeId, $input);
             if ($categoryError !== null) {

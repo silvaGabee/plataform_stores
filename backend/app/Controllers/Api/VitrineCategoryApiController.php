@@ -124,7 +124,8 @@ class VitrineCategoryApiController extends Controller
 
             return;
         }
-        $this->requireGerenteOfStore($storeId);
+        // Segue a matriz (store.catalog.write): gerente e funcionário.
+        $this->requirePermission('store.catalog.write', $storeId);
 
         $input = $this->getJsonInput();
         $name = trim((string) ($input['name'] ?? ''));
@@ -176,7 +177,8 @@ class VitrineCategoryApiController extends Controller
 
             return;
         }
-        $this->requireGerenteOfStore($storeId);
+        // Segue a matriz (store.catalog.write): gerente e funcionário.
+        $this->requirePermission('store.catalog.write', $storeId);
 
         $repo = new StoreVitrineCategoryRepository();
         if (!$repo->delete($id, $storeId)) {

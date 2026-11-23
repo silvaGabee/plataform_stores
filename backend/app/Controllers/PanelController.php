@@ -66,15 +66,15 @@ class PanelController extends Controller
     /** Vendas pagas e estornos: só gerente (a rota já exige store.orders.refund). */
     public function sales(string $slug): void
     {
+        // A rota já exige store.orders.refund (gerente e funcionário).
         $store = $this->getStore($slug);
-        $this->requireGerenteOrRedirect($store, $slug);
         $this->render('panel/vendas', ['store' => $store, 'title' => 'Vendas']);
     }
 
     public function customers(string $slug): void
     {
+        // A rota já exige store.customers.read (gerente e funcionário).
         $store = $this->getStore($slug);
-        $this->requireGerenteOrRedirect($store, $slug);
         $this->render('panel/clientes', ['store' => $store, 'title' => 'Clientes']);
     }
 
@@ -148,11 +148,22 @@ class PanelController extends Controller
     {
         $store = $data['store'] ?? null;
         if (is_array($store) && isset($store['id'])) {
-            $data['panel_readonly'] = is_funcionario_panel_readonly((int) $store['id']);
-            $data['panel_is_gerente'] = is_gerente_store((int) $store['id']);
+            $sid = (int) $store['id'];
+            $data['panel_readonly'] = is_funcionario_panel_readonly($sid);
+            $data['panel_is_gerente'] = is_gerente_store($sid);
+            // O que cada tela libera vem da matriz de permissões, não do cargo:
+            // o funcionário edita catálogo e vê vendas e clientes, mas não vê
+            // o custo nem exclui produto.
+            $data['panel_pode_catalogo'] = \App\Auth\Permissions::can('store.catalog.write', $sid);
+            $data['panel_pode_excluir_produto'] = \App\Auth\Permissions::can('store.catalog.delete', $sid);
+            $data['panel_pode_custo'] = \App\Auth\Permissions::can('store.costs.read', $sid);
+            $data['panel_pode_vendas'] = \App\Auth\Permissions::can('store.orders.refund', $sid);
+            $data['panel_pode_clientes'] = \App\Auth\Permissions::can('store.customers.read', $sid);
         } else {
             $data['panel_readonly'] = false;
             $data['panel_is_gerente'] = true;
+            $data['panel_pode_catalogo'] = $data['panel_pode_excluir_produto'] = $data['panel_pode_custo'] = true;
+            $data['panel_pode_vendas'] = $data['panel_pode_clientes'] = true;
         }
         extract($data);
         require PLATAFORM_BACKEND . "/views/{$view}.php";

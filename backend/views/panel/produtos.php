@@ -90,6 +90,8 @@
                 <section class="product-modal-section">
                     <h3 class="product-modal-section-title">Preços e estoque</h3>
                     <div class="product-modal-grid-2">
+                        <?php // O custo só aparece para quem pode vê-lo (gerente); o servidor também o ignora vindo de outra pessoa. ?>
+                        <?php if (!empty($panel_pode_custo)): ?>
                         <div class="panel-config-field">
                             <label for="product-cost">Preço de custo</label>
                             <div class="input-currency">
@@ -97,6 +99,7 @@
                                 <input type="text" id="product-cost" inputmode="decimal" placeholder="0,00" autocomplete="off">
                             </div>
                         </div>
+                        <?php endif; ?>
                         <div class="panel-config-field">
                             <label for="product-sale">Preço de venda <span class="product-modal-required">*</span></label>
                             <div class="input-currency">
@@ -215,7 +218,7 @@ $content = ob_get_clean();
 $extra_js = '<script>const storeSlug = ' . json_encode($store['slug']) . ';</script>
 <script>window.productVariantCatalog = ' . json_encode(product_variant_type_catalog(), JSON_UNESCAPED_UNICODE) . ';</script>
 <script>window.productVariantDefaultColorHex = ' . json_encode(product_variant_default_color_hex_map(), JSON_UNESCAPED_UNICODE) . ';</script>
-<script>window.panelProductsReadonly = ' . (!empty($panel_readonly) ? 'true' : 'false') . ';</script>
+<script>window.panelProductsReadonly = ' . (empty($panel_pode_catalogo) ? 'true' : 'false') . ';</script>
 <script>
 (function() {
   window._productNewFiles = [];

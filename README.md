@@ -186,10 +186,11 @@ Erros da API voltam em JSON com o campo `error`.
 | Dashboard, PDV, caixa, entregas | ✔ | ✔ |
 | Ver catálogo, estoque, pedidos, cargos | ✔ | ✔ (sem o custo dos produtos) |
 | Ver metas | ✔ | só a própria |
-| Criar/editar produto, ajustar estoque, categorias | ✔ | — |
+| Criar/editar produto, ajustar estoque, categorias | ✔ | ✔ (sem ver nem alterar o custo) |
+| Vendas e estornos, clientes | ✔ | ✔ |
+| Excluir produto | ✔ | — |
 | Equipe, gestão de cargos, definir metas | ✔ | — |
 | Analyzing BI, faturamento e lucro (também no assistente de IA), configurações, chave PIX | ✔ | — |
-| Vendas e estornos, clientes | ✔ | — |
 | Confirmar pagamento | ✔ | só dinheiro no PDV |
 
 Toda rota declara a permissão no terceiro elemento do handler, e o `App\Http\Guard` decide antes do controller. **Rota sem declaração não executa.**

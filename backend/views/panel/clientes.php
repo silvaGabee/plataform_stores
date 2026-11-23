@@ -7,7 +7,10 @@
             <p class="panel-lead text-muted">Quem mais compra pela vitrine e quem parou de comprar. Só entram clientes com conta: a venda de balcão não identifica quem comprou.</p>
         </div>
         <div class="ui-page-actions">
+            <?php // Cupons ficam em Promoções, que é só do gerente. ?>
+            <?php if (\App\Auth\Permissions::can('store.promotions.manage', (int) $store['id'])): ?>
             <a class="btn btn-secondary ui-btn-icon" href="<?= base_url("painel/{$store['slug']}/promocoes#cupons") ?>"><?= ui_icon('percent', 16) ?><span>Criar cupom</span></a>
+            <?php endif; ?>
         </div>
     </header>
 

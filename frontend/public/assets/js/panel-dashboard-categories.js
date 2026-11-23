@@ -55,7 +55,7 @@
     listEl.innerHTML = categories
       .map(function (c) {
         var del =
-          canManage && !window.panelReadonly
+          canManage
             ? '<button type="button" class="dashboard-category-remove" data-id="' +
               c.id +
               '" title="Remover categoria" aria-label="Remover ' +

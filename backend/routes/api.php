@@ -84,11 +84,11 @@ return [
     'POST /api/loja/{slug}/products/{id}/cover-image' => [ProductApiController::class, 'setCoverImage', 'store.catalog.write'],
     'POST /api/loja/{slug}/products/{id}/images/delete' => [ProductApiController::class, 'deleteImage', 'store.catalog.write'],
     'PUT /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'update', 'store.catalog.write'],
-    'DELETE /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'delete', 'store.catalog.write'],
+    'DELETE /api/loja/{slug}/products/{id}' => [ProductApiController::class, 'delete', 'store.catalog.delete'],
     // POST .../products/delete (id no corpo) é o que o painel de Estoque chama;
     // o verbo DELETE acima serve a quem usa a API diretamente. O alias
     // POST .../products/{id}/delete foi removido por não ter nenhum chamador.
-    'POST /api/loja/{slug}/products/delete' => [ProductApiController::class, 'deleteByBody', 'store.catalog.write'],
+    'POST /api/loja/{slug}/products/delete' => [ProductApiController::class, 'deleteByBody', 'store.catalog.delete'],
     'POST /api/loja/{slug}/products/{id}/stock' => [ProductApiController::class, 'adjustStock', 'store.catalog.write'],
 
     'GET /api/loja/{slug}/orders/entregas' => [OrderApiController::class, 'listForEntregas', 'store.orders.read'],

@@ -181,11 +181,12 @@ $casos = [
     ['config PIX',          'GET',  "/api/loja/{$slug}/pix-config",          200, 403, 401],
     ['pagamentos pendentes','GET',  "/api/loja/{$slug}/payments/pending",    200, 403, 401],
 
-    // Só gerente: receita, clientes e estorno.
+    // Só gerente: números do BI.
     ['indicadores do BI',   'GET',  "/api/loja/{$slug}/analyzing-bi/indicadores", 200, 403, 401],
     ['simulador de compra', 'GET',  "/api/loja/{$slug}/analyzing-bi/simulador-compra", 200, 403, 401],
-    ['vendas e estornos',   'GET',  "/api/loja/{$slug}/orders/vendas",       200, 403, 401],
-    ['clientes',            'GET',  "/api/loja/{$slug}/clientes",            200, 403, 401],
+    // Vendas, estornos e clientes: gerente e funcionário (decisão de 2026-11-23).
+    ['vendas e estornos',   'GET',  "/api/loja/{$slug}/orders/vendas",       200, 200, 401],
+    ['clientes',            'GET',  "/api/loja/{$slug}/clientes",            200, 200, 401],
     ['avaliações (moderar)','GET',  "/api/loja/{$slug}/avaliacoes",          200, 403, 401],
 
     // Público:
@@ -325,20 +326,15 @@ $ok('compra antiga na vitrine não conta para a meta', abs($vendidoFunc() - $ant
 // ---------------------------------------------- escrita: o furo da Fase 2
 echo PHP_EOL . 'Escrita (o funcionário podia tudo pela API)' . PHP_EOL;
 
+// Criar e editar produto, ajustar estoque, categorias e estornar são do
+// funcionário também; excluir produto continua só do gerente.
 $escritas = [
-    ['criar produto', 'POST', "/api/loja/{$slug}/products",
-        ['name' => '__authz_teste__', 'sale_price' => 10, 'stock_quantity' => 1]],
-    ['ajustar estoque', 'POST', "/api/loja/{$slug}/products/1/stock",
-        ['quantity' => 1, 'type' => 'entrada']],
-    ['criar categoria', 'POST', "/api/loja/{$slug}/vitrine-categories",
-        ['name' => '__authz_teste__', 'icon_key' => 'treino']],
+    ['excluir produto', 'POST', "/api/loja/{$slug}/products/delete", ['product_id' => 1]],
     ['criar funcionário', 'POST', "/api/loja/{$slug}/users",
         ['name' => 'X', 'email' => '__authz__@x.test', 'password' => 'abc12345', 'user_type' => 'funcionario']],
     ['mudar nome da loja', 'POST', "/api/loja/{$slug}/store/name", ['name' => 'Nome Novo']],
     ['definir meta', 'POST', "/api/loja/{$slug}/goals/store",
         ['period' => date('Y-m'), 'goal_amount' => 1000]],
-    ['estornar venda', 'POST', "/api/loja/{$slug}/orders/1/estornar",
-        ['reason' => 'teste', 'return_to_stock' => true]],
     ['definir meta individual', 'POST', "/api/loja/{$slug}/goals/employee",
         ['period' => date('Y-m'), 'user_id' => 1, 'goal_amount' => 1000]],
     ['criar cargo', 'POST', "/api/loja/{$slug}/roles", ['name' => '__authz_teste__']],
@@ -351,6 +347,38 @@ foreach ($escritas as [$rotulo, $metodo, $caminho, $corpo]) {
     $ok(sprintf('%-22s funcionário=%d (403) anônimo=%d (401/403)', $rotulo, $f, $a),
         $f === 403 && in_array($a, [401, 403], true));
 }
+
+// ------------------------------------- o que o funcionário passou a poder
+echo PHP_EOL . 'O funcionário opera catálogo, estoque e estornos' . PHP_EOL;
+$jf = static fn (string $metodo, string $caminho, array $corpo) => http($metodo, $base . $caminho, $jarFunc, ['json' => $corpo, 'csrf' => $csrfFunc]);
+$r = $jf('POST', "/api/loja/{$slug}/vitrine-categories", ['name' => '__authz_func__', 'icon_key' => 'treino']);
+$ok('funcionário cria categoria (200)', $r['status'] === 200);
+$catFunc = json_decode($r['body'], true)['category']['id'] ?? null;
+if ($catFunc) {
+    $ok('funcionário apaga a categoria (200)', $jf('DELETE', "/api/loja/{$slug}/vitrine-categories/{$catFunc}", [])['status'] === 200);
+}
+// Produto criado pelo funcionário: o custo enviado é ignorado (ele não vê o custo).
+$r = $jf('POST', "/api/loja/{$slug}/products", ['name' => '__authz_func__', 'sale_price' => 10, 'cost_price' => 7, 'stock_quantity' => 1]);
+$prodFunc = (int) (json_decode($r['body'], true)['product']['id'] ?? 0);
+$custoDe = static function (int $id): float {
+    $q = \App\Database\Database::getConnection()->prepare('SELECT cost_price FROM products WHERE id = ?');
+    $q->execute([$id]);
+    return (float) $q->fetchColumn();
+};
+$ok('funcionário cria produto (200) sem gravar custo', $r['status'] === 200 && $prodFunc > 0 && $custoDe($prodFunc) === 0.0);
+if ($prodFunc > 0) {
+    \App\Database\Database::getConnection()->prepare('UPDATE products SET cost_price = 4 WHERE id = ?')->execute([$prodFunc]);
+    $r = $jf('PUT', "/api/loja/{$slug}/products/{$prodFunc}", ['name' => '__authz_func__ editado', 'sale_price' => 12, 'cost_price' => 0]);
+    $ok('funcionário edita produto (200) sem mexer no custo', $r['status'] === 200 && $custoDe($prodFunc) === 4.0);
+    $r = $jf('POST', "/api/loja/{$slug}/products/{$prodFunc}/stock", ['quantity' => 1, 'type' => 'entrada']);
+    $ok('funcionário ajusta estoque (200)', $r['status'] === 200);
+    $ok('funcionário não exclui produto (403)', $jf('POST', "/api/loja/{$slug}/products/delete", ['product_id' => $prodFunc])['status'] === 403);
+    $r = http('POST', "{$base}/api/loja/{$slug}/products/delete", $jarGerente, ['json' => ['product_id' => $prodFunc], 'csrf' => $csrfGerente]);
+    $ok('gerente exclui o produto de teste (200)', $r['status'] === 200);
+}
+// Estorno: a rota aceita o funcionário (pedido inexistente dá 400/404, não 403).
+$r = $jf('POST', "/api/loja/{$slug}/orders/999999999/estornar", ['reason' => 'teste', 'return_to_stock' => true]);
+$ok('funcionário pode estornar (rota não responde 403: ' . $r['status'] . ')', in_array($r['status'], [400, 404], true));
 
 // O gerente continua conseguindo — a regra não pode ter travado a loja.
 echo PHP_EOL . 'O gerente continua trabalhando' . PHP_EOL;
@@ -370,8 +398,9 @@ $paginas = [
     ['produtos',     "/painel/{$slug}/produtos",       200, 200],
     ['PDV',          "/painel/{$slug}/pdv",            200, 200],
     ['metas',        "/painel/{$slug}/metas",          200, 200],
-    ['vendas',       "/painel/{$slug}/vendas",         200, 302],
-    ['clientes',     "/painel/{$slug}/clientes",       200, 302],
+    ['estoque',      "/painel/{$slug}/estoque",        200, 200],
+    ['vendas',       "/painel/{$slug}/vendas",         200, 200],
+    ['clientes',     "/painel/{$slug}/clientes",       200, 200],
     ['avaliações',   "/painel/{$slug}/avaliacoes",     200, 302],
     ['funcionários', "/painel/{$slug}/funcionarios",   200, 302],
     ['configurações', "/painel/{$slug}/configuracoes", 200, 302],
