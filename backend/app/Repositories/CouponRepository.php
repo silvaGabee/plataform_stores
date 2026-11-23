@@ -80,6 +80,16 @@ class CouponRepository
         return $st->rowCount() === 1;
     }
 
+    /**
+     * Volta a contar o uso de um pedido expirado que acabou sendo pago. Não
+     * respeita o limite de usos: o desconto já foi dado e pago pelo cliente.
+     */
+    public function recount(int $storeId, string $code): void
+    {
+        $st = $this->pdo->prepare('UPDATE coupons SET uses = uses + 1 WHERE store_id = ? AND code = ?');
+        $st->execute([$storeId, $code]);
+    }
+
     /** Devolve o uso quando o pedido com cupom é cancelado ou expira. */
     public function release(int $storeId, string $code): void
     {

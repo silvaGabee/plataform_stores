@@ -569,9 +569,9 @@ O resultado é uma aplicação que funciona de ponta a ponta: cadastro da loja e
 |---|---|
 | Telas | 30 (6 da plataforma, 9 da vitrine, 15 do painel) |
 | Tabelas no banco | 28 |
-| Migrações de banco versionadas | 26 |
+| Migrações de banco versionadas | 29 |
 | Cargos | 2 (gerente e funcionário), sobre matriz de permissões |
-| Testes automatizados | 161, todos passando |
+| Testes automatizados | 190, todos passando |
 
 Fonte: os autores (2026).
 
@@ -579,7 +579,7 @@ Fonte: os autores (2026).
 
 ### 4.1.1 Plataforma
 
-O usuário entra pelo login, vê as lojas de que participa e pode criar uma nova. Uma mesma pessoa pode ser gerente de uma loja e funcionária de outra, com um cadastro só. A exclusão da conta é recusada pelo servidor quando há pedidos ou movimentos de caixa ligados a ela, para não apagar histórico financeiro.
+O usuário entra pelo login, vê as lojas de que participa e pode criar uma nova. Uma mesma pessoa pode ser gerente de uma loja e funcionária de outra, com um cadastro só. A exclusão da conta é recusada pelo servidor quando há pedidos ou movimentos de caixa ligados a ela, para não apagar histórico financeiro, e também quando a pessoa é o único gerente de alguma loja, para a loja não ficar no ar sem ninguém que a administre. Como o cadastro é um só na plataforma, o gerente só muda nome, e-mail e senha de quem a própria loja cadastrou; de quem já tinha conta, muda apenas o cargo.
 
 ### 4.1.2 Vitrine
 
@@ -676,10 +676,13 @@ Sobre o produto sem custo: com custo zero, o lucro do item fica igual à receita
 | Permissões | `authz_check.php`: requisições HTTP reais com cada cargo | Funcionário é barrado no BI |
 | CSRF | Requisição de alteração sem token | Recusada com código 403 |
 | Login | Tentativas seguidas com senha errada | Bloqueio após 8 tentativas em 15 minutos |
+| Conta de outra pessoa | Gerente vincula o e-mail de alguém à loja e tenta trocar a senha | Recusado com código 403; a senha continua a mesma |
+| Histórico de vendas | Excluir um produto que já foi vendido | Recusado; pedidos, totais e faturamento ficam intactos |
+| Arquivos | Cadastrar produto com caminho de foto `../arquivo` e excluí-lo | O caminho é ignorado e nenhum arquivo fora de `uploads/products` é apagado |
 
 Fonte: os autores (2026).
 
-Além disso, o projeto tem uma suíte própria de 161 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas, a regra de senha mínima e as fórmulas financeiras (rateio, regressão, tabela Price, SAC, VPL, TIR, payback, fluxo de caixa da compra de estoque, variação percentual, produtos parados, estoque crítico, meta, divisão da meta entre a equipe e de onde veio o vendido, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
+Além disso, o projeto tem uma suíte própria de 190 testes automatizados (`php backend/tests/run.php`), todos passando. Eles cobrem carrinho, estoque por variação, validação de cartão pelo algoritmo de Luhn, geração do código PIX, QR Code, integridade das telas, a regra de senha mínima e as fórmulas financeiras (rateio, regressão, tabela Price, SAC, VPL, TIR, payback, fluxo de caixa da compra de estoque, variação percentual, produtos parados, estoque crítico, meta, divisão da meta entre a equipe e de onde veio o vendido, margem, markup, Curva ABC, giro, cobertura e casos-limite), com valores esperados calculados à mão. O código também passa pela análise estática do PHPStan.
 
 ### 4.2.4 Conferência com grande volume
 

@@ -154,6 +154,12 @@ class HomeController extends Controller
             logout();
             redirect(base_url());
         }
+        $lojas = (new \App\Repositories\StoreMemberRepository())->lojasOndeEhUnicoGerente($userId);
+        if ($lojas !== []) {
+            $_SESSION['_error'] = 'Não é possível excluir a conta porque você é o único gerente de: '
+                . implode(', ', $lojas) . '. Promova outra pessoa a gerente na tela Funcionários antes.';
+            redirect(base_url('minha-conta'));
+        }
         if ($repo->countOrdersAsCustomer($userId) > 0) {
             $_SESSION['_error'] = 'Não é possível excluir a conta porque existem pedidos ligados a ela.';
             redirect(base_url('minha-conta'));

@@ -135,6 +135,7 @@ CREATE TABLE `orders` (
   `order_type` enum('online','pdv') NOT NULL,
   `delivery_type` enum('retirada','entrega') NOT NULL DEFAULT 'retirada',
   `address_id` int(10) unsigned DEFAULT NULL,
+  `delivery_address` text DEFAULT NULL,
   `delivery_stage` enum('solicitado','empacotando','entregue_transportadora','em_rota','entregue') NOT NULL DEFAULT 'solicitado',
   `tracking_code` varchar(100) DEFAULT NULL,
   `status` enum('pendente','pago','cancelado','estornado') NOT NULL DEFAULT 'pendente',
@@ -433,10 +434,13 @@ CREATE TABLE `users` (
   `name` varchar(255) NOT NULL,
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
+  `created_by_store_id` int(10) unsigned DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_email` (`email`),
-  KEY `idx_email` (`email`)
+  KEY `idx_email` (`email`),
+  KEY `fk_users_created_by_store` (`created_by_store_id`),
+  CONSTRAINT `fk_users_created_by_store` FOREIGN KEY (`created_by_store_id`) REFERENCES `stores` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -469,3 +473,5 @@ INSERT INTO schema_migrations (version) VALUES ('0024_estorno_codigo_barras.php'
 INSERT INTO schema_migrations (version) VALUES ('0025_remove_status_enviado.sql');
 INSERT INTO schema_migrations (version) VALUES ('0026_avaliacoes_moderacao.php');
 INSERT INTO schema_migrations (version) VALUES ('0027_dados_legais_loja.php');
+INSERT INTO schema_migrations (version) VALUES ('0028_conta_criada_pela_loja.php');
+INSERT INTO schema_migrations (version) VALUES ('0029_endereco_no_pedido.php');

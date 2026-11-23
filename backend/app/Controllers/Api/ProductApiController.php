@@ -193,25 +193,51 @@ class ProductApiController extends Controller
             $this->json(['error' => 'Produto não encontrado'], 404);
             return;
         }
-        try {
-            $idInt = (int) $id;
-            $this->deleteProductImageFiles($idInt);
-            $orderItemRepo = new OrderItemRepository();
-            $orderIds = $orderItemRepo->getOrderIdsByProductId($idInt);
-            $orderItemRepo->deleteByProductId($idInt);
-            $orderRepo = new OrderRepository();
-            foreach ($orderIds as $orderId) {
-                $orderRepo->recalcTotal($orderId);
-            }
-            $ok = $repo->delete($idInt);
-            if (!$ok) {
-                $this->json(['error' => 'Não foi possível excluir o produto.'], 400);
-                return;
-            }
-            $this->json(['success' => true]);
-        } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível excluir: ' . $e->getMessage()], 400);
+        $this->excluirProduto($repo, (int) $id, $storeId);
+    }
+
+    /**
+     * Exclui o produto sem tocar no histórico de vendas.
+     *
+     * Produto que já aparece em algum pedido não é excluído: apagar os itens
+     * reescreveria vendas pagas e estornadas (faturamento, metas, caixa). Para
+     * tirá-lo da vitrine basta zerar o estoque. Sem vendas, a exclusão roda numa
+     * transação e os arquivos das fotos só são apagados depois dela.
+     */
+    private function excluirProduto(ProductRepository $repo, int $id, int $storeId): void
+    {
+        $pedidos = count((new OrderItemRepository())->getOrderIdsByProductId($id));
+        if ($pedidos > 0) {
+            $this->json([
+                'error' => 'Este produto já aparece em ' . $pedidos . ($pedidos === 1 ? ' pedido' : ' pedidos')
+                    . ' e não pode ser excluído, para não alterar o histórico de vendas. '
+                    . 'Para tirá-lo da vitrine, zere o estoque.',
+            ], 400);
+            return;
         }
+        $imageRepo = new ProductImageRepository();
+        $fotos = array_map(static fn ($img) => (string) $img['file_path'], $imageRepo->getByProductId($id));
+        try {
+            $ok = \App\Database\Database::transaction(static function () use ($repo, $imageRepo, $id): bool {
+                $imageRepo->deleteByProductId($id);
+
+                return $repo->delete($id);
+            });
+        } catch (\Throwable $e) {
+            // Uma venda pode ter entrado entre a checagem e o DELETE: a chave
+            // estrangeira de order_items barra a exclusão e a transação desfaz tudo.
+            log_exception($e, ['acao' => 'excluir-produto', 'store_id' => $storeId, 'product_id' => $id]);
+            $this->json(['error' => 'Não foi possível excluir o produto. Se ele acabou de ser vendido, zere o estoque em vez de excluir.'], 400);
+            return;
+        }
+        if (!$ok) {
+            $this->json(['error' => 'Não foi possível excluir o produto.'], 400);
+            return;
+        }
+        foreach ($fotos as $foto) {
+            $this->unlinkProductImage($foto);
+        }
+        $this->json(['success' => true]);
     }
 
     /* Adiciona fotos: POST JSON com { "images": ["data:image/...;base64,..."] } OU multipart com images[]. */
@@ -330,11 +356,7 @@ class ProductApiController extends Controller
         if (!$img || (int) $img['product_id'] !== $productIdInt) {
             $this->json(['error' => 'Imagem não encontrada'], 404);
         }
-        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
-        $path = $baseDir . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $img['file_path']);
-        if (is_file($path)) {
-            @unlink($path);
-        }
+        $this->unlinkProductImage((string) $img['file_path']);
         if (!$imageRepo->delete($imageId)) {
             $this->json(['error' => 'Nenhuma linha excluída no banco'], 404);
         }
@@ -368,11 +390,7 @@ class ProductApiController extends Controller
         if (!$img || (int) $img['product_id'] !== $productId) {
             $this->json(['error' => 'Imagem não encontrada neste produto'], 404);
         }
-        $baseDir = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'uploads';
-        $path = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $img['file_path']);
-        if (is_file($path)) {
-            @unlink($path);
-        }
+        $this->unlinkProductImage((string) $img['file_path']);
         $ok = $imageRepo->delete($imageId);
         if (!$ok) {
             $this->json(['error' => 'Nenhuma linha excluída. Verifique image_id e product_id.'], 404);
@@ -476,7 +494,10 @@ class ProductApiController extends Controller
         if (!empty($json)) {
             $input = array_merge($input, $json);
         }
-        $input['image_paths'] = $input['image_paths'] ?? [];
+        // Caminho de foto só nasce do upload feito aqui no servidor. Aceitar
+        // "image_paths" do JSON deixaria gravar "../../algum/arquivo" e apagá-lo
+        // depois, ao excluir o produto.
+        $input['image_paths'] = [];
         return $input;
     }
 
@@ -529,37 +550,23 @@ class ProductApiController extends Controller
             $this->json(['error' => 'Produto não encontrado'], 404);
             return;
         }
-        try {
-            $this->deleteProductImageFiles($id);
-            $orderItemRepo = new OrderItemRepository();
-            $orderIds = $orderItemRepo->getOrderIdsByProductId($id);
-            $orderItemRepo->deleteByProductId($id);
-            $orderRepo = new OrderRepository();
-            foreach ($orderIds as $orderId) {
-                $orderRepo->recalcTotal($orderId);
-            }
-            $ok = $repo->delete($id);
-            if (!$ok) {
-                $this->json(['error' => 'Não foi possível excluir o produto.'], 400);
-                return;
-            }
-            $this->json(['success' => true]);
-        } catch (\Throwable $e) {
-            $this->json(['error' => 'Não foi possível excluir: ' . $e->getMessage()], 400);
-        }
+        $this->excluirProduto($repo, $id, $storeId);
     }
 
-    private function deleteProductImageFiles(int $productId): void
+    /**
+     * Apaga o arquivo de uma foto de produto, só se o caminho gravado for um
+     * arquivo direto da pasta uploads/products (nada de "..", subpastas ou
+     * caminhos absolutos). Caminho fora do padrão fica no disco, sem erro.
+     */
+    private function unlinkProductImage(string $relPath): void
     {
-        $imageRepo = new ProductImageRepository();
-        $images = $imageRepo->getByProductId($productId);
-        $baseDir = PLATAFORM_ROOT . '/frontend/public/uploads';
-        foreach ($images as $img) {
-            $path = $baseDir . '/' . str_replace('/', DIRECTORY_SEPARATOR, $img['file_path']);
-            if (is_file($path)) {
-                @unlink($path);
-            }
+        if (!preg_match('#^products/[A-Za-z0-9_-]+\.[A-Za-z0-9]{2,5}$#', $relPath)) {
+            return;
         }
-        $imageRepo->deleteByProductId($productId);
+        $path = PLATAFORM_ROOT . DIRECTORY_SEPARATOR . 'frontend' . DIRECTORY_SEPARATOR . 'public'
+            . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relPath);
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

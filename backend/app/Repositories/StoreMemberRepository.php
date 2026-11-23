@@ -90,4 +90,24 @@ class StoreMemberRepository
 
         return (int) $stmt->fetchColumn();
     }
+
+    /**
+     * Nomes das lojas em que esta pessoa é o único gerente — impede que ela
+     * exclua a conta e deixe a loja no ar sem ninguém para administrá-la.
+     *
+     * @return list<string>
+     */
+    public function lojasOndeEhUnicoGerente(int $userId): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT s.name FROM store_members m
+               JOIN stores s ON s.id = m.store_id
+              WHERE m.user_id = ? AND m.role = 'gerente'
+                AND (SELECT COUNT(*) FROM store_members g WHERE g.store_id = m.store_id AND g.role = 'gerente') = 1
+              ORDER BY s.name"
+        );
+        $stmt->execute([$userId]);
+
+        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+    }
 }

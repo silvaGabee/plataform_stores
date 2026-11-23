@@ -74,7 +74,7 @@ class OrderRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, status, total, discount, shipping_fee, pdv_customer_name, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO orders (store_id, customer_id, created_by, order_type, delivery_type, address_id, delivery_address, status, total, discount, shipping_fee, pdv_customer_name, access_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         $stmt->execute([
             $data['store_id'],
@@ -83,6 +83,7 @@ class OrderRepository
             $data['order_type'],
             $data['delivery_type'] ?? 'retirada',
             $data['address_id'] ?? null,
+            $data['delivery_address'] ?? null,
             $data['status'] ?? 'pendente',
             $data['total'] ?? 0,
             $data['discount'] ?? 0,
@@ -99,26 +100,6 @@ class OrderRepository
     {
         $stmt = $this->pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
         return $stmt->execute([$status, $id]);
-    }
-
-    /**
-     * Recalcula o total do pedido a partir dos itens restantes.
-     *
-     * O desconto do PDV continua valendo, mas nunca deixa o total negativo:
-     * se os itens restantes valem menos que o desconto, ele é reduzido junto.
-     */
-    public function recalcTotal(int $orderId): void
-    {
-        $stmt = $this->pdo->prepare("SELECT COALESCE(SUM(quantity * price), 0) FROM order_items WHERE order_id = ?");
-        $stmt->execute([$orderId]);
-        $subtotal = (float) $stmt->fetchColumn();
-        $up = $this->pdo->prepare(
-            "UPDATE orders
-                SET discount = LEAST(discount, ?),
-                    total = ? - LEAST(discount, ?)
-              WHERE id = ?"
-        );
-        $up->execute([$subtotal, $subtotal, $subtotal, $orderId]);
     }
 
     /** Lista pedidos pagos para a aba Entregas: em andamento todos; entregues só os 5 mais recentes. */
@@ -194,6 +175,13 @@ class OrderRepository
         }
 
         return $map;
+    }
+
+    /** Desfaz o cancelamento por prazo de um pedido cujo pagamento foi confirmado depois. */
+    public function clearCancellation(int $orderId): void
+    {
+        $this->pdo->prepare("UPDATE orders SET cancelled_at = NULL WHERE id = ? AND status = 'cancelado' AND cancelled_by IS NULL")
+            ->execute([$orderId]);
     }
 
     public function setExpiresAt(int $orderId, ?string $mysqlInterval): void
@@ -320,17 +308,29 @@ class OrderRepository
     /**
      * Pedidos online aguardando pagamento (aba Entregas do gerente), com o
      * pagamento em aberto e o nome do cliente.
+     *
+     * Inclui os que expiraram sozinhos nos últimos 3 dias e tinham forma de
+     * pagamento escolhida (`expirado` = 1): o PIX pode ter caído na conta sem
+     * o gerente ver a tempo, e daqui ele ainda consegue confirmar.
      */
     public function listAwaitingPayment(int $storeId): array
     {
         $st = $this->pdo->prepare(
-            "SELECT o.id, o.total, o.discount, o.delivery_type, o.created_at, o.expires_at, u.name AS customer_name,
+            "SELECT o.id, o.total, o.discount, o.delivery_type, o.created_at, o.expires_at, o.cancelled_at,
+                    (o.status = 'cancelado') AS expirado, u.name AS customer_name,
                     p.id AS payment_id, p.method AS payment_method, p.amount AS payment_amount, p.installments
              FROM orders o
              LEFT JOIN users u ON u.id = o.customer_id
-             LEFT JOIN payments p ON p.order_id = o.id AND p.status = 'pendente'
-             WHERE o.store_id = ? AND o.status = 'pendente' AND o.order_type = 'online'
-             ORDER BY o.created_at ASC"
+             LEFT JOIN payments p ON p.id = (
+                 SELECT p2.id FROM payments p2
+                  WHERE p2.order_id = o.id AND p2.status = IF(o.status = 'pendente', 'pendente', 'cancelado')
+                  ORDER BY p2.id DESC LIMIT 1)
+             WHERE o.store_id = ? AND o.order_type = 'online'
+               AND (o.status = 'pendente'
+                    OR (o.status = 'cancelado' AND o.cancelled_by IS NULL
+                        AND o.cancelled_at >= NOW() - INTERVAL 3 DAY))
+               AND (o.status = 'pendente' OR p.id IS NOT NULL)
+             ORDER BY (o.status = 'cancelado') ASC, o.created_at ASC"
         );
         $st->execute([$storeId]);
 

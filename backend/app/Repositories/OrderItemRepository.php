@@ -52,11 +52,4 @@ class OrderItemRepository
         $stmt->execute([$productId]);
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
-
-    /** Remove todos os itens de pedido que referenciam este produto (para permitir excluir o produto). */
-    public function deleteByProductId(int $productId): void
-    {
-        $stmt = $this->pdo->prepare("DELETE FROM order_items WHERE product_id = ?");
-        $stmt->execute([$productId]);
-    }
 }

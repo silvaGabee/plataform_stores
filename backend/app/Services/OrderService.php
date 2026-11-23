@@ -296,7 +296,9 @@ class OrderService
         // Frete: só pedido online com entrega. Calculado aqui, pelo CEP do
         // endereço gravado — o valor que o navegador mostrou é só informativo.
         $frete = 0.0;
+        $enderecoCopia = null;
         if ($orderType !== 'pdv' && ($deliveryType ?? 'retirada') === 'entrega' && $addressId) {
+            $enderecoCopia = self::copiaDoEndereco((new \App\Repositories\UserAddressRepository())->find($addressId));
             $cotacao = $this->cotarFrete($storeId, $addressId, $total);
             if (!$cotacao['disponivel']) {
                 throw new \InvalidArgumentException('A loja não entrega no CEP ' . ShippingQuote::formatCep((string) ($cotacao['cep'] ?? '')) . '. Escolha outro endereço ou retire na loja.');
@@ -311,6 +313,7 @@ class OrderService
             'order_type'   => $orderType,
             'delivery_type' => $deliveryType ?? 'retirada',
             'address_id'   => $addressId,
+            'delivery_address' => $enderecoCopia,
             'status'       => 'pendente',
             'total'        => round($total - $discount + $frete, 2),
             'discount'     => $discount,
@@ -460,12 +463,32 @@ class OrderService
         if ($payment['status'] === 'confirmado') {
             throw new \InvalidArgumentException('Pagamento já foi confirmado');
         }
-        if ($payment['status'] === 'cancelado') {
-            throw new \InvalidArgumentException('Pagamento cancelado (o pedido foi cancelado ou o prazo expirou) e não pode ser confirmado.');
-        }
-        $order = $this->orderRepo->find((int) $payment['order_id']);
+        // Trava o pedido também: um cancelamento simultâneo não pode passar
+        // entre a leitura do status e a confirmação.
+        $order = $this->orderRepo->findByIdAndStoreForUpdate((int) $payment['order_id'], $storeId);
         if (!$order) {
             throw new \InvalidArgumentException('Pedido do pagamento não encontrado');
+        }
+        // Pedido online que expirou sozinho (cancelled_by nulo) ainda pode ser
+        // confirmado: a confirmação do PIX é manual, e o cliente pode ter pago
+        // dentro do prazo sem o gerente ver a tempo. Cancelado por alguém, não.
+        $expirado = $payment['status'] === 'cancelado'
+            && $order['status'] === 'cancelado'
+            && $order['cancelled_by'] === null
+            && ($order['order_type'] ?? '') === 'online';
+        if ($payment['status'] === 'cancelado' && !$expirado) {
+            throw new \InvalidArgumentException('Pagamento cancelado (o pedido foi cancelado) e não pode ser confirmado.');
+        }
+        if (!$expirado && $order['status'] !== 'pendente') {
+            throw new \InvalidArgumentException('Este pedido não está mais aguardando pagamento (situação: ' . $order['status'] . ').');
+        }
+        if ($expirado) {
+            $this->orderRepo->clearCancellation((int) $order['id']);
+            // O cancelamento por prazo devolveu o uso do cupom; o cliente pagou
+            // com o desconto, então o uso volta a contar (sem checar o limite).
+            if (!empty($order['coupon_code'])) {
+                (new CouponRepository())->recount($storeId, (string) $order['coupon_code']);
+            }
         }
         $this->paymentRepo->updateStatus($paymentId, 'confirmado');
         $this->orderRepo->updateStatus((int) $order['id'], 'pago');
@@ -574,6 +597,43 @@ class OrderService
             (string) ($endereco['zipcode'] ?? ''),
             $subtotal
         );
+    }
+
+    /**
+     * Cópia do endereço que vai gravada no pedido (JSON). O cadastro do
+     * cliente pode mudar ou sumir depois; o endereço da compra, não.
+     */
+    public static function copiaDoEndereco(?array $endereco): ?string
+    {
+        if (!$endereco) {
+            return null;
+        }
+        $campos = ['street', 'number', 'complement', 'neighborhood', 'city', 'state', 'zipcode'];
+        $copia = [];
+        foreach ($campos as $c) {
+            $copia[$c] = isset($endereco[$c]) ? (string) $endereco[$c] : null;
+        }
+
+        return json_encode($copia, JSON_UNESCAPED_UNICODE) ?: null;
+    }
+
+    /**
+     * Endereço de entrega do pedido: a cópia gravada na compra. Pedido antigo
+     * sem cópia cai no cadastro atual do cliente, se ainda existir.
+     */
+    public static function enderecoDoPedido(array $order): ?array
+    {
+        if (!empty($order['delivery_address'])) {
+            $e = json_decode((string) $order['delivery_address'], true);
+            if (is_array($e)) {
+                return $e;
+            }
+        }
+        if (!empty($order['address_id'])) {
+            return (new \App\Repositories\UserAddressRepository())->find((int) $order['address_id']);
+        }
+
+        return null;
     }
 
     public function getOrderWithItems(int $orderId, int $storeId): ?array

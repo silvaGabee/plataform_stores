@@ -91,6 +91,7 @@ class UserApiController extends Controller
                         'name' => $name,
                         'email' => $email,
                         'password' => password_hash($password, PASSWORD_DEFAULT),
+                        'created_by_store_id' => $storeId,
                     ]);
                 }
                 $memberRepo->upsert($id, $storeId, $role);
@@ -131,21 +132,42 @@ class UserApiController extends Controller
         }
         $input = $this->getJsonInput();
         $repo = new UserRepository();
+        $pessoa = $repo->find($id);
+        if ($pessoa === null) {
+            $this->json(['error' => 'Usuário não encontrado'], 404);
+            return;
+        }
 
+        // A tela manda nome e e-mail sempre; só conta como mudança o que difere.
         $dados = [];
-        if (array_key_exists('name', $input)) {
-            $dados['name'] = trim((string) $input['name']);
-        }
-        if (array_key_exists('email', $input)) {
-            $novoEmail = trim((string) $input['email']);
-            $dono = $repo->findByEmail($novoEmail);
-            if ($dono !== null && (int) $dono['id'] !== $id) {
-                $this->json(['error' => 'Já existe outra conta com este e-mail.'], 400);
-                return;
+        if (array_key_exists('name', $input) && is_scalar($input['name'])) {
+            $novoNome = trim((string) $input['name']);
+            if ($novoNome !== '' && $novoNome !== (string) $pessoa['name']) {
+                $dados['name'] = $novoNome;
             }
-            $dados['email'] = $novoEmail;
         }
-        if (!empty($input['password'])) {
+        if (array_key_exists('email', $input) && is_scalar($input['email'])) {
+            $novoEmail = trim((string) $input['email']);
+            if ($novoEmail !== '' && strcasecmp($novoEmail, (string) $pessoa['email']) !== 0) {
+                $dono = $repo->findByEmail($novoEmail);
+                if ($dono !== null && (int) $dono['id'] !== $id) {
+                    $this->json(['error' => 'Já existe outra conta com este e-mail.'], 400);
+                    return;
+                }
+                $dados['email'] = $novoEmail;
+            }
+        }
+        if (!empty($input['password']) && is_scalar($input['password'])) {
+            $dados['password'] = '';
+        }
+        if ($dados !== [] && !$this->podeEditarConta($pessoa, $storeId, $memberRepo)) {
+            $this->json([
+                'error' => 'Esta pessoa já tinha conta própria na plataforma. Nome, e-mail e senha só podem ser '
+                    . 'mudados por ela. Aqui você pode mudar o cargo ou removê-la da equipe.',
+            ], 403);
+            return;
+        }
+        if (isset($dados['password'])) {
             if (($problema = \App\Auth\PasswordPolicy::problema((string) $input['password'])) !== null) {
                 $this->json(['error' => $problema], 400);
                 return;
@@ -176,6 +198,27 @@ class UserApiController extends Controller
         unset($user['password']);
         $user['user_type'] = $novoCargo ?? $cargoAtual;
         $this->json(['success' => true, 'user' => $user]);
+    }
+
+    /**
+     * O painel desta loja pode mudar nome, e-mail e senha desta pessoa?
+     *
+     * Só quando a conta foi criada por esta loja (users.created_by_store_id) e a
+     * pessoa não está na equipe de outra loja, ou quando é a própria pessoa
+     * logada. A conta é uma só na plataforma: sem essa trava, quem abrisse uma
+     * loja poderia vincular o e-mail de alguém e trocar a senha dele.
+     */
+    private function podeEditarConta(array $pessoa, int $storeId, StoreMemberRepository $memberRepo): bool
+    {
+        $id = (int) $pessoa['id'];
+        if ((int) ($_SESSION['logged_user_id'] ?? 0) === $id) {
+            return true;
+        }
+        if ((int) ($pessoa['created_by_store_id'] ?? 0) !== $storeId) {
+            return false;
+        }
+
+        return $memberRepo->storeIdsForUser($id) === [$storeId];
     }
 
     public function assignRoles(string $slug, int $id): void

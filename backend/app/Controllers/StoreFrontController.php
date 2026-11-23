@@ -260,10 +260,7 @@ class StoreFrontController extends Controller
         }
         $order['items'] = (new OrderItemRepository())->getByOrder($order['id']);
         $order['payments'] = (new PaymentRepository())->findByOrder($order['id']);
-        $orderAddress = null;
-        if (!empty($order['address_id'])) {
-            $orderAddress = (new \App\Repositories\UserAddressRepository())->find((int) $order['address_id']);
-        }
+        $orderAddress = \App\Services\OrderService::enderecoDoPedido($order);
         $this->render('store/pedido', ['store' => $store, 'order' => $order, 'order_address' => $orderAddress, 'title' => 'Pedido #' . $order['id']]);
     }
 

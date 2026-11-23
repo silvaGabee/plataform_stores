@@ -42,12 +42,13 @@ class UserRepository
     public function create(array $data): int
     {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO users (name, email, password) VALUES (?, ?, ?)'
+            'INSERT INTO users (name, email, password, created_by_store_id) VALUES (?, ?, ?, ?)'
         );
         $stmt->execute([
             $data['name'],
             trim((string) $data['email']),
             $data['password'],
+            isset($data['created_by_store_id']) ? (int) $data['created_by_store_id'] : null,
         ]);
 
         return (int) $this->pdo->lastInsertId();

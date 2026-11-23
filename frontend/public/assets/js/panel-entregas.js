@@ -29,6 +29,21 @@
     return i >= 0 && i < f.length - 1 ? f[i + 1] : null;
   }
 
+  /** Endereço copiado no pedido (JSON gravado na compra), numa linha. */
+  function endereco(o) {
+    if (o.delivery_type !== 'entrega' || !o.delivery_address) return '';
+    var e;
+    try { e = JSON.parse(o.delivery_address); } catch (err) { return ''; }
+    if (!e || typeof e !== 'object') return '';
+    var linha = [
+      [e.street, e.number].filter(Boolean).join(', ') + (e.complement ? ' — ' + e.complement : ''),
+      e.neighborhood,
+      [e.city, e.state].filter(Boolean).join('/'),
+      e.zipcode ? 'CEP ' + e.zipcode : ''
+    ].filter(Boolean).join(' · ');
+    return linha ? '<p class="ui-kcard-meta">' + UI.esc(linha) + '</p>' : '';
+  }
+
   function card(o) {
     var prox = next(o);
     var label = o.delivery_type === 'retirada' && prox === 'entregue' ? 'Marcar como retirado' : prox ? 'Avançar: ' + NOME[prox] : '';
@@ -36,6 +51,7 @@
       '<header><strong>Pedido #' + o.id + '</strong><span class="ui-kcard-total">' + UI.money(o.total) + '</span></header>' +
       '<p class="ui-kcard-customer">' + UI.esc(o.customer_name || 'Cliente') + '</p>' +
       '<p class="ui-kcard-meta">' + UI.esc(UI.dateTime(o.created_at)) + '</p>' +
+      endereco(o) +
       (o.tracking_code ? '<p class="ui-kcard-track">' + UI.esc(o.tracking_code) + '</p>' : '') +
       (prox ? '<button type="button" class="btn btn-secondary btn-sm ui-kcard-next" data-next="' + prox + '">' + UI.esc(label) + '</button>' : '') +
     '</article>';
@@ -155,20 +171,26 @@
       if (!box) return;
       if (r.error) { box.innerHTML = '<p class="ui-empty">' + UI.esc(r.error) + '</p>'; return; }
       var list = r.orders || [];
-      document.getElementById('ent-await-count').textContent = String(list.length);
+      var pendentes = list.filter(function (o) { return !(+o.expirado); }).length;
+      document.getElementById('ent-await-count').textContent = String(pendentes);
       if (!list.length) { box.innerHTML = '<p class="ui-empty">Nenhum pedido aguardando pagamento.</p>'; return; }
       box.innerHTML = list.map(function (o) {
+        var expirado = !!(+o.expirado);
         var metodo = o.payment_method === 'pix' ? 'PIX' : o.payment_method === 'cartao' ? 'Cartão na retirada' : 'Forma de pagamento não escolhida';
         var confirmLabel = o.payment_method === 'cartao' ? 'Recebi no cartão' : 'Confirmar PIX recebido';
-        return '<article class="ui-await" data-id="' + o.id + '" data-payment="' + (o.payment_id || '') + '">' +
+        if (expirado) confirmLabel += ' mesmo assim';
+        var selo = expirado
+          ? '<span class="ui-badge ui-badge--danger">prazo expirou · ' + UI.esc(UI.dateTime(o.cancelled_at)) + '</span>'
+          : '<span class="ui-badge ui-badge--warn">' + UI.esc(restante(o.expires_at, r.now)) + '</span>';
+        return '<article class="ui-await" data-id="' + o.id + '" data-payment="' + (o.payment_id || '') + '" data-expirado="' + (expirado ? '1' : '') + '">' +
           '<div class="ui-await-main">' +
             '<strong>Pedido #' + o.id + ' · ' + UI.esc(o.customer_name || 'Cliente') + '</strong>' +
             '<span class="text-muted">' + UI.esc(metodo) + ' · ' + (o.delivery_type === 'entrega' ? 'entrega' : 'retirada') + ' · ' + UI.esc(UI.dateTime(o.created_at)) + '</span>' +
           '</div>' +
-          '<div class="ui-await-value"><strong>' + UI.money(o.payment_amount || o.total) + '</strong><span class="ui-badge ui-badge--warn">' + UI.esc(restante(o.expires_at, r.now)) + '</span></div>' +
+          '<div class="ui-await-value"><strong>' + UI.money(o.payment_amount || o.total) + '</strong>' + selo + '</div>' +
           '<div class="ui-await-actions">' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Cancelar pedido</button>' +
-            (o.payment_id ? '<button type="button" class="btn btn-primary btn-sm" data-act="confirm">' + confirmLabel + '</button>' : '') +
+            (expirado ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Cancelar pedido</button>') +
+            (o.payment_id ? '<button type="button" class="btn ' + (expirado ? 'btn-ghost' : 'btn-primary') + ' btn-sm" data-act="confirm">' + confirmLabel + '</button>' : '') +
           '</div>' +
         '</article>';
       }).join('');
@@ -181,7 +203,10 @@
     var row = b.closest('.ui-await');
     var id = row.getAttribute('data-id');
     if (b.getAttribute('data-act') === 'confirm') {
-      UI.confirm({ title: 'Confirmar pagamento do pedido #' + id, message: 'Confirme apenas se o valor já entrou na conta da loja. O estoque é baixado e o pedido entra no quadro de entregas.', confirm: 'Confirmar pagamento' }).then(function (ok) {
+      var msg = row.getAttribute('data-expirado')
+        ? 'O prazo deste pedido acabou e as peças voltaram para a venda. Confirme só se o valor entrou na conta da loja: o pedido volta a valer e o estoque é baixado agora, se ainda houver peças.'
+        : 'Confirme apenas se o valor já entrou na conta da loja. O estoque é baixado e o pedido entra no quadro de entregas.';
+      UI.confirm({ title: 'Confirmar pagamento do pedido #' + id, message: msg, confirm: 'Confirmar pagamento' }).then(function (ok) {
         if (!ok) return;
         UI.api(A('payments/confirm'), { method: 'POST', body: { payment_id: +row.getAttribute('data-payment') } }).then(function (r) {
           if (r.error) { UI.toast(r.error, 'error'); load(); return; }
