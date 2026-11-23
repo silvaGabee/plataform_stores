@@ -1102,3 +1102,17 @@ body.store-front .product-detail-title-row .product-fav-btn--inline {
   margin: 1rem auto 0;
   width: calc(100% - 2rem);
 }
+
+/* Carrinho: erro ao sincronizar (com "Tentar de novo") ou aviso de item removido. */
+.cart-sync-msg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.cart-sync-msg--aviso {
+  background: var(--warning-bg);
+  color: var(--text);
+  border-color: var(--warning);
+}

@@ -118,37 +118,117 @@ ob_start();
     </div>
 </div>
 <script>
+/*
+ * O carrinho vive no sessionStorage (é dele que o ícone do cabeçalho conta) e
+ * é copiado para a sessão do servidor, que monta esta página.
+ *
+ * Antes a página seguia para ?synced=1 mesmo quando a cópia falhava, e o
+ * servidor descartava em silêncio produto apagado: a página dizia "carrinho
+ * vazio" e o ícone seguia com número. Agora:
+ *  - deu certo: o navegador recebe o carrinho que o servidor guardou (ícone =
+ *    página) e, se algo saiu, um aviso aparece depois de recarregar;
+ *  - falhou: a página não sai do lugar, mostra o erro com "Tentar de novo" e
+ *    não mexe no carrinho do navegador.
+ */
 (function(){
   var storeId = <?= (int)$store['id'] ?>;
   var base = '<?= rtrim(base_url(), '/') ?>';
   var slug = '<?= htmlspecialchars($store['slug'], ENT_QUOTES, 'UTF-8') ?>';
-  var hasSynced = window.location.search.indexOf('synced=1') !== -1;
-  var cart = JSON.parse(sessionStorage.getItem('cart') || '{}')[storeId];
-  if (cart && Object.keys(cart).length && !hasSynced) {
-    fetch(base + '/api/loja/' + slug + '/cart/sync', {
+  var checkoutUrl = '<?= base_url("loja/{$store['slug']}/checkout") ?>';
+  var AVISO = 'cart_notice';
+
+  function lerCarrinho() {
+    try { return JSON.parse(sessionStorage.getItem('cart') || '{}')[storeId]; } catch (e) { return null; }
+  }
+
+  function gravarCarrinho(linhas) {
+    try {
+      var todos = JSON.parse(sessionStorage.getItem('cart') || '{}');
+      todos[storeId] = linhas || {};
+      sessionStorage.setItem('cart', JSON.stringify(todos));
+    } catch (e) { /* sem storage: o servidor continua com o carrinho certo */ }
+    document.dispatchEvent(new CustomEvent('store:cart-changed'));
+  }
+
+  function mostrar(texto, tipo, tentarDeNovo) {
+    var caixa = document.getElementById('cart-sync-msg');
+    if (!caixa) {
+      caixa = document.createElement('div');
+      caixa.id = 'cart-sync-msg';
+      var alvo = document.querySelector('.store-subpage-inner');
+      if (alvo) alvo.insertBefore(caixa, alvo.firstChild);
+      else return;
+    }
+    caixa.className = 'alert cart-sync-msg ' + (tipo === 'erro' ? 'alert-error' : 'cart-sync-msg--aviso');
+    caixa.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
+    caixa.textContent = texto;
+    if (tentarDeNovo) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-secondary btn-sm cart-sync-retry';
+      b.textContent = 'Tentar de novo';
+      b.addEventListener('click', tentarDeNovo);
+      caixa.appendChild(document.createTextNode(' '));
+      caixa.appendChild(b);
+    }
+  }
+
+  /** Copia o carrinho para o servidor. Resolve com a resposta; rejeita com a mensagem de erro. */
+  function sincronizar(linhas) {
+    return fetch(base + '/api/loja/' + slug + '/cart/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cart: cart })
-    }).then(function() { window.location.href = window.location.pathname + '?synced=1'; });
+      body: JSON.stringify({ cart: linhas || {} })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok || !d || !d.success) {
+          throw new Error((d && d.error) || 'Não foi possível atualizar o carrinho.');
+        }
+        return d;
+      });
+    }, function () {
+      throw new Error('Sem conexão com a loja. Confira a internet.');
+    });
+  }
+
+  /** Sincroniza e, só se der certo, alinha o navegador ao servidor e segue para `destino`. */
+  function sincronizarESeguir(destino) {
+    sincronizar(lerCarrinho()).then(function (d) {
+      gravarCarrinho(d.cart);
+      var partes = [];
+      if (d.removidos > 0) partes.push(d.removidos === 1 ? '1 produto que não está mais à venda saiu do carrinho' : d.removidos + ' produtos que não estão mais à venda saíram do carrinho');
+      if (d.cortados > 0) partes.push(d.cortados === 1 ? '1 item ficou de fora (o limite é de 100 itens diferentes)' : d.cortados + ' itens ficaram de fora (o limite é de 100 itens diferentes)');
+      if (partes.length) {
+        try { sessionStorage.setItem(AVISO, partes.join('; ') + '.'); } catch (e) {}
+      }
+      destino();
+    }, function (erro) {
+      mostrar(erro.message + ' Seu carrinho foi mantido.', 'erro', function () { sincronizarESeguir(destino); });
+    });
+  }
+
+  // Aviso guardado antes de recarregar (ex.: produto que saiu do carrinho).
+  try {
+    var aviso = sessionStorage.getItem(AVISO);
+    if (aviso) {
+      sessionStorage.removeItem(AVISO);
+      mostrar(aviso.charAt(0).toUpperCase() + aviso.slice(1), 'aviso');
+    }
+  } catch (e) {}
+
+  var hasSynced = window.location.search.indexOf('synced=1') !== -1;
+  var cart = lerCarrinho();
+  if (cart && Object.keys(cart).length && !hasSynced) {
+    sincronizarESeguir(function () { window.location.href = window.location.pathname + '?synced=1'; });
     return;
   }
-  window.syncCartToSessionAndReload = function() {
-    var c = JSON.parse(sessionStorage.getItem('cart') || '{}')[storeId];
-    fetch(base + '/api/loja/' + slug + '/cart/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cart: c || {} })
-    }).then(function() { location.reload(); });
+  window.syncCartToSessionAndReload = function () {
+    sincronizarESeguir(function () { location.reload(); });
   };
   var btn = document.querySelector('a.btn-primary[href*="checkout"]');
-  if (btn) btn.addEventListener('click', function(e) {
+  if (btn) btn.addEventListener('click', function (e) {
     e.preventDefault();
-    var c = JSON.parse(sessionStorage.getItem('cart') || '{}')[storeId];
-    fetch(base + '/api/loja/' + slug + '/cart/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cart: c || {} })
-    }).then(function() { window.location.href = '<?= base_url("loja/{$store['slug']}/checkout") ?>'; });
+    sincronizarESeguir(function () { window.location.href = checkoutUrl; });
   });
 })();
 </script>

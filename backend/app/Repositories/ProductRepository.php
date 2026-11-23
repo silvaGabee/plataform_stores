@@ -92,6 +92,25 @@ class ProductRepository
         $st->fetchAll();
     }
 
+    /**
+     * Quais destes ids são produtos desta loja.
+     *
+     * @param list<int> $ids
+     * @return array<int, true> id => true
+     */
+    public function idsDaLoja(int $storeId, array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($id) => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $marcas = implode(',', array_fill(0, count($ids), '?'));
+        $st = $this->pdo->prepare("SELECT id FROM products WHERE store_id = ? AND id IN ({$marcas})");
+        $st->execute(array_merge([$storeId], $ids));
+
+        return array_fill_keys(array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)), true);
+    }
+
     public function setBarcode(int $id, ?string $barcode): void
     {
         $this->pdo->prepare('UPDATE products SET barcode = ? WHERE id = ?')->execute([$barcode, $id]);
