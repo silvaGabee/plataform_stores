@@ -114,7 +114,7 @@ class CashApiController extends Controller
             $cash = $this->service()->open($storeId, (int) $userId, $initial);
             $this->json(['success' => true, 'cash_register' => $cash]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível abrir o caixa. Tente de novo.', ['acao' => 'abrir-caixa', 'store_id' => $storeId])], 400);
         }
     }
 
@@ -132,7 +132,7 @@ class CashApiController extends Controller
             $cash = $this->service()->close($cashRegisterId, $storeId, $finalAmount);
             $this->json(['success' => true, 'cash_register' => $cash]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível fechar o caixa. Tente de novo.', ['acao' => 'fechar-caixa', 'store_id' => $storeId])], 400);
         }
     }
 

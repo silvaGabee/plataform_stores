@@ -101,7 +101,7 @@ class RoleApiController extends Controller
             $role = $id > 0 ? $repo->find($id) : null;
             $this->json(['success' => true, 'role' => $role]);
         } catch (\Throwable $e) {
-            $this->json(['error' => 'Erro ao criar cargo: ' . $e->getMessage()], 500);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível salvar o cargo. Tente de novo.', ['acao' => 'salvar-cargo'])], 500);
         }
     }
 

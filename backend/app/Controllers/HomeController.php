@@ -48,8 +48,8 @@ class HomeController extends Controller
             $_SESSION['_error'] = 'Não foi possível entrar. Tente novamente.';
             redirect($voltar);
         }
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $email = input_text($_POST['email'] ?? '');
+        $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
         if (!$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha e-mail e senha.';
@@ -262,11 +262,11 @@ class HomeController extends Controller
             logout();
             redirect(base_url());
         }
-        $name = trim($_POST['store_name'] ?? '');
-        $category = trim($_POST['category'] ?? '');
-        $city = trim($_POST['city'] ?? '');
-        $phone = trim($_POST['phone'] ?? '');
-        $passwordConfirm = $_POST['manager_password'] ?? '';
+        $name = input_text($_POST['store_name'] ?? '');
+        $category = input_text($_POST['category'] ?? '');
+        $city = input_text($_POST['city'] ?? '');
+        $phone = input_text($_POST['phone'] ?? '');
+        $passwordConfirm = is_string($_POST['manager_password'] ?? null) ? $_POST['manager_password'] : '';
         if ($name === '' || $passwordConfirm === '') {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha o nome da loja e confirme sua senha.';
@@ -310,9 +310,8 @@ class HomeController extends Controller
             $_SESSION['_success'] = 'Loja criada! Comece cadastrando seus produtos e configurando a chave PIX. A vitrine pública fica no link "Ver vitrine", no menu.';
             redirect(base_url("painel/{$store['slug']}"));
         } catch (\Throwable $e) {
-            log_exception($e, ['acao' => 'criar-loja', 'user_id' => (int) $me['id']]);
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = $e->getMessage();
+            $_SESSION['_error'] = $this->mensagemSegura($e, 'Não foi possível criar a loja. Tente de novo.', ['acao' => 'criar-loja', 'user_id' => (int) $me['id']]);
             redirect(base_url('criar-loja'));
         }
     }
@@ -362,9 +361,9 @@ class HomeController extends Controller
             $_SESSION['_error'] = 'Use o formulário "Criar conta" para se cadastrar.';
             redirect($voltar);
         }
-        $name = trim($_POST['name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $name = input_text($_POST['name'] ?? '');
+        $email = input_text($_POST['email'] ?? '');
+        $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
         if (!$name || !$email || !$password) {
             $_SESSION['_old'] = $_POST;
             $_SESSION['_error'] = 'Preencha todos os campos.';
@@ -404,7 +403,7 @@ class HomeController extends Controller
             ]);
         } catch (\Throwable $e) {
             $_SESSION['_old'] = $_POST;
-            $_SESSION['_error'] = $e->getMessage();
+            $_SESSION['_error'] = $this->mensagemSegura($e, 'Não foi possível criar a conta. Tente de novo.', ['acao' => 'criar-conta']);
             redirect($voltar);
         }
         // Quem acabou de digitar a senha entra direto, em vez de digitá-la de

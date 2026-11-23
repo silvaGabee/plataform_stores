@@ -111,7 +111,7 @@ class ProductApiController extends Controller
             $product = $service->getByIdAndStore($productId, $storeId);
             $this->json(['success' => true, 'product' => $product]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível cadastrar o produto. Tente de novo.', ['acao' => 'criar-produto', 'store_id' => $storeId])], 400);
         }
     }
 
@@ -156,9 +156,14 @@ class ProductApiController extends Controller
         }
         $this->requireStorePanelAccess($storeId);
         $input = $this->getJsonInput();
-        $type = $input['type'] ?? 'ajuste';
+        // Só os tipos da tela. Um tipo desconhecido SOMAVA estoque e gravava
+        // a movimentação com tipo vazio (o banco não está em modo estrito).
+        $type = input_text($input['type'] ?? 'ajuste');
+        if (!in_array($type, ['entrada', 'saida', 'ajuste'], true)) {
+            $this->json(['error' => 'Tipo de ajuste inválido. Use entrada, saida ou ajuste.'], 400);
+        }
         $quantity = (int) ($input['quantity'] ?? 0);
-        $reason = $input['reason'] ?? null;
+        $reason = isset($input['reason']) && is_scalar($input['reason']) ? mb_substr(trim((string) $input['reason']), 0, 255) : null;
         $userId = $_SESSION['user_id'] ?? null;
         if ($quantity <= 0) {
             $this->json(['error' => 'Quantidade inválida'], 400);
@@ -470,10 +475,10 @@ class ProductApiController extends Controller
     {
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
         $hasMultipart = strpos($contentType, 'multipart/form-data') !== false;
-        $hasPostName = !empty(trim($_POST['name'] ?? ''));
+        $hasPostName = input_text($_POST['name'] ?? '') !== '';
         $input = [
-            'name' => trim($_POST['name'] ?? ''),
-            'description' => trim($_POST['description'] ?? ''),
+            'name' => input_text($_POST['name'] ?? ''),
+            'description' => input_text($_POST['description'] ?? ''),
             'cost_price' => (float) ($_POST['cost_price'] ?? 0),
             'sale_price' => (float) ($_POST['sale_price'] ?? 0),
             'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),

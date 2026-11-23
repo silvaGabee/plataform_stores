@@ -25,5 +25,11 @@
 RewriteEngine On
 RewriteRule ^\.git(/|$) - [F,L]
 
+# Configuração de ferramentas e CI: não são segredo, mas entregam a estrutura
+# do projeto e não servem para nada no navegador. (O FilesMatch "^\." acima só
+# olha o NOME do arquivo, então .github/workflows/ci.yml passava.)
+RewriteRule ^(\.github|vendor|node_modules)(/|$) - [F,L]
+RewriteRule ^(composer\.json|phpstan\.neon|package(-lock)?\.json)$ - [F,L]
+
 # Sem listagem de diretório em nenhum nível.
 Options -Indexes

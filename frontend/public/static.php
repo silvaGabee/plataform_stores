@@ -21,6 +21,13 @@
  * @return bool true se serviu (e já encerrou a resposta)
  */
 
+// Só funciona incluído pelo index.php. Aberto direto pela URL, responde 404
+// como qualquer arquivo que não existe.
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    http_response_code(404);
+    exit;
+}
+
 /** Tipos que sabemos servir. Extensão fora desta lista não é servida. */
 function static_mime(string $ext): ?string
 {

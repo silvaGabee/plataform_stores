@@ -135,7 +135,7 @@ class PaymentApiController extends Controller
             $payment['server_now'] = date('Y-m-d H:i:s');
             $this->json(['success' => true, 'payment' => $payment]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível registrar o pagamento. Tente de novo.', ['acao' => 'pagamento', 'store_id' => $storeId])], 400);
         }
     }
 
@@ -201,7 +201,7 @@ class PaymentApiController extends Controller
             $payment = $this->orderService()->confirmPayment($paymentId, $storeId);
             $this->json(['success' => true, 'payment' => $payment]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível registrar o pagamento. Tente de novo.', ['acao' => 'pagamento', 'store_id' => $storeId])], 400);
         }
     }
 }

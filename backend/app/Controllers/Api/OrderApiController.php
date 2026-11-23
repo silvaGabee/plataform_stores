@@ -37,8 +37,8 @@ class OrderApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
         $this->requireStorePanelAccess($storeId);
-        $status = $_GET['status'] ?? null;
-        $type = $_GET['order_type'] ?? null;
+        $status = is_string($_GET['status'] ?? null) ? $_GET['status'] : null;
+        $type = is_string($_GET['order_type'] ?? null) ? $_GET['order_type'] : null;
         $repo = new OrderRepository();
         $orders = $repo->listByStore($storeId, $status, $type, 100);
         $this->json(['orders' => $orders]);
@@ -84,8 +84,8 @@ class OrderApiController extends Controller
         }
         $this->requireStorePanelAccess($storeId);
         $input = $this->getJsonInput();
-        $stage = isset($input['stage']) ? strtolower(trim($input['stage'])) : '';
-        $trackingCode = isset($input['tracking_code']) ? trim($input['tracking_code']) : null;
+        $stage = strtolower(input_text($input['stage'] ?? ''));
+        $trackingCode = isset($input['tracking_code']) ? input_text($input['tracking_code']) : null;
         $allowed = ['solicitado', 'empacotando', 'entregue_transportadora', 'em_rota', 'entregue'];
         if (!in_array($stage, $allowed, true)) {
             $this->json(['error' => 'Estágio inválido'], 400);
@@ -164,7 +164,7 @@ class OrderApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
             return;
         }
-        $this->json(['orders' => (new OrderRepository())->listSales($storeId, $_GET['q'] ?? null, $_GET['status'] ?? null)]);
+        $this->json(['orders' => (new OrderRepository())->listSales($storeId, is_string($_GET['q'] ?? null) ? $_GET['q'] : null, is_string($_GET['status'] ?? null) ? $_GET['status'] : null)]);
     }
 
     /** POST: o gerente estorna um pedido pago. Corpo: { reason, return_to_stock }. */
@@ -239,7 +239,13 @@ class OrderApiController extends Controller
             return;
         }
         $input = $this->getJsonInput();
-        $orderType = $input['order_type'] ?? 'online';
+        // O banco não está em modo estrito: um valor fora do ENUM era gravado
+        // como '' e o pedido sumia de Aguardando pagamento e de Entregas.
+        $orderType = input_text($input['order_type'] ?? 'online');
+        if (!in_array($orderType, ['online', 'pdv'], true)) {
+            $this->json(['error' => 'Tipo de pedido inválido.'], 400);
+            return;
+        }
         $pdv = [];
         $online = [];
         if ($orderType === 'pdv') {
@@ -283,7 +289,7 @@ class OrderApiController extends Controller
         }
         $items = $input['items'] ?? [];
         $createdBy = $this->resolveOrderCreatedBy($storeId, $orderType);
-        $deliveryType = isset($input['delivery_type']) ? strtolower(trim($input['delivery_type'])) : 'retirada';
+        $deliveryType = isset($input['delivery_type']) ? strtolower(input_text($input['delivery_type'])) : 'retirada';
         if (!in_array($deliveryType, ['retirada', 'entrega'], true)) {
             $deliveryType = 'retirada';
         }
@@ -313,7 +319,7 @@ class OrderApiController extends Controller
             $order = $this->orderService()->createOrder($storeId, $customerId, $items, $orderType, $createdBy ? (int) $createdBy : null, $deliveryType, $addressId, $pdv, $online);
             $this->json(['success' => true, 'order' => $order]);
         } catch (\Throwable $e) {
-            $this->json(['error' => $e->getMessage()], 400);
+            $this->json(['error' => $this->mensagemSegura($e, 'Não foi possível registrar o pedido. Tente de novo.', ['acao' => 'criar-pedido', 'store_id' => $storeId])], 400);
         }
     }
 

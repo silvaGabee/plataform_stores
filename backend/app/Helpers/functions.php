@@ -1099,8 +1099,26 @@ if (!function_exists('store_brand_icon_url')) {
 }
 
 if (!function_exists('old')) {
+    /**
+     * Valor digitado na tentativa anterior. Só devolve texto: um campo enviado
+     * como lista (email[]=x) ia parar no htmlspecialchars() da tela e a página
+     * de entrada dava erro 500 a cada visita até a sessão acabar.
+     */
     function old(string $key, $default = '') {
-        return $_SESSION['_old'][$key] ?? $default;
+        $v = $_SESSION['_old'][$key] ?? $default;
+
+        return is_scalar($v) || $v === null ? $v : $default;
+    }
+}
+
+if (!function_exists('input_text')) {
+    /**
+     * Campo de formulário/JSON como texto aparado. Lista ou objeto (ex.:
+     * "email[]=x" ou {"stage": []}) vira '' em vez de derrubar a requisição
+     * com TypeError no trim().
+     */
+    function input_text(mixed $v): string {
+        return is_scalar($v) ? trim((string) $v) : '';
     }
 }
 

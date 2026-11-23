@@ -37,26 +37,38 @@ final class Backup
         $nome = $cfg['dbname'] . '-' . date('Y-m-d-His') . ($rotulo !== null ? '-' . $rotulo : '') . '.sql';
         $destino = $dir . '/' . $nome;
 
-        $args = [
-            escapeshellarg($binario),
-            '--host=' . escapeshellarg((string) $cfg['host']),
-            '--user=' . escapeshellarg((string) $cfg['username']),
+        // Lista de argumentos, sem shell: no Windows o cmd.exe comia %, ! e "
+        // de uma senha passada por escapeshellarg, e o backup falhava. A senha
+        // vai pela variável MYSQL_PWD — fora da linha de comando, sem o aviso
+        // "Using a password on the command line" que o MySQL imprime. Os erros
+        // saem num canal separado: antes iam para dentro do .sql (2>&1),
+        // estragando o dump, e a mensagem de falha ficava vazia.
+        $comando = [
+            $binario,
+            '--host=' . (string) $cfg['host'],
+            '--user=' . (string) $cfg['username'],
             '--single-transaction',
             '--skip-comments',
             '--routines',
             '--events',
+            (string) $cfg['dbname'],
         ];
+        $ambiente = getenv();
         if ((string) $cfg['password'] !== '') {
-            $args[] = '--password=' . escapeshellarg((string) $cfg['password']);
+            $ambiente['MYSQL_PWD'] = (string) $cfg['password'];
         }
-        $args[] = escapeshellarg((string) $cfg['dbname']);
-
-        $comando = implode(' ', $args) . ' > ' . escapeshellarg($destino) . ' 2>&1';
-        exec($comando, $saida, $codigo);
+        $proc = proc_open($comando, [1 => ['file', $destino, 'w'], 2 => ['pipe', 'w']], $pipes, null, $ambiente);
+        if (!is_resource($proc)) {
+            @unlink($destino);
+            throw new RuntimeException('Não foi possível executar o mysqldump.');
+        }
+        $erros = trim((string) stream_get_contents($pipes[2]));
+        fclose($pipes[2]);
+        $codigo = proc_close($proc);
 
         if ($codigo !== 0) {
             @unlink($destino);
-            throw new RuntimeException('mysqldump falhou: ' . implode(' ', $saida));
+            throw new RuntimeException('mysqldump falhou (código ' . $codigo . '): ' . ($erros !== '' ? $erros : 'sem mensagem de erro.'));
         }
         if (!is_file($destino) || filesize($destino) < 100) {
             @unlink($destino);

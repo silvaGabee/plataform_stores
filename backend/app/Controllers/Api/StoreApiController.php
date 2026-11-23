@@ -44,12 +44,26 @@ class StoreApiController extends Controller
         }
         $this->requireGerenteOfStore($storeId);
         $input = $this->getJsonInput();
+        // Campos conferidos um a um. Antes o JSON ia direto para o banco: um
+        // tipo de chave fora da lista era gravado vazio (modo não estrito) e o
+        // código PIX saía com a chave errada.
+        $tipo = input_text($input['pix_key_type'] ?? 'aleatoria');
+        if (!in_array($tipo, ['cpf', 'cnpj', 'email', 'telefone', 'aleatoria'], true)) {
+            $this->json(['error' => 'Tipo de chave PIX inválido.'], 400);
+        }
+        $dados = [
+            'pix_key' => mb_substr(input_text($input['pix_key'] ?? ''), 0, 255) ?: null,
+            'pix_key_type' => $tipo,
+            'merchant_name' => mb_substr(input_text($input['merchant_name'] ?? ''), 0, 255) ?: null,
+            'merchant_city' => mb_substr(input_text($input['merchant_city'] ?? ''), 0, 100) ?: null,
+            'provider' => mb_substr(input_text($input['provider'] ?? ''), 0, 50) ?: null,
+        ];
         $repo = new StorePixConfigRepository();
         $config = $repo->findByStore($storeId);
         if (!$config) {
-            $repo->create(array_merge($input, ['store_id' => $storeId]));
+            $repo->create($dados + ['store_id' => $storeId]);
         } else {
-            $repo->update($storeId, $input);
+            $repo->update($storeId, $dados);
         }
         $this->json(['success' => true]);
     }

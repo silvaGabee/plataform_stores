@@ -43,24 +43,30 @@ class AnalyzingBIApiController extends Controller
             $this->json(['error' => 'Loja não encontrada'], 404);
         }
         $this->requireGerenteOfStore($storeId);
-        $num = static function (string $v): float {
-            $v = trim($v);
+        $num = static function (mixed $v): float {
+            $v = input_text($v);
             if (str_contains($v, ',')) {
                 $v = str_replace(['.', ','], ['', '.'], $v);
             }
 
             return is_numeric($v) ? (float) $v : 0.0;
         };
+        // Peças são inteiras. Antes 0,0004 peça dava investimento de R$ 0,00,
+        // VPL 0 e a decisão "compensa".
+        $quantidade = $num($_GET['quantidade'] ?? '0');
+        if ($quantidade < 1 || floor($quantidade) !== $quantidade) {
+            $this->json(['error' => 'Informe a quantidade em peças inteiras (1 ou mais).'], 400);
+        }
         try {
             $this->json((new AnalyzingBIService())->simulateStockPurchase(
                 $storeId,
                 (int) ($_GET['produto'] ?? 0),
-                min(100000.0, $num((string) ($_GET['quantidade'] ?? '0'))),
-                $num((string) ($_GET['tma'] ?? '0')),
+                min(100000.0, $quantidade),
+                $num($_GET['tma'] ?? '0'),
                 ($_GET['estoque'] ?? '1') !== '0',
-                $num((string) ($_GET['taxa'] ?? '0')),
+                $num($_GET['taxa'] ?? '0'),
                 (int) ($_GET['parcelas'] ?? 0),
-                $num((string) ($_GET['despesas'] ?? '0'))
+                $num($_GET['despesas'] ?? '0')
             ));
         } catch (\InvalidArgumentException $e) {
             $this->json(['error' => $e->getMessage()], 400);

@@ -44,9 +44,9 @@ class FinanceApiController extends Controller
     }
 
     /** Aceita "2,5" e "2.5". */
-    private static function decimal(string $v): float
+    private static function decimal(mixed $v): float
     {
-        $v = trim($v);
+        $v = input_text($v);
         if (str_contains($v, ',')) {
             $v = str_replace(['.', ','], ['', '.'], $v);
         }

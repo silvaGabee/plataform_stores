@@ -17,6 +17,27 @@ abstract class Controller
         return is_array($decoded) ? $decoded : [];
     }
 
+    /**
+     * Texto de erro que pode ir para a tela.
+     *
+     * As regras de negócio lançam InvalidArgumentException, DomainException ou
+     * RuntimeException com frases escritas para o usuário ("Estoque
+     * insuficiente…", "Já existe um caixa aberto…"); essas passam. Qualquer
+     * outra coisa — PDOException com SQL e nome de tabela, TypeError, erro de
+     * programação — vai para o log, e a tela recebe só a frase padrão.
+     */
+    protected function mensagemSegura(\Throwable $e, string $padrao, array $contexto = []): string
+    {
+        $deNegocio = !($e instanceof \PDOException)
+            && ($e instanceof \InvalidArgumentException || $e instanceof \DomainException || $e instanceof \RuntimeException);
+        if ($deNegocio) {
+            return $e->getMessage();
+        }
+        log_exception($e, $contexto);
+
+        return $padrao;
+    }
+
     protected function getStoreIdFromSlug(string $slug): ?int
     {
         $repo = new \App\Repositories\StoreRepository();

@@ -554,7 +554,7 @@ class ProductService
     public function adjustStock(int $productId, int $storeId, int $quantity, string $type, ?int $userId, ?string $reason = null): bool
     {
         $qty = abs($quantity);
-        if ($qty < 1) {
+        if ($qty < 1 || !in_array($type, ['entrada', 'saida', 'ajuste', 'devolucao'], true)) {
             return false;
         }
 
