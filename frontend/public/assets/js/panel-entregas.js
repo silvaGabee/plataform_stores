@@ -185,9 +185,13 @@
         var metodo = o.payment_method === 'pix' ? 'PIX' : o.payment_method === 'cartao' ? 'Cartão na retirada' : 'Forma de pagamento não escolhida';
         var confirmLabel = o.payment_method === 'cartao' ? 'Recebi no cartão' : 'Confirmar PIX recebido';
         if (expirado) confirmLabel += ' mesmo assim';
+        // Sem prazo (cartão na retirada, sem expires_at) o selo saía vazio:
+        // uma pílula laranja sem texto. Só mostra quando há o que dizer.
+        var prazo = restante(o.expires_at, r.now);
         var selo = expirado
-          ? '<span class="ui-badge ui-badge--danger">prazo expirou · ' + UI.esc(UI.dateTime(o.cancelled_at)) + '</span>'
-          : '<span class="ui-badge ui-badge--warn">' + UI.esc(restante(o.expires_at, r.now)) + '</span>';
+          ? '<span class="ui-badge ui-badge--danger">prazo expirou' + (o.cancelled_at ? ' · ' + UI.esc(UI.dateTime(o.cancelled_at)) : '') + '</span>'
+          : prazo ? '<span class="ui-badge ui-badge--warn">' + UI.esc(prazo) + '</span>'
+          : '<span class="ui-badge ui-badge--muted">sem prazo</span>';
         return '<article class="ui-await" data-id="' + o.id + '" data-payment="' + (o.payment_id || '') + '" data-expirado="' + (expirado ? '1' : '') + '">' +
           '<div class="ui-await-main">' +
             '<strong>Pedido #' + o.id + ' · ' + UI.esc(o.customer_name || 'Cliente') + '</strong>' +

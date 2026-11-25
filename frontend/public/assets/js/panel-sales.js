@@ -38,7 +38,18 @@
     var q = 'orders/vendas?q=' + encodeURIComponent(busca.value.trim()) + '&status=' + encodeURIComponent(status);
     return UI.api(A(q)).then(function (r) {
       if (r.error) { UI.toast(r.error, 'error'); return; }
-      render(r.orders || []);
+      var lista = r.orders || [];
+      render(lista);
+      // A API devolve no máximo 100. Ao bater no limite, o aviso deixa claro
+      // que há vendas mais antigas e como chegar nelas.
+      var hint = root.querySelector('.ui-hint');
+      if (hint) {
+        var cheio = lista.length >= 100;
+        hint.textContent = cheio
+          ? 'Mostrando as 100 vendas mais recentes. Há vendas mais antigas: busque pelo número do pedido ou pelo nome do cliente.'
+          : 'Mostra as 100 vendas mais recentes que atendem ao filtro.';
+        hint.classList.toggle('ui-text-warn', cheio);
+      }
     });
   }
 

@@ -137,10 +137,19 @@
   function simular() {
     var p = produtoAtual();
     if (!p) { resultado.innerHTML = ''; return; }
+    // Campo da TMA apagado virava 0%, e com TMA zero quase tudo "compensa".
+    // Sem a taxa não há comparação: pede o número em vez de responder.
+    var tmaCampo = form.elements.tma;
+    if (String(tmaCampo.value).trim() === '' || !tmaCampo.checkValidity()) {
+      ++pedido; // descarta resposta que ainda esteja a caminho
+      resultado.innerHTML = '<p class="bi-msg bi-msg--error">' +
+        (String(tmaCampo.value).trim() === '' ? 'Informe a TMA (o quanto o dinheiro da loja renderia por mês) para comparar.' : 'A TMA precisa ficar entre 0% e 20% ao mês.') + '</p>';
+      return;
+    }
     var q = new URLSearchParams({
       produto: String(p.produto_id),
       quantidade: form.elements.quantidade.value || '0',
-      tma: form.elements.tma.value || '0',
+      tma: String(tmaCampo.value).trim(),
       despesas: form.elements.despesas.value || '0',
       estoque: form.elements.estoque.checked ? '1' : '0',
       parcelas: form.elements.parcelas.value,

@@ -29,8 +29,9 @@
 
   /**
    * Busca flexível: 1–2 letras = trecho no texto ("T" acha Tênis, Time).
-   * 3–4 letras = prefixo de palavra ("Nike", "Bra").
-   * 5+ letras = palavra inteira ("brasil" não casa com "brasileira").
+   * 3+ letras = começo de palavra ("Nike", "camis" acha "Camisa"). Antes,
+   * com 5+ letras só valia a palavra inteira, e quem digitava devagar via
+   * "nenhum resultado" no meio da palavra.
    */
   function termMatchesBlob(blob, term) {
     if (!term) return true;
@@ -42,12 +43,7 @@
       var found = blob.indexOf(term, idx);
       if (found === -1) return false;
       var before = found === 0 ? '' : blob.charAt(found - 1);
-      var afterPos = found + term.length;
-      var after = afterPos >= blob.length ? '' : blob.charAt(afterPos);
-      var boundaryBefore = before === '' || !/[a-z0-9]/.test(before);
-      var boundaryAfter = after === '' || !/[a-z0-9]/.test(after);
-      if (boundaryBefore && boundaryAfter) return true;
-      if (boundaryBefore && /[a-z0-9]/.test(after) && term.length <= 4) return true;
+      if (before === '' || !/[a-z0-9]/.test(before)) return true;
       idx = found + 1;
     }
     return false;

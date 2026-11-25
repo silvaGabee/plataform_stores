@@ -224,7 +224,7 @@ ob_start();
     </div>
 
     <?php if (!empty($panel_readonly)): ?>
-    <p class="panel-readonly-badge panel-readonly-banner">Está em modo apenas visualização. Só o gerente pode alterar configurações e confirmar pagamentos.</p>
+    <p class="panel-readonly-badge panel-readonly-banner">A chave PIX, o banner e as configurações da loja ficam com o gerente.</p>
     <?php else: ?>
     <section class="panel-section-card">
         <div class="panel-section-head">
@@ -551,6 +551,11 @@ ob_start();
   // funcionário a chamada só devolvia 403 e a mensagem de erro no lugar da
   // imagem. Ele fica com o aviso "Só o gerente pode carregar…".
   if (!panelBannerReadonly && ph) ph.classList.add('dashboard-banner-empty--loading');
+  // Sem a chamada, o quadro ficava em "A carregar…" para sempre. O banner já
+  // é público na vitrine, então a página traz o endereço pronto.
+  if (panelBannerReadonly) {
+    setBannerUi(<?= json_encode(trim((string) ($store['banner_path'] ?? '')) !== '' ? base_url('uploads/' . str_replace('\\', '/', trim((string) $store['banner_path']))) : null) ?>);
+  }
 
   if (!panelBannerReadonly) fetch(base + '/api/loja/' + encodeURIComponent(slug) + '/banner', { credentials: 'same-origin' })
     .then(function(r){ return r.json(); })

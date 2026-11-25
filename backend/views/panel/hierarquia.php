@@ -4,7 +4,9 @@
         <div class="hierarchy-header-text">
             <p class="panel-page-eyebrow">Equipe</p>
             <h1>Hierarquia de cargos</h1>
-            <p class="hierarchy-subtitle">Organize os cargos da loja, defina quem responde a quem e veja a estrutura no organograma.</p>
+            <p class="hierarchy-subtitle"><?= empty($panel_readonly)
+                ? 'Organize os cargos da loja, defina quem responde a quem e veja a estrutura no organograma.'
+                : 'Veja os cargos da loja e quem responde a quem. Só o gerente altera a estrutura.' ?></p>
         </div>
         <?php if (empty($panel_readonly)): ?>
         <div class="hierarchy-header-actions">

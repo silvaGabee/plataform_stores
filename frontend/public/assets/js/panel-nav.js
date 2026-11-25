@@ -32,6 +32,12 @@
       backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
     }
     document.body.style.overflow = open ? 'hidden' : '';
+    // Fechado no celular, o menu fica fora da tela mas os links continuavam
+    // recebendo o Tab (uns 15 passos invisíveis). `inert` tira do teclado e
+    // do leitor de tela; no computador o menu está sempre à vista.
+    var escondido = isMobileNav() && !open;
+    sidebar.inert = escondido;
+    if (escondido) sidebar.setAttribute('aria-hidden', 'true'); else sidebar.removeAttribute('aria-hidden');
   }
 
   toggle.addEventListener('click', function () {
@@ -57,10 +63,10 @@
   });
 
   function onBreakpointChange() {
-    if (!isMobileNav()) {
-      setOpen(false);
-    }
+    // Também reaplica o `inert` ao cruzar a largura (celular ↔ computador).
+    setOpen(isMobileNav() && document.body.classList.contains('panel-nav-open'));
   }
+  onBreakpointChange();
 
   if (typeof mq.addEventListener === 'function') {
     mq.addEventListener('change', onBreakpointChange);

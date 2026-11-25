@@ -30,7 +30,7 @@
     }
     rows.innerHTML = lista.map(function (c) {
       return '<tr>' +
-        '<td data-label="Cliente"><strong>' + UI.esc(c.nome) + '</strong><small class="sales-refund-note">' + UI.esc(c.email) + '</small></td>' +
+        '<td data-label="" class="ui-cell-title"><strong>' + UI.esc(c.nome) + '</strong><small class="sales-refund-note">' + UI.esc(c.email) + '</small></td>' +
         '<td data-label="Pedidos" class="ui-num">' + Number(c.pedidos) + '</td>' +
         '<td data-label="Total comprado" class="ui-num">' + UI.money(c.total) + '</td>' +
         '<td data-label="Ticket médio" class="ui-num">' + UI.money(c.ticket_medio) + '</td>' +

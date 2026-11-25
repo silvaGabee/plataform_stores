@@ -802,10 +802,23 @@
       btn.textContent = entry.label || axis;
       btn.addEventListener('click', function () {
         if (variantMatrix.axis === axis) return;
-        variantMatrix.axis = axis;
-        variantMatrix.sizes = [];
-        variantMatrix.stock = {};
-        renderVariantMatrixUi();
+        function trocar() {
+          variantMatrix.axis = axis;
+          variantMatrix.sizes = [];
+          variantMatrix.stock = {};
+          renderVariantMatrixUi();
+        }
+        // Trocar de eixo apaga a grade inteira (tamanhos e o estoque de cada
+        // combinação). Sem nada preenchido troca direto; com dados, pergunta.
+        if (!variantMatrix.axis || !variantMatrix.sizes.length || !window.UI || !UI.confirm) { trocar(); return; }
+        var plural = variantMatrix.axis === 'numeracao' ? 'As numerações escolhidas' : 'Os tamanhos escolhidos';
+        UI.confirm({
+          title: 'Trocar para ' + (entry.label || axis).toLowerCase() + '?',
+          message: plural + ' e o estoque de cada combinação serão apagados desta grade. Nada é salvo até clicar em "Salvar produto".',
+          confirm: 'Trocar e apagar a grade',
+          cancel: 'Cancelar',
+          danger: true
+        }).then(function (ok) { if (ok) trocar(); });
       });
       box.appendChild(btn);
     });
@@ -1323,6 +1336,11 @@
     }
     renderPhotosSlide();
     modal.classList.remove('hidden');
+    // Reabria no ponto em que o último produto foi deixado (no meio das
+    // variações). Cada abertura começa pelo nome.
+    modal.scrollTop = 0;
+    var formScroll = document.getElementById('product-form');
+    if (formScroll) formScroll.scrollTop = 0;
     });
   }
 
@@ -1361,6 +1379,14 @@
     btnNew.addEventListener('click', function () { openModal(0); });
     modal.querySelectorAll('.close-modal').forEach(function (b) {
       b.addEventListener('click', function () { modal.classList.add('hidden'); });
+    });
+    // Esc fecha o produto (a janela da cor, por cima, tem o seu próprio Esc
+    // em captura e para a propagação). Com um diálogo de confirmação aberto,
+    // o Esc é dele.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || modal.classList.contains('hidden')) return;
+      if (document.querySelector('.ui-dialog-backdrop')) return;
+      modal.classList.add('hidden');
     });
     var barcodeEl = document.getElementById('product-barcode');
     if (barcodeEl) barcodeEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });

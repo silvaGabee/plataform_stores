@@ -134,5 +134,39 @@
     });
   }
 
-  window.UI = { api: api, money: money, esc: esc, parseDate: parseDate, dateTime: dateTime, toast: toast, confirm: confirmDialog, icon: icon, base: base };
+  /**
+   * No celular cada linha de .ui-table vira um cartão que mostra o rótulo de
+   * data-label. Várias telas montam as linhas em JS sem esse atributo (o
+   * simulador do BI, por exemplo), e os cartões saíam só com números. Aqui o
+   * rótulo vem do cabeçalho da coluna quando a célula não trouxer o seu.
+   */
+  function labelTables(root) {
+    (root || document).querySelectorAll('table.ui-table').forEach(function (table) {
+      var heads = table.querySelectorAll('thead th');
+      if (!heads.length) return;
+      var nomes = Array.prototype.map.call(heads, function (th) { return th.textContent.trim(); });
+      table.querySelectorAll('tbody tr').forEach(function (tr) {
+        var col = 0;
+        Array.prototype.forEach.call(tr.children, function (td) {
+          var n = nomes[col];
+          col += td.colSpan || 1;
+          if (td.tagName !== 'TD' || td.hasAttribute('data-label') || td.colSpan > 1 || !n) return;
+          td.setAttribute('data-label', n);
+        });
+      });
+    });
+  }
+  function watchTables() {
+    labelTables(document);
+    var pend = false;
+    new MutationObserver(function () {
+      if (pend) return;
+      pend = true;
+      requestAnimationFrame(function () { pend = false; labelTables(document); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchTables);
+  else watchTables();
+
+  window.UI = { api: api, money: money, esc: esc, parseDate: parseDate, dateTime: dateTime, toast: toast, confirm: confirmDialog, icon: icon, base: base, labelTables: labelTables };
 })();

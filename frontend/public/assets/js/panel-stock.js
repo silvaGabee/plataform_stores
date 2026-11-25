@@ -692,8 +692,13 @@
       updateAdjustTypeUi(false);
     }
 
-    if (adjustModal) adjustModal.classList.remove('hidden');
-    if (qtyEl) qtyEl.focus();
+    if (adjustModal) {
+      adjustModal.classList.remove('hidden');
+      adjustModal.scrollTop = 0;
+      var stockForm = document.getElementById('adjust-form');
+      if (stockForm) stockForm.scrollTop = 0;
+    }
+    if (qtyEl) qtyEl.focus({ preventScroll: true });
   }
 
   function closeAdjustModal() {
@@ -736,6 +741,12 @@
   if (adjustModal) {
     adjustModal.querySelectorAll('.close-modal').forEach(function (b) {
       b.addEventListener('click', closeAdjustModal);
+    });
+    // Esc fecha o ajuste, como nos outros diálogos do painel.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || adjustModal.classList.contains('hidden')) return;
+      if (document.querySelector('.ui-dialog-backdrop')) return;
+      closeAdjustModal();
     });
   }
 

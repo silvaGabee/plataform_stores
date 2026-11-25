@@ -1131,6 +1131,13 @@
     return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   }
 
+  /** "25/11 14:30": um turno pode passar da meia-noite, e só a hora confundia. */
+  function whenOf(ts) {
+    var d = new Date(String(ts).replace(' ', 'T'));
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + timeOf(ts);
+  }
+
   function renderRegister() {
     var r = state.register;
     app.setAttribute('data-state', r ? 'open' : 'closed');
@@ -1161,9 +1168,9 @@
     var recent = r.recent || [];
     $('pdv-recent').innerHTML = !recent.length
       ? '<p class="pdv-muted">Nenhuma venda registrada neste turno.</p>'
-      : '<div class="pdv-table-wrap"><table class="pdv-table"><thead><tr><th>Pedido</th><th>Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th class="num">Total</th><th></th></tr></thead><tbody>' +
+      : '<div class="pdv-table-wrap"><table class="pdv-table"><thead><tr><th>Pedido</th><th>Data</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th class="num">Total</th><th></th></tr></thead><tbody>' +
         recent.map(function (s) {
-          return '<tr><td>#' + s.id + '</td><td>' + timeOf(s.created_at) + '</td><td>' + esc(s.pdv_customer_name || '—') + '</td><td>' + (parseInt(s.items, 10) || 0) + '</td>' +
+          return '<tr><td>#' + s.id + '</td><td style="white-space:nowrap">' + whenOf(s.created_at) + '</td><td>' + esc(s.pdv_customer_name || '—') + '</td><td>' + (parseInt(s.items, 10) || 0) + '</td>' +
             '<td><span class="pdv-method-tag pdv-method-tag--' + esc(s.method) + '">' + esc(METHOD_LABEL[s.method] || s.method) + '</span></td>' +
             '<td class="num"><strong>' + money(s.total) + '</strong>' + (parseFloat(s.discount) > 0 ? '<small> (−' + money(s.discount) + ')</small>' : '') + '</td>' +
             '<td class="num"><button type="button" class="pdv-icon-btn" data-reprint="' + s.id + '" title="Reimprimir cupom" aria-label="Reimprimir cupom do pedido ' + s.id + '">' + icon(ICON.print, 16) + '</button></td></tr>';

@@ -878,3 +878,9 @@ body.panel .panel-main.panel-main--bi-immersive .panel-main-body > .panel-conten
 @media (prefers-reduced-motion: reduce) {
   .bi-info-pop { animation: none !important; }
 }
+
+/* Atalhos do topo ("Vendas", "Estoque"…): no celular e no tablet o título
+   da seção parava embaixo da barra do painel. */
+@media (max-width: 1023px) {
+  .bi-group { scroll-margin-top: 5rem; }
+}

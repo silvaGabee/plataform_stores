@@ -4,7 +4,7 @@
         <div>
             <p class="panel-page-eyebrow">Pedidos da vitrine</p>
             <h1>Entregas</h1>
-            <p class="panel-lead text-muted">Confirme pagamentos e acompanhe cada pedido até a entrega. Use <strong>Avançar</strong> no cartão (ou arraste no computador). As etapas só andam para a frente e só pedidos pagos entram no quadro.</p>
+            <p class="panel-lead text-muted"><?= !empty($panel_is_gerente) ? 'Confirme pagamentos e acompanhe' : 'Acompanhe' ?> cada pedido até a entrega. Use <strong>Avançar</strong> no cartão (ou arraste no computador). As etapas só andam para a frente e só pedidos pagos entram no quadro.</p>
         </div>
         <div class="ui-page-actions">
             <button type="button" class="btn btn-secondary ui-btn-icon" id="ent-refresh"><?= ui_icon('history', 16) ?><span>Atualizar</span></button>
