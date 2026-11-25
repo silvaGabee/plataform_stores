@@ -45,7 +45,7 @@ ob_start();
             <div class="pdv-catalog-toolbar">
                 <label class="pdv-search" for="pdv-search">
                     <?= $__pdvIcon('M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35', 18) ?>
-                    <input type="search" id="pdv-search" placeholder="Buscar por nome, código de barras ou #número" autocomplete="off" spellcheck="false">
+                    <input type="search" id="pdv-search" placeholder="Nome, código de barras ou #pedido" title="Busque pelo nome, pelo código de barras ou pelo número do pedido (#)" autocomplete="off" spellcheck="false">
                     <kbd class="pdv-kbd">F2</kbd>
                 </label>
                 <label class="pdv-stock-filter">
@@ -87,7 +87,7 @@ ob_start();
             <div class="pdv-totals">
                 <div class="pdv-totals-row">
                     <span>Subtotal</span>
-                    <span id="pdv-subtotal">R$ 0,00</span>
+                    <span id="pdv-subtotal">R$ 0,00</span>
                 </div>
                 <div class="pdv-totals-row pdv-totals-row--discount">
                     <button type="button" class="pdv-link-btn" id="pdv-discount-btn" disabled>
@@ -95,11 +95,11 @@ ob_start();
                         <span id="pdv-discount-label">Adicionar desconto</span>
                         <kbd class="pdv-kbd">F4</kbd>
                     </button>
-                    <span id="pdv-discount">— R$ 0,00</span>
+                    <span id="pdv-discount">— R$ 0,00</span>
                 </div>
                 <div class="pdv-totals-row pdv-totals-row--total">
                     <span>Total</span>
-                    <strong id="pdv-total">R$ 0,00</strong>
+                    <strong id="pdv-total">R$ 0,00</strong>
                 </div>
             </div>
 

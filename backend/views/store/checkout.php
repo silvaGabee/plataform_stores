@@ -25,7 +25,7 @@ $content = ob_start();
                     <span class="checkout-summary-eyebrow">Resumo</span>
                     <span class="checkout-summary-label">Total do pedido</span>
                 </div>
-                <span class="checkout-summary-amount" id="checkout-total" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>" data-pix-pct="<?= htmlspecialchars(number_format(\App\Services\OrderPricing::pixPct($store), 2, '.', '')) ?>">R$ <?= number_format($total, 2, ',', '.') ?></span>
+                <span class="checkout-summary-amount" id="checkout-total" data-subtotal="<?= htmlspecialchars(number_format($total, 2, '.', '')) ?>" data-pix-pct="<?= htmlspecialchars(number_format(\App\Services\OrderPricing::pixPct($store), 2, '.', '')) ?>">R$ <?= number_format($total, 2, ',', '.') ?></span>
             </div>
             <dl class="checkout-breakdown" id="checkout-breakdown" aria-live="polite"></dl>
             <form id="checkout-form" class="checkout-form">
@@ -241,7 +241,9 @@ $content = ob_start();
                             </div>
                             <?php
                             $cardYearStart = (int) date('Y');
-                            $cardYearEnd = $cardYearStart + 80;
+                            // Cartões valem no máximo uns 10 anos. Com +80 a lista ia até 2106, e de
+                            // 2100 em diante o "AA" da validade voltava para 00 (cartão vencido).
+                            $cardYearEnd = $cardYearStart + 15;
                             $cardMonthNames = [
                                 1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril',
                                 5 => 'Maio', 6 => 'Junho', 7 => 'Julho', 8 => 'Agosto',

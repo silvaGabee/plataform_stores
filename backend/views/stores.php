@@ -29,7 +29,16 @@ $renderStoreCard = function (array $s, bool $isMine) use ($storeHue, $storeIniti
     $initial = htmlspecialchars($storeInitial((string) $s['name']));
     $city = !empty($s['city']) ? htmlspecialchars((string) $s['city']) : '';
     $category = !empty($s['category']) ? htmlspecialchars((string) $s['category']) : '';
-    $phone = !empty($s['phone']) ? htmlspecialchars((string) $s['phone']) : '';
+    // O telefone vem só com dígitos ("19988887777"): mostra no formato
+    // brasileiro, (19) 98888-7777. Outros tamanhos ficam como vieram.
+    $phoneRaw = (string) ($s['phone'] ?? '');
+    $phoneDig = preg_replace('/\D+/', '', $phoneRaw);
+    if (strlen($phoneDig) === 11) {
+        $phoneRaw = sprintf('(%s) %s-%s', substr($phoneDig, 0, 2), substr($phoneDig, 2, 5), substr($phoneDig, 7));
+    } elseif (strlen($phoneDig) === 10) {
+        $phoneRaw = sprintf('(%s) %s-%s', substr($phoneDig, 0, 2), substr($phoneDig, 2, 4), substr($phoneDig, 6));
+    }
+    $phone = trim($phoneRaw) !== '' ? htmlspecialchars($phoneRaw) : '';
     $hasStorePhoto = trim((string) ($s['store_icon_path'] ?? '')) !== '';
     $avatarImgUrl = $hasStorePhoto ? htmlspecialchars(store_brand_icon_url($s), ENT_QUOTES, 'UTF-8') : '';
     ?>
@@ -80,7 +89,7 @@ $renderStoreCard = function (array $s, bool $isMine) use ($storeHue, $storeIniti
                     </li>
                 <?php endif; ?>
                 <?php if ($city === '' && $category === '' && $phone === ''): ?>
-                    <li class="store-card-pro-meta-empty">Sem localização ou contacto registados</li>
+                    <li class="store-card-pro-meta-empty">Sem endereço ou contato cadastrados</li>
                 <?php endif; ?>
             </ul>
             <div class="store-card-pro-actions">

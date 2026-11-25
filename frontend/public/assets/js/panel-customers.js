@@ -20,7 +20,9 @@
       stat('Total comprado', UI.money(receita), 'ok') +
       stat('Sumidos há ' + dados.dias_sumido + ' dias ou mais', String(sumidos.length), sumidos.length ? 'warn' : '');
     document.getElementById('customers-note').textContent =
-      dados.vendas_balcao_sem_cliente + ' venda(s) de balcão não entram aqui, porque não identificam o cliente.';
+      (Number(dados.vendas_balcao_sem_cliente) === 1
+        ? '1 venda de balcão não entra aqui, porque não identifica o cliente.'
+        : Number(dados.vendas_balcao_sem_cliente || 0).toLocaleString('pt-BR') + ' vendas de balcão não entram aqui, porque não identificam o cliente.');
 
     var lista = mostrar === 'sumidos' ? sumidos.slice().sort(function (a, b) { return b.dias_sem_comprar - a.dias_sem_comprar; }) : todos;
     var rows = document.getElementById('customers-rows');

@@ -32,6 +32,13 @@
   /** Endereço copiado no pedido (JSON gravado na compra), numa linha. */
   function endereco(o) {
     if (o.delivery_type !== 'entrega' || !o.delivery_address) return '';
+    // Alguns endereços guardam o CEP só com dígitos ("04662002"). Mostra
+    // sempre 04662-002, com hífen e espaço que não quebram a linha.
+    function cep(z) {
+      var d = String(z || '').replace(/\D/g, '');
+      if (!d) return '';
+      return 'CEP ' + (d.length === 8 ? d.slice(0, 5) + '‑' + d.slice(5) : String(z));
+    }
     var e;
     try { e = JSON.parse(o.delivery_address); } catch (err) { return ''; }
     if (!e || typeof e !== 'object') return '';
@@ -39,7 +46,7 @@
       [e.street, e.number].filter(Boolean).join(', ') + (e.complement ? ' — ' + e.complement : ''),
       e.neighborhood,
       [e.city, e.state].filter(Boolean).join('/'),
-      e.zipcode ? 'CEP ' + e.zipcode : ''
+      cep(e.zipcode)
     ].filter(Boolean).join(' · ');
     return linha ? '<p class="ui-kcard-meta">' + UI.esc(linha) + '</p>' : '';
   }

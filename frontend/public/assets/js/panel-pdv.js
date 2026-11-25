@@ -907,7 +907,7 @@
             }).join('');
             var sim = res.simulacao;
             $('pdv-inst-summary').innerHTML =
-              '<div><span>Parcela</span><strong>' + sim.parcelas + 'x ' + money(sim.parcela) + '</strong></div>' +
+              '<div><span>Parcelas</span><strong>' + esc(descreverParcelas(sim)) + '</strong></div>' +
               '<div><span>Total pago pelo cliente</span><strong>' + money(sim.total) + '</strong></div>' +
               '<div><span>Juros</span><strong>' + money(sim.juros_total) + '</strong></div>' +
               '<div><span>Taxa anual equivalente</span><strong>' + sim.taxa_anual_equivalente.toFixed(2).replace('.', ',') + '%</strong></div>' +
@@ -1040,7 +1040,7 @@
       body: '<div class="pdv-success">' +
           '<span class="pdv-success-icon">' + icon(ICON.check, 34) + '</span>' +
           '<p class="pdv-success-order">Pedido #' + sale.id + ' · ' + METHOD_LABEL[sale.method] +
-            (sale.installments ? ' ' + sale.installments.parcelas + 'x de ' + money(sale.installments.parcela) : '') + '</p>' +
+            (sale.installments ? ' ' + esc(descreverParcelas(sale.installments)) : '') + '</p>' +
           '<p class="pdv-success-total">' + money(sale.total) + '</p>' +
           (sale.method === 'dinheiro' && sale.change > 0
             ? '<div class="pdv-success-change"><span>Troco</span><strong>' + money(sale.change) + '</strong></div>'
@@ -1075,7 +1075,7 @@
           (sale.discount > 0 ? '<tr><td>Desconto</td><td class="r-right">− ' + money(sale.discount) + '</td></tr>' : '') +
           '<tr class="r-total"><td>TOTAL</td><td class="r-right">' + money(sale.total) + '</td></tr>' +
           '<tr><td>' + esc(METHOD_LABEL[sale.method] || sale.method) + '</td><td class="r-right">' + money(sale.received != null ? sale.received : sale.total) + '</td></tr>' +
-          (sale.installments ? '<tr><td>' + sale.installments.parcelas + 'x de ' + money(sale.installments.parcela) + '</td><td class="r-right">' + money(sale.installments.total) + '</td></tr>' : '') +
+          (sale.installments ? '<tr><td>' + esc(descreverParcelas(sale.installments)) + '</td><td class="r-right">' + money(sale.installments.total) + '</td></tr>' : '') +
           (sale.change > 0 ? '<tr><td>Troco</td><td class="r-right">' + money(sale.change) + '</td></tr>' : '') +
         '</table><hr>' +
         (sale.customer ? '<p>Cliente: ' + esc(sale.customer) + '</p>' : '') +
@@ -1129,6 +1129,24 @@
   function timeOf(ts) {
     var d = new Date(String(ts).replace(' ', 'T'));
     return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  /**
+   * "2x de R$ 100,00 + 1x de R$ 99,99": o centavo que sobra da divisão cai
+   * nas parcelas, e o resumo mostrava só a primeira ("3x R$ 100,00"), que
+   * não fechava com o total. Agrupa parcelas iguais seguidas, como a vitrine.
+   */
+  function descreverParcelas(sim) {
+    var tabela = (sim && sim.tabela) || [];
+    if (!tabela.length) return sim.parcelas + 'x de ' + money(sim.parcela);
+    var grupos = [];
+    tabela.forEach(function (l) {
+      var v = Math.round(Number(l.parcela) * 100);
+      var ult = grupos[grupos.length - 1];
+      if (ult && ult.v === v) ult.n++;
+      else grupos.push({ v: v, n: 1 });
+    });
+    return grupos.map(function (g) { return g.n + 'x de ' + money(g.v / 100); }).join(' + ');
   }
 
   /** "25/11 14:30": um turno pode passar da meia-noite, e só a hora confundia. */

@@ -72,7 +72,7 @@ ob_start();
                         <div class="create-store-field">
                             <label for="cs-manager-password">Confirme sua senha *</label>
                             <input type="password" id="cs-manager-password" name="manager_password" required placeholder="Digite a senha com que você entra" autocomplete="current-password">
-                            <p class="create-store-field-hint">Obrigatório para validar que é mesmo você. Tem de ser igual à senha utilizada no login.</p>
+                            <p class="create-store-field-hint">Obrigatório para validar que é mesmo você. Precisa ser a mesma senha usada no login.</p>
                         </div>
                     </div>
                 </section>

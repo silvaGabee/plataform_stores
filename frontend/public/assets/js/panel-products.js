@@ -1053,7 +1053,7 @@
   }
 
   function moneyBr(v) {
-    return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return 'R$ ' + (parseFloat(v) || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
   function escHtml(v) {

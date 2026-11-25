@@ -146,7 +146,10 @@ $__aiDono = substr(hash('sha256', (string) ($_SESSION['logged_user_id'] ?? '') .
             <div id="panel-ai-messages" class="panel-ai-messages" aria-live="polite">
                 <div class="panel-ai-empty" id="panel-ai-empty">
                     <p class="panel-ai-empty-title">Pergunte sobre a sua loja</p>
-                    <p class="panel-ai-empty-desc">Uso os números de vendas, pedidos e estoque do painel e dou ideias de gestão. Cada pergunta é respondida sozinha, então coloque todo o contexto nela.</p>
+                    <?php // O funcionário não vê faturamento: a IA não recebe esses números para ele. ?>
+                    <p class="panel-ai-empty-desc"><?= !empty($panel_is_gerente)
+                        ? 'Uso os números de vendas, pedidos e estoque do painel e dou ideias de gestão.'
+                        : 'Uso os pedidos, as entregas e o estoque do painel e ajudo no dia a dia do atendimento.' ?> Cada pergunta é respondida sozinha, então coloque todo o contexto nela.</p>
                     <p class="panel-ai-suggest-label" id="panel-ai-suggest-label">Comece por aqui</p>
                     <ul class="panel-ai-suggestions" aria-labelledby="panel-ai-suggest-label">
                         <?php foreach ($__aiSugestoes as $__s): ?>

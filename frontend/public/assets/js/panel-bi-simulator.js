@@ -95,9 +95,11 @@
     var maisBarato = f.valor_presente_price < f.valor_presente_sac ? 'Price' : (f.valor_presente_sac < f.valor_presente_price ? 'SAC' : null);
     var leitura = 'O SAC paga ' + money(p.juros_total - s.juros_total) + ' a menos de juros porque devolve o principal mais cedo. ' +
       'Pela TMA de ' + pct(f.tma) + ', o que importa é o valor presente das parcelas: ' +
-      (maisBarato ? 'a ' + maisBarato + ' pesa menos hoje' : 'os dois empatam') +
-      (Number(f.tma) > Number(p.taxa_mensal) ? ', e as duas custam menos que pagar à vista ' + money(p.principal) + ', porque o dinheiro da loja rende mais que os juros cobrados.'
-        : Number(f.tma) < Number(p.taxa_mensal) ? ', mas as duas custam mais que pagar à vista ' + money(p.principal) + ', porque os juros cobrados passam do que o dinheiro da loja renderia.'
+      // "o SAC" e "a Price": antes saía "a SAC", e o texto misturava "os dois"
+      // com "as duas" na mesma frase.
+      (maisBarato ? (maisBarato === 'SAC' ? 'o SAC' : 'a Price') + ' pesa menos hoje' : 'os dois empatam') +
+      (Number(f.tma) > Number(p.taxa_mensal) ? ', e os dois custam menos que pagar à vista ' + money(p.principal) + ', porque o dinheiro da loja rende mais que os juros cobrados.'
+        : Number(f.tma) < Number(p.taxa_mensal) ? ', mas os dois custam mais que pagar à vista ' + money(p.principal) + ', porque os juros cobrados passam do que o dinheiro da loja renderia.'
         : '.');
     return '<h3 class="bi-sim-subtitle">Financiar ' + money(p.principal) + ' em ' + p.parcelas + 'x a ' + pct(p.taxa_mensal) + '</h3>' +
       '<div class="bi-sim-compare">' +
@@ -116,7 +118,7 @@
     var compensa = d.decisao === 'compensa';
     var avisos = [];
     if (d.meses_ate_comecar > 1) avisos.push('O lote só começa a vender no mês ' + d.meses_ate_comecar + ': antes sai o estoque que já está na prateleira.');
-    if (d.sobra > 0) avisos.push(Number(d.sobra).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' peça(s) não vendem em ' + d.meses + ' meses no ritmo atual e ficam fora da conta.');
+    if (d.sobra > 0) avisos.push(Number(d.sobra).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + (Number(d.sobra) === 1 ? ' peça não vende em ' : ' peças não vendem em ') + d.meses + ' meses no ritmo atual e ficam fora da conta.');
     if (d.fluxos.length === 1) avisos.push('Sem vendas nos últimos 90 dias, não há ritmo para projetar: o dinheiro não volta na simulação.');
 
     resultado.innerHTML =

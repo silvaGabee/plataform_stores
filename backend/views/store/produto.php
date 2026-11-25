@@ -85,11 +85,11 @@ $content = ob_start();
 
                 <div class="product-detail-price-block">
                     <?php if ($discountPct > 0): ?>
-                        <p class="product-detail-price-old"><s>R$ <?= number_format($salePrice, 2, ',', '.') ?></s> <span class="product-detail-sale-badge">-<?= $discountPct ?>%</span></p>
+                        <p class="product-detail-price-old"><s>R$ <?= number_format($salePrice, 2, ',', '.') ?></s> <span class="product-detail-sale-badge">-<?= $discountPct ?>%</span></p>
                     <?php endif; ?>
-                    <p class="product-detail-price">R$ <?= number_format($effectivePrice, 2, ',', '.') ?></p>
+                    <p class="product-detail-price">R$ <?= number_format($effectivePrice, 2, ',', '.') ?></p>
                     <?php if ($pixPrice !== null): ?>
-                        <p class="product-detail-pix"><?= ui_icon('qr', 15) ?> <strong>R$ <?= number_format($pixPrice, 2, ',', '.') ?></strong> no PIX <span class="product-detail-pix-badge"><?= rtrim(rtrim(number_format($pixPct, 2, ',', ''), '0'), ',') ?>% off</span></p>
+                        <p class="product-detail-pix"><?= ui_icon('qr', 15) ?> <strong>R$ <?= number_format($pixPrice, 2, ',', '.') ?></strong> no PIX <span class="product-detail-pix-badge"><?= rtrim(rtrim(number_format($pixPct, 2, ',', ''), '0'), ',') ?>% de desconto</span></p>
                     <?php endif; ?>
                     <?php if ($installmentsText): ?>
                         <p class="product-detail-price-note"><?= htmlspecialchars($installmentsText) ?> no cartão (entrega)</p>
@@ -342,9 +342,9 @@ $content = ob_start();
     ?>
     <div class="product-buybar" id="product-buybar" hidden data-choose-label="Escolher <?= htmlspecialchars($__axis) ?>">
         <div class="product-buybar-price">
-            <strong>R$ <?= number_format($effectivePrice, 2, ',', '.') ?></strong>
+            <strong>R$ <?= number_format($effectivePrice, 2, ',', '.') ?></strong>
             <?php if ($pixPrice !== null): ?>
-                <span>R$ <?= number_format($pixPrice, 2, ',', '.') ?> no PIX</span>
+                <span>R$ <?= number_format($pixPrice, 2, ',', '.') ?> no PIX</span>
             <?php endif; ?>
         </div>
         <button type="button" class="btn btn-primary product-buybar-btn" id="product-buybar-btn"><?= $hasVariants ? 'Escolher ' . htmlspecialchars($__axis) : 'Adicionar ao carrinho' ?></button>
@@ -354,8 +354,8 @@ $content = ob_start();
 $content = ob_get_clean();
 $extra_js = '<script src="' . asset('js/store-product.js') . '"></script>';
 $__descricao = trim((string) ($product['description'] ?? ''));
-$meta_description = $product['name'] . ' por R$ ' . number_format($effectivePrice, 2, ',', '.')
-    . ($pixPrice !== null ? ' (R$ ' . number_format($pixPrice, 2, ',', '.') . ' no PIX)' : '')
+$meta_description = $product['name'] . ' por R$ ' . number_format($effectivePrice, 2, ',', '.')
+    . ($pixPrice !== null ? ' (R$ ' . number_format($pixPrice, 2, ',', '.') . ' no PIX)' : '')
     . ' na ' . $store['name'] . '.' . ($__descricao !== '' ? ' ' . $__descricao : '');
 $meta_image = $cover['url'] ?? null;
 $meta_og_type = 'product';

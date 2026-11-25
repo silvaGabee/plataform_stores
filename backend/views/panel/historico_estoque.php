@@ -33,7 +33,7 @@
     <form class="ui-card ui-filters" id="sh-filters">
         <label class="ui-field ui-field--grow">
             <span>Buscar</span>
-            <span class="ui-input-icon"><?= ui_icon('search', 16) ?><input type="search" name="q" placeholder="Produto ou motivo (ex.: Pedido #1200)"></span>
+            <span class="ui-input-icon"><?= ui_icon('search', 16) ?><input type="search" name="q" placeholder="Produto ou motivo (ex.: #1200)"></span>
         </label>
         <label class="ui-field">
             <span>Tipo</span>

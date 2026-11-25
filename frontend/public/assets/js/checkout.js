@@ -350,7 +350,7 @@
     if (manual && manual.valor !== undefined && manual.valor !== null) {
       var valorStr =
         typeof manual.valor === 'number'
-          ? 'R$ ' + manual.valor.toFixed(2).replace('.', ',')
+          ? 'R$ ' + manual.valor.toFixed(2).replace('.', ',')
           : manual.valor;
       partes.push(
         '<div class="checkout-pix-amount">' +

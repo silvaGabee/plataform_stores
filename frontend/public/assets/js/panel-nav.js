@@ -1,5 +1,5 @@
 /**
- * Menu lateral do painel — drawer em telemóvel/tablet.
+ * Menu lateral do painel — gaveta no celular e no tablet.
  */
 (function () {
   'use strict';

@@ -56,8 +56,8 @@ ob_start();
                                             <button type="button" class="cart-qty-btn cart-qty-plus" aria-label="Aumentar">+</button>
                                         </div>
                                     </td>
-                                    <td data-label="Preço"><?php if (product_on_sale($p)): ?><s class="cart-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s> <?php endif; ?>R$ <?= number_format(product_effective_price($p), 2, ',', '.') ?></td>
-                                    <td class="subtotal" data-label="Subtotal">R$ <?= number_format($sub, 2, ',', '.') ?></td>
+                                    <td data-label="Preço"><?php if (product_on_sale($p)): ?><s class="cart-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s> <?php endif; ?>R$ <?= number_format(product_effective_price($p), 2, ',', '.') ?></td>
+                                    <td class="subtotal" data-label="Subtotal">R$ <?= number_format($sub, 2, ',', '.') ?></td>
                                     <td class="store-cart-actions" data-label="">
                                         <button type="button" class="store-cart-remove remove-from-cart" data-cart-key="<?= htmlspecialchars($item['cart_key'], ENT_QUOTES, 'UTF-8') ?>" aria-label="Remover <?= htmlspecialchars($p['name']) ?> do carrinho"><?= ui_icon('trash', 16) ?><span>Remover</span></button>
                                     </td>
@@ -82,12 +82,12 @@ ob_start();
                     </div>
                     <div class="store-cart-totals">
                         <dl class="store-cart-lines">
-                            <div><dt>Subtotal</dt><dd>R$ <?= number_format($total, 2, ',', '.') ?></dd></div>
+                            <div><dt>Subtotal</dt><dd>R$ <?= number_format($total, 2, ',', '.') ?></dd></div>
                             <div><dt>Frete</dt><dd id="cart-total-shipping" class="store-cart-shipping-value">Calculado na próxima etapa</dd></div>
                         </dl>
-                        <p class="cart-total"><span class="store-cart-total-label">Total</span> <strong class="store-cart-total-value" id="cart-total-value">R$ <?= number_format($total, 2, ',', '.') ?></strong></p>
+                        <p class="cart-total"><span class="store-cart-total-label">Total</span> <strong class="store-cart-total-value" id="cart-total-value">R$ <?= number_format($total, 2, ',', '.') ?></strong></p>
                         <?php if ($__pixTotal !== null): ?>
-                            <p class="store-cart-pix" id="cart-total-pix">ou <strong>R$ <?= number_format($__pixTotal, 2, ',', '.') ?></strong> no PIX</p>
+                            <p class="store-cart-pix" id="cart-total-pix">ou <strong>R$ <?= number_format($__pixTotal, 2, ',', '.') ?></strong> no PIX</p>
                         <?php endif; ?>
                         <a href="<?= base_url("loja/{$store['slug']}/checkout") ?>" class="btn btn-primary store-cart-checkout-btn">Finalizar compra</a>
                         <?php if ($__waDuvida !== null): ?>

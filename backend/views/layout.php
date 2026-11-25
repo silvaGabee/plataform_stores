@@ -25,7 +25,7 @@ $hide_app_header = isset($hide_app_header) && $hide_app_header;
     <script src="<?= asset('js/csrf.js') ?>"></script>
     <script src="<?= asset('js/ui-kit.js') ?>"></script>
 </head>
-<body class="<?= !logged_in() ? 'has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
+<body class="layout-plataforma<?= !logged_in() ? ' has-public-header' : '' ?><?= $hide_app_header ? ' hide-app-header' : '' ?>" data-auth-modal-initial="<?= htmlspecialchars($authModalInitial) ?>">
     <?php if (!$hide_app_header): ?>
     <header class="app-header<?= logged_in() ? ' app-header--session' : '' ?>">
         <div class="container app-header-inner">

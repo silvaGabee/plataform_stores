@@ -256,13 +256,28 @@
       valueEl.textContent = v;
       applyCartQty(cartKey, storeId, v);
     });
-    control.querySelector('.cart-qty-plus')?.addEventListener('click', function () {
+    const plus = control.querySelector('.cart-qty-plus');
+    // No limite do estoque o "+" não fazia nada e não dizia por quê.
+    function marcarLimite() {
+      if (!plus) return;
+      const cheio = (parseInt(valueEl.textContent, 10) || 0) >= max;
+      plus.classList.toggle('is-at-limit', cheio);
+      plus.setAttribute('aria-label', cheio ? 'Limite do estoque: ' + max + ' unidade' + (max === 1 ? '' : 's') : 'Aumentar');
+      plus.title = cheio ? 'Só ' + max + ' disponíve' + (max === 1 ? 'l' : 'is') : '';
+    }
+    control.querySelector('.cart-qty-minus')?.addEventListener('click', marcarLimite);
+    plus?.addEventListener('click', function () {
       let v = parseInt(valueEl.textContent, 10) || 0;
-      if (v >= max) return;
+      if (v >= max) {
+        showStoreToast(max === 1 ? 'Só há 1 unidade disponível deste item' : 'Só há ' + max + ' unidades disponíveis deste item');
+        return;
+      }
       v++;
       valueEl.textContent = v;
       applyCartQty(cartKey, storeId, v);
+      marcarLimite();
     });
+    marcarLimite();
   });
 })();
 

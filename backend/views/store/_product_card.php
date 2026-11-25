@@ -106,13 +106,13 @@ $favorito = isset(storefront_favorite_ids((int) $store['id'])[(int) $p['id']]);
             <div class="product-card-price-row">
                 <div class="product-card-prices">
                     <p class="product-card-price-line">
-                        <span class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></span>
+                        <span class="product-card-price">R$ <?= number_format($precoEfetivo, 2, ',', '.') ?></span>
                         <?php if ($descontoPct > 0): ?>
-                            <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
+                            <s class="product-card-price-old">R$ <?= number_format((float) $p['sale_price'], 2, ',', '.') ?></s>
                         <?php endif; ?>
                     </p>
                     <?php if ($precoPix !== null): ?>
-                        <p class="product-card-pix"><strong>R$ <?= number_format($precoPix, 2, ',', '.') ?></strong> no PIX</p>
+                        <p class="product-card-pix"><strong>R$ <?= number_format($precoPix, 2, ',', '.') ?></strong> no PIX</p>
                     <?php endif; ?>
                     <?php if ($parcelasTexto): ?>
                         <p class="product-card-installments"><?= htmlspecialchars($parcelasTexto) ?></p>

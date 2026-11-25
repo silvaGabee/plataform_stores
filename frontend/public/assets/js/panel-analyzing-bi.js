@@ -11,14 +11,19 @@
     var v = n != null ? parseFloat(n) : 0;
     if (isNaN(v)) v = 0;
     // Com ponto de milhar, como o resto do painel: "R$ 2.695,00", não "R$ 2695,00".
-    return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /** "1 pedido", "2.900 pedidos": no lugar de "pedido(s)". */
+  function plural(n, um, varios) {
+    return formatQty(n) + ' ' + (Number(n) === 1 ? um : varios);
   }
 
   function formatQty(n) {
     var v = n != null ? parseFloat(n) : 0;
     if (isNaN(v)) v = 0;
-    var s = v % 1 === 0 ? String(Math.round(v)) : v.toFixed(2).replace('.', ',');
-    return s;
+    // Separador de milhar ("2.900", não "2900"), como os valores em reais.
+    return v.toLocaleString('pt-BR', v % 1 === 0 ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function formatPct(n) {
@@ -112,7 +117,7 @@
     if (total > 8) {
       var mais = document.createElement('p');
       mais.className = 'bi-muted';
-      mais.textContent = 'E mais ' + (total - 8) + ' produto(s).';
+      mais.textContent = 'E mais ' + plural(total - 8, 'produto', 'produtos') + '.';
       el.appendChild(mais);
     }
   }
@@ -186,7 +191,7 @@
     if (isNaN(v)) v = 0;
     var abs = Math.abs(v);
     if (abs >= 1000) {
-      return 'R$ ' + formatAxisNumber(v);
+      return 'R$ ' + formatAxisNumber(v);
     }
     return formatMoney(v);
   }
@@ -712,8 +717,8 @@
           : '');
     }
     el.innerHTML =
-      '<div class="bi-pix-stat"><span>Desconto dado no PIX</span><strong>' + formatMoney(p.desconto_pix) + '</strong><small>' + p.pedidos_pix + ' pedido(s)</small></div>' +
-      '<div class="bi-pix-stat"><span>Juros recebidos no cartão</span><strong>' + formatMoney(p.juros_parcelamento) + '</strong><small>' + p.pedidos_parcelados + ' pedido(s) parcelado(s)</small></div>' +
+      '<div class="bi-pix-stat"><span>Desconto dado no PIX</span><strong>' + formatMoney(p.desconto_pix) + '</strong><small>' + plural(p.pedidos_pix, 'pedido', 'pedidos') + '</small></div>' +
+      '<div class="bi-pix-stat"><span>Juros recebidos no cartão</span><strong>' + formatMoney(p.juros_parcelamento) + '</strong><small>' + plural(p.pedidos_parcelados, 'pedido parcelado', 'pedidos parcelados') + '</small></div>' +
       '<div class="bi-pix-stat ' + (saldo >= 0 ? 'is-pos' : 'is-neg') + '"><span>Saldo (juros − desconto)</span><strong>' + formatMoney(saldo) + '</strong><small>no mês</small></div>' +
       '<p class="bi-pix-note">' + escapeHtml(leitura) + '</p>';
   }
@@ -736,7 +741,7 @@
     var elProf = document.getElementById('bi-kpi-profit');
     if (elTotal) elTotal.textContent = formatMoney(data.valor_total);
     if (elMonth) elMonth.textContent = formatMoney(data.valor_mensal);
-    if (elOrd) elOrd.textContent = String(data.quantidade_pedidos != null ? data.quantidade_pedidos : 0);
+    if (elOrd) elOrd.textContent = formatQty(data.quantidade_pedidos != null ? data.quantidade_pedidos : 0);
     if (elTick) elTick.textContent = formatMoney(data.ticket_medio);
     if (elProf) elProf.textContent = formatMoney(data.lucro_estimado);
     var elProfMonth = document.getElementById('bi-kpi-profit-month');
@@ -792,13 +797,13 @@
     document.getElementById('bi-capital-body').innerHTML =
       miniStat('Capital em estoque', formatMoney(c.total), formatQty(c.unidades) + ' unidades') +
       miniStat('Sem vender há ' + c.dias_sem_venda + ' dias ou mais', formatMoney(c.parado), 'dinheiro parado de fato' + pct, c.parado > 0 ? 'is-neg' : '') +
-      miniStat('Produtos com estoque e sem custo', String(c.sem_custo), c.sem_custo ? 'entram com R$ 0,00: o total está abaixo do real' : 'o total considera todos os produtos', c.sem_custo ? 'is-neg' : '');
+      miniStat('Produtos com estoque e sem custo', String(c.sem_custo), c.sem_custo ? 'entram com R$ 0,00: o total está abaixo do real' : 'o total considera todos os produtos', c.sem_custo ? 'is-neg' : '');
   }
 
   function renderAbc(abc) {
     var r = abc.resumo;
     document.getElementById('bi-abc-resumo').innerHTML = ['A', 'B', 'C'].map(function (k) {
-      return miniStat('Classe ' + k, formatPct(r[k].percentual) + ' da receita', r[k].produtos + ' produto(s) · ' + formatMoney(r[k].receita));
+      return miniStat('Classe ' + k, formatPct(r[k].percentual) + ' da receita', plural(r[k].produtos, 'produto', 'produtos') + ' · ' + formatMoney(r[k].receita));
     }).join('');
     var badge = { A: 'ui-badge--ok', B: 'ui-badge--info', C: 'ui-badge--muted' };
     linhasOuVazio(document.getElementById('bi-abc-rows'), abc.itens.slice(0, TOPO_TABELA).map(function (i) {
@@ -845,9 +850,9 @@
   function renderCupons(c) {
     var com = c.com_cupom, sem = c.sem_cupom;
     document.getElementById('bi-coupons-resumo').innerHTML =
-      miniStat('Desconto dado em cupons', formatMoney(com.desconto), com.pedidos + ' pedido(s)') +
+      miniStat('Desconto dado em cupons', formatMoney(com.desconto), plural(com.pedidos, 'pedido', 'pedidos')) +
       miniStat('Com cupom', formatMoney(com.ticket_medio) + ' por pedido', 'margem de ' + pctOuTraco(com.margem)) +
-      miniStat('Sem cupom', formatMoney(sem.ticket_medio) + ' por pedido', sem.pedidos + ' pedido(s), margem de ' + pctOuTraco(sem.margem));
+      miniStat('Sem cupom', formatMoney(sem.ticket_medio) + ' por pedido', plural(sem.pedidos, 'pedido', 'pedidos') + ', margem de ' + pctOuTraco(sem.margem));
     linhasOuVazio(document.getElementById('bi-coupons-rows'), c.cupons.map(function (i) {
       return '<tr><td data-label="Cupom"><span class="ui-code">' + escapeHtml(i.codigo) + '</span></td>' +
         '<td data-label="Pedidos" class="ui-num">' + i.pedidos + '</td>' +

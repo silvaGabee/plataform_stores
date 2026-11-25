@@ -73,7 +73,7 @@ $titulos = [
                                         <?php endif; ?>
                                     </div>
                                     <div class="ui-order-side">
-                                        <strong class="ui-order-total">R$ <?= number_format((float) $o['total'], 2, ',', '.') ?></strong>
+                                        <strong class="ui-order-total">R$ <?= number_format((float) $o['total'], 2, ',', '.') ?></strong>
                                         <span class="ui-badge ui-badge--<?= $chip[1] ?>"><?= htmlspecialchars($chip[0]) ?></span>
                                         <?php if ($st === 'pendente' && !empty($o['expires_at'])): ?>
                                             <span class="ui-order-countdown" data-expires="<?= htmlspecialchars($o['expires_at']) ?>" data-now="<?= date('Y-m-d H:i:s') ?>"></span>

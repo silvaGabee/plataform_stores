@@ -126,7 +126,7 @@
         if (dividir && !r.distributed_to) {
           UI.toast('Meta salva, mas não houve divisão: a meta é zero ou a loja não tem funcionários.', 'info');
         } else {
-          UI.toast(dividir ? UI.money(form.elements.distribute_amount.value) + ' divididos entre ' + r.distributed_to + ' funcionário(s).' : 'Meta salva.', 'ok');
+          UI.toast(dividir ? UI.money(form.elements.distribute_amount.value) + ' divididos entre ' + r.distributed_to + (Number(r.distributed_to) === 1 ? ' funcionário.' : ' funcionários.') : 'Meta salva.', 'ok');
         }
         load();
       });

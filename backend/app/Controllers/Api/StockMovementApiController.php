@@ -50,8 +50,19 @@ class StockMovementApiController extends Controller
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, ['Data', 'Produto', 'Tipo', 'Quantidade', 'Motivo', 'Responsável'], ';');
+            // O tipo saía cru ("saida", "devolucao") e a data em formato de
+            // banco. A planilha usa os mesmos nomes da tela.
+            $tipos = ['entrada' => 'Entrada', 'saida' => 'Saída', 'ajuste' => 'Ajuste', 'devolucao' => 'Devolução'];
             foreach ($linhas as $l) {
-                fputcsv($out, [$l['created_at'], $l['product_name'], $l['type'], $l['quantity'], $l['reason'], $l['user_name'] ?? 'Sistema'], ';');
+                $quando = strtotime((string) $l['created_at']);
+                fputcsv($out, [
+                    $quando ? date('d/m/Y H:i', $quando) : $l['created_at'],
+                    $l['product_name'],
+                    $tipos[$l['type']] ?? $l['type'],
+                    $l['quantity'],
+                    $l['reason'],
+                    $l['user_name'] ?? 'Sistema',
+                ], ';');
             }
             fclose($out);
             exit;

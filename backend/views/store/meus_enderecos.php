@@ -57,7 +57,7 @@ $can_add_address = true;
                                         <?php endif; ?>
                                         <p class="meus-enderecos-card-lines">
                                             <span class="meus-enderecos-card-line-primary"><?= htmlspecialchars($a['street']) ?>, <?= htmlspecialchars($a['number']) ?><?php if (!empty($a['complement'])): ?> <span class="meus-enderecos-card-sep">·</span> <?= htmlspecialchars($a['complement']) ?><?php endif; ?></span>
-                                            <span class="meus-enderecos-card-line-secondary"><?php if (!empty($a['neighborhood'])): ?><?= htmlspecialchars($a['neighborhood']) ?> <span class="meus-enderecos-card-sep">·</span> <?php endif; ?><?= htmlspecialchars($a['city']) ?>/<?= htmlspecialchars($a['state']) ?> <span class="meus-enderecos-card-sep">·</span> CEP <?= htmlspecialchars($a['zipcode']) ?></span>
+                                            <span class="meus-enderecos-card-line-secondary"><?php if (!empty($a['neighborhood'])): ?><?= htmlspecialchars($a['neighborhood']) ?> <span class="meus-enderecos-card-sep">·</span> <?php endif; ?><?= htmlspecialchars($a['city']) ?>/<?= htmlspecialchars($a['state']) ?> <span class="meus-enderecos-card-sep">·</span> <span class="ui-nowrap">CEP <?= htmlspecialchars($a['zipcode']) ?></span></span>
                                         </p>
                                         <div class="meus-enderecos-item-actions">
                                             <button type="button" class="btn btn-secondary meus-enderecos-edit" data-address="<?= $addrJson ?>">Editar</button>

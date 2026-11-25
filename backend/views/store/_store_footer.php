@@ -52,7 +52,7 @@ $__fDocLabel = strlen(preg_replace('/\D/', '', $__fDoc) ?? '') === 11 ? 'CPF' : 
             <ul class="store-footer-list">
                 <li><?= ui_icon('qr', 15) ?> PIX<?= $__fPix > 0 ? ' com ' . rtrim(rtrim(number_format($__fPix, 2, ',', ''), '0'), ',') . '% de desconto' : '' ?></li>
                 <li><?= ui_icon('card', 15) ?> Cartão de crédito<?= $__fParcelas['free'] > 1 ? ' em até ' . $__fParcelas['free'] . 'x sem juros' : ($__fParcelas['max'] > 1 ? ' em até ' . $__fParcelas['max'] . 'x' : '') ?></li>
-                <li><?= ui_icon('truck', 15) ?> Entrega ou retirada na loja<?= $__fFreteMin !== null && $__fFreteMin > 0 ? '. Frete grátis acima de R$ ' . number_format($__fFreteMin, 2, ',', '.') : '' ?></li>
+                <li><?= ui_icon('truck', 15) ?> Entrega ou retirada na loja<?= $__fFreteMin !== null && $__fFreteMin > 0 ? '. Frete grátis acima de R$ ' . number_format($__fFreteMin, 2, ',', '.') : '' ?></li>
             </ul>
         </section>
 

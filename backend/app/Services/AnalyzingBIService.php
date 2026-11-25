@@ -227,9 +227,9 @@ class AnalyzingBIService
             $ideias[] = 'Primeiro mês com vendas registradas: ainda não há mês anterior para comparar. Acompanhe os próximos meses para ver a tendência.';
         } elseif ($valorMensalAnterior > 0 || $valorMensal > 0) {
             if ($pctVendasMes > 1) {
-                $ideias[] = 'As vendas do mês cresceram ' . round($pctVendasMes, 1) . '% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões.';
+                $ideias[] = 'As vendas do mês cresceram ' . number_format($pctVendasMes, 1, ',', '.') . '% em relação ao mês anterior. Bom momento para reforçar estoque dos itens campeões.';
             } elseif ($pctVendasMes < -1) {
-                $ideias[] = 'As vendas do mês recuaram ' . round(abs($pctVendasMes), 1) . '% em relação ao mês anterior. Avalie campanhas ou mix de produtos.';
+                $ideias[] = 'As vendas do mês recuaram ' . number_format(abs($pctVendasMes), 1, ',', '.') . '% em relação ao mês anterior. Avalie campanhas ou mix de produtos.';
             } else {
                 $ideias[] = 'As vendas do mês estão estáveis em relação ao mês anterior.';
             }

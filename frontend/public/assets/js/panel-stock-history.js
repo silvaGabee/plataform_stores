@@ -10,7 +10,7 @@
   var lastTotal = 0;
   var TIPOS = {
     entrada: ['Entrada', 'ok'],
-    saida: ['Venda', 'info'],
+    saida: ['Saída', 'info'],
     ajuste: ['Ajuste', 'warn'],
     devolucao: ['Devolução', 'ok']
   };

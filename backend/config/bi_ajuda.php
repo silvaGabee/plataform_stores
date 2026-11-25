@@ -29,7 +29,7 @@ return [
             'Faturamento do mês menos o custo do que foi vendido. Margem = lucro ÷ faturamento (quanto de cada real vendido é lucro). Markup = lucro ÷ custo (quanto se ganha sobre o que se pagou).'],
         'pedidos' => ['Pedidos pagos',
             'A quantidade de pedidos com pagamento confirmado, desde o início.',
-            'Medir o movimento da loja, independente do valor de cada compra.',
+            'Medir o movimento da loja, independentemente do valor de cada compra.',
             'Conta pedidos com situação "pago", do balcão e da vitrine. Pedidos aguardando pagamento, cancelados e estornados não entram.'],
         'ticket' => ['Ticket médio',
             'O valor médio de cada pedido pago.',

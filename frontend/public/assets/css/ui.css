@@ -559,7 +559,8 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .ui-star { flex-shrink: 0; }
 .ui-star--full { fill: currentColor; }
 .ui-star--half { fill: url(#ui-star-half); stroke: currentColor; stroke-width: 1.5; }
-.ui-star--empty { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: .45; }
+/* Vazia: o contorno a 45% sumia em fundos claros e no escuro. */
+.ui-star--empty { fill: none; stroke: currentColor; stroke-width: 1.75; opacity: .75; }
 
 .store-cart-summary .store-cart-shipping { flex: 1 1 100%; }
 .store-cart-pix { margin: 0 auto 0 0; font-size: .9rem; color: var(--text-muted); }
@@ -619,7 +620,8 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .product-review-form .btn { align-self: flex-start; }
 /* Estrelas clicáveis: a escolha pinta ela e as anteriores (ordem invertida com row-reverse). */
 .product-review-stars { display: inline-flex; flex-direction: row-reverse; justify-content: flex-end; gap: .15rem; }
-.product-review-star { cursor: pointer; color: #cbd5e1; line-height: 0; }
+.product-review-star { cursor: pointer; color: #94a3b8; line-height: 0; }
+[data-theme="dark"] .product-review-star { color: #64748b; }
 .product-review-star input { position: absolute; opacity: 0; pointer-events: none; }
 .product-review-star svg { fill: currentColor; transition: color .1s ease, transform .1s ease; }
 .product-review-star:hover, .product-review-star:hover ~ .product-review-star,
@@ -695,7 +697,8 @@ button.pp-card:focus-visible { box-shadow: var(--ring); border-color: var(--prim
 .reviews-mod-item header { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .88rem; }
 .reviews-mod-item time { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
 .reviews-mod-stars { color: #f59e0b; letter-spacing: .05em; }
-.reviews-mod-stars span { color: var(--border); }
+/* Estrelas vazias: a cor da borda era igual ao fundo do cartão no escuro. */
+.reviews-mod-stars span { color: color-mix(in srgb, var(--text-muted) 55%, transparent); }
 .reviews-mod-author { margin: 0; font-size: .78rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .reviews-mod-comment { margin: 0; font-size: .9rem; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
 .reviews-mod-reply-label { font-size: .78rem; font-weight: 600; color: var(--text-muted); }

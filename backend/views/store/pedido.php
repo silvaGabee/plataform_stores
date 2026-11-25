@@ -86,7 +86,7 @@ $content = ob_start();
             </p>
             <div class="order-success-hero-total">
                 <span class="order-success-hero-total-label">Valor pago</span>
-                <span class="order-success-hero-total-value">R$ <?= number_format($order['total'], 2, ',', '.') ?></span>
+                <span class="order-success-hero-total-value">R$ <?= number_format($order['total'], 2, ',', '.') ?></span>
             </div>
         </header>
         <?php else: ?>
@@ -118,7 +118,7 @@ $content = ob_start();
                             <span class="ui-paybox-countdown" id="paybox-countdown">Calculando prazo…</span>
                         </p>
                     </div>
-                    <strong class="ui-paybox-amount">R$ <?= number_format((float) ($payView['payment']['amount'] ?? $order['total']), 2, ',', '.') ?></strong>
+                    <strong class="ui-paybox-amount">R$ <?= number_format((float) ($payView['payment']['amount'] ?? $order['total']), 2, ',', '.') ?></strong>
                 </header>
                 <?php if ($payView['pix']): ?>
                     <div class="ui-paybox-body">
@@ -211,7 +211,7 @@ $content = ob_start();
                     </div>
                     <div class="order-stat order-stat--total">
                         <span class="order-stat-label">Total</span>
-                        <span class="order-stat-value order-stat-value--amount">R$ <?= number_format($order['total'], 2, ',', '.') ?></span>
+                        <span class="order-stat-value order-stat-value--amount">R$ <?= number_format($order['total'], 2, ',', '.') ?></span>
                     </div>
                 </div>
             </section>
@@ -226,7 +226,7 @@ $content = ob_start();
                     <span class="order-info-card-label">Entrega no endereço</span>
                     <p class="order-info-card-text">
                         <?= htmlspecialchars($order_address['street'] ?? '') ?>, <?= htmlspecialchars($order_address['number'] ?? '') ?><?= !empty($order_address['complement']) ? ' — ' . htmlspecialchars($order_address['complement']) : '' ?><br>
-                        <?= htmlspecialchars($order_address['neighborhood'] ?? '') ?><?= !empty($order_address['neighborhood']) ? ' · ' : '' ?><?= htmlspecialchars($order_address['city'] ?? '') ?>/<?= htmlspecialchars($order_address['state'] ?? '') ?> · CEP <?= htmlspecialchars($order_address['zipcode'] ?? '') ?>
+                        <?= htmlspecialchars($order_address['neighborhood'] ?? '') ?><?= !empty($order_address['neighborhood']) ? ' · ' : '' ?><?= htmlspecialchars($order_address['city'] ?? '') ?>/<?= htmlspecialchars($order_address['state'] ?? '') ?> · <span class="ui-nowrap">CEP <?= htmlspecialchars($order_address['zipcode'] ?? '') ?></span>
                     </p>
                 </div>
             </section>
@@ -254,26 +254,26 @@ $content = ob_start();
                         <div class="order-product-body">
                             <div class="order-product-main">
                                 <span class="order-product-name"><?= htmlspecialchars((string) $item['product_name']) ?></span>
-                                <span class="order-product-line-total">R$ <?= number_format($lineTotal, 2, ',', '.') ?></span>
+                                <span class="order-product-line-total">R$ <?= number_format($lineTotal, 2, ',', '.') ?></span>
                             </div>
                             <?php $variacao = product_variant_key_label([], isset($item['variant_key']) ? (string) $item['variant_key'] : null); ?>
-                            <p class="order-product-meta"><?php if ($variacao !== ''): ?><?= htmlspecialchars($variacao) ?> · <?php endif; ?>R$ <?= number_format($item['price'], 2, ',', '.') ?> cada</p>
+                            <p class="order-product-meta"><?php if ($variacao !== ''): ?><?= htmlspecialchars($variacao) ?> · <?php endif; ?>R$ <?= number_format($item['price'], 2, ',', '.') ?> cada</p>
                         </div>
                     </li>
                     <?php endforeach; ?>
                 </ul>
                 <dl class="order-totals">
-                    <div><dt>Itens</dt><dd>R$ <?= number_format($itensSubtotal, 2, ',', '.') ?></dd></div>
+                    <div><dt>Itens</dt><dd>R$ <?= number_format($itensSubtotal, 2, ',', '.') ?></dd></div>
                     <?php if ($couponDiscount > 0.004): ?>
-                        <div class="order-totals-discount"><dt><?= !empty($order['coupon_code']) ? 'Cupom ' . htmlspecialchars($order['coupon_code']) : 'Desconto' ?></dt><dd>− R$ <?= number_format($couponDiscount, 2, ',', '.') ?></dd></div>
+                        <div class="order-totals-discount"><dt><?= !empty($order['coupon_code']) ? 'Cupom ' . htmlspecialchars($order['coupon_code']) : 'Desconto' ?></dt><dd>− R$ <?= number_format($couponDiscount, 2, ',', '.') ?></dd></div>
                     <?php endif; ?>
                     <?php if ($pixDiscount > 0.004): ?>
-                        <div class="order-totals-discount"><dt>Desconto à vista no PIX</dt><dd>− R$ <?= number_format($pixDiscount, 2, ',', '.') ?></dd></div>
+                        <div class="order-totals-discount"><dt>Desconto à vista no PIX</dt><dd>− R$ <?= number_format($pixDiscount, 2, ',', '.') ?></dd></div>
                     <?php endif; ?>
                     <?php if ($deliveryType === 'entrega'): ?>
-                        <div><dt>Frete</dt><dd><?= $shippingFee > 0.004 ? 'R$ ' . number_format($shippingFee, 2, ',', '.') : 'Grátis' ?></dd></div>
+                        <div><dt>Frete</dt><dd><?= $shippingFee > 0.004 ? 'R$ ' . number_format($shippingFee, 2, ',', '.') : 'Grátis' ?></dd></div>
                     <?php endif; ?>
-                    <div class="order-totals-total"><dt>Total</dt><dd>R$ <?= number_format((float) $order['total'], 2, ',', '.') ?></dd></div>
+                    <div class="order-totals-total"><dt>Total</dt><dd>R$ <?= number_format((float) $order['total'], 2, ',', '.') ?></dd></div>
                 </dl>
             </section>
 
@@ -300,7 +300,7 @@ $content = ob_start();
                         <div class="order-payment-card-body">
                             <div class="order-payment-card-head">
                                 <span class="order-payment-card-method"><?= htmlspecialchars($methodLabel) ?></span>
-                                <span class="order-payment-card-amount">R$ <?= number_format($pay['amount'], 2, ',', '.') ?></span>
+                                <span class="order-payment-card-amount">R$ <?= number_format($pay['amount'], 2, ',', '.') ?></span>
                             </div>
                             <div class="order-payment-card-foot">
                                 <span class="order-payment-card-status order-payment-card-status--<?= htmlspecialchars($payStatusKey) ?>"><?= htmlspecialchars($payStatusLabel) ?></span>

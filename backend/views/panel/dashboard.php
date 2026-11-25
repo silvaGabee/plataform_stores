@@ -63,7 +63,7 @@ ob_start();
             </header>
             <form id="dashboard-category-form" class="dashboard-category-form">
                 <label for="dashboard-category-name">Nome da categoria</label>
-                <input type="text" id="dashboard-category-name" name="name" maxlength="80" required placeholder="Ex.: Feminino, Ténis, Ofertas" autocomplete="off">
+                <input type="text" id="dashboard-category-name" name="name" maxlength="80" required placeholder="Ex.: Feminino, Tênis, Ofertas" autocomplete="off">
                 <p class="dashboard-category-icon-label">Ícone</p>
                 <div id="dashboard-category-icon-picker" class="dashboard-category-icon-picker" role="radiogroup" aria-label="Escolher ícone"></div>
                 <input type="hidden" id="dashboard-category-icon-key" name="icon_key" value="feminino">
@@ -98,7 +98,7 @@ ob_start();
                                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.35" opacity="0.35"/><circle cx="8.5" cy="10.5" r="1.5" fill="currentColor" opacity="0.45"/><path d="M21 15l-5-5-4 4-2-2-5 5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/></svg>
                                 </span>
                                 <p class="dashboard-banner-empty-title">Pré-visualização</p>
-                                <p class="dashboard-banner-placeholder-text">A carregar…</p>
+                                <p class="dashboard-banner-placeholder-text">Carregando…</p>
                             </div>
                         </div>
                         <figure id="dashboard-banner-preview-wrap" class="dashboard-banner-preview-figure hidden">
@@ -551,7 +551,7 @@ ob_start();
   // funcionário a chamada só devolvia 403 e a mensagem de erro no lugar da
   // imagem. Ele fica com o aviso "Só o gerente pode carregar…".
   if (!panelBannerReadonly && ph) ph.classList.add('dashboard-banner-empty--loading');
-  // Sem a chamada, o quadro ficava em "A carregar…" para sempre. O banner já
+  // Sem a chamada, o quadro ficava em "Carregando…" para sempre. O banner já
   // é público na vitrine, então a página traz o endereço pronto.
   if (panelBannerReadonly) {
     setBannerUi(<?= json_encode(trim((string) ($store['banner_path'] ?? '')) !== '' ? base_url('uploads/' . str_replace('\\', '/', trim((string) $store['banner_path']))) : null) ?>);

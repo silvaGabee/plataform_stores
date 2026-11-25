@@ -379,10 +379,12 @@
     var elLow = document.getElementById('stock-stat-low');
     var elZero = document.getElementById('stock-stat-zero');
     var elUnits = document.getElementById('stock-stat-units');
-    if (elTotal) elTotal.textContent = String(total);
-    if (elLow) elLow.textContent = String(low);
-    if (elZero) elZero.textContent = String(zero);
-    if (elUnits) elUnits.textContent = String(units);
+    // Separador de milhar: "1.599" em vez de "1599".
+    var n = function (v) { return Number(v || 0).toLocaleString('pt-BR'); };
+    if (elTotal) elTotal.textContent = n(total);
+    if (elLow) elLow.textContent = n(low);
+    if (elZero) elZero.textContent = n(zero);
+    if (elUnits) elUnits.textContent = n(units);
     var legacy = document.getElementById('low-stock-count');
     if (legacy) legacy.textContent = String(low);
   }
@@ -658,7 +660,7 @@
 
   function updateVariantTotalUi() {
     var el = document.getElementById('adjust-variant-total');
-    if (el) el.textContent = String(matrixTotalStock(activeAdjustMatrix));
+    if (el) el.textContent = Number(matrixTotalStock(activeAdjustMatrix) || 0).toLocaleString('pt-BR');
   }
 
   function openAdjustModal(id, name, presetColor, presetSize) {

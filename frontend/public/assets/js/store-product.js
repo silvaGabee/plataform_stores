@@ -233,7 +233,7 @@
         return;
       }
       if (!selectedSize) {
-        stockLabel.textContent = 'Selecione o ' + (matrix.axis_label || 'tamanho').toLowerCase();
+        stockLabel.textContent = matrix.axis === 'numeracao' ? 'Selecione a numeração' : 'Selecione o ' + (matrix.axis_label || 'tamanho').toLowerCase();
         syncAddBtnVariantKey('');
         wireQty(0);
         return;

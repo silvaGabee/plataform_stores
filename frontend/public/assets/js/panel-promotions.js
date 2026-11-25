@@ -298,7 +298,7 @@
       var q = r.frete;
       out.textContent = q.sem_regras ? 'Sem faixas: entrega sem custo.'
         : !q.disponivel ? 'Fora das faixas: a loja não entrega neste CEP.'
-        : q.regra + ': ' + (q.valor > 0 ? UI.money(q.valor) : 'grátis') + (q.prazo != null ? ', ' + q.prazo + ' dia(s)' : '');
+        : q.regra + ': ' + (q.valor > 0 ? UI.money(q.valor) : 'grátis') + (q.prazo != null ? ', ' + q.prazo + (Number(q.prazo) === 1 ? ' dia' : ' dias') : '');
     });
   });
   document.getElementById('ip-sim-value').addEventListener('input', simulate);

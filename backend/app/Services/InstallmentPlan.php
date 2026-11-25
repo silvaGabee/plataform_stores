@@ -114,7 +114,7 @@ final class InstallmentPlan
         }
 
         return implode(' + ', array_map(
-            static fn (array $g): string => $g[0] . 'x de R$ ' . number_format($g[1] / 100, 2, ',', '.'),
+            static fn (array $g): string => $g[0] . 'x de R$ ' . number_format($g[1] / 100, 2, ',', '.'),
             $grupos
         ));
     }

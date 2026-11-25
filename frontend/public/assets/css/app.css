@@ -10475,3 +10475,36 @@ button, input, select, textarea, optgroup {
   bottom: 0;
   z-index: 2;
 }
+
+/* ========== Ajustes do QA visual (itens baixos) ========== */
+
+/* "Criar conta grátis" quebrava em duas linhas no hero da home. */
+.home-cta-primary,
+.home-cta-secondary { white-space: nowrap; }
+
+/* O X do modal de login ficava em cima da aba "Criar conta". No
+   computador o X fica no canto da coluna dos formulários; a coluna desce
+   o bastante para as abas começarem abaixo dele. */
+@media (min-width: 721px) {
+  .auth-modal-forms { padding-top: 3.35rem; }
+}
+
+
+/* Ajuste de estoque: sem combinação escolhida, a prévia ficava como uma
+   pílula cinza vazia entre os campos. */
+.stock-modal-variant-preview:empty { display: none; }
+.cart-qty-btn.is-at-limit { opacity: 0.4; cursor: not-allowed; }
+
+/* Páginas da plataforma (404, Minha conta, lojas): com pouco conteúdo o
+   rodapé parava no meio da tela e sobrava uma faixa vazia embaixo. */
+body.layout-plataforma {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+body.layout-plataforma > .app-footer { margin-top: auto; }
+
+/* Placeholder maior que o campo termina em "…" em vez de cortado no meio. */
+input[type="search"],
+input[type="text"] { text-overflow: ellipsis; }

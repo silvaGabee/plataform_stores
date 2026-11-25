@@ -11,13 +11,13 @@ $__freteMin = isset($store['free_shipping_min']) && $store['free_shipping_min'] 
 $__telefone = trim((string) ($store['phone'] ?? ''));
 $__beneficios = [];
 if ($__pixPct > 0) {
-    $__beneficios[] = ['qr', rtrim(rtrim(number_format($__pixPct, 2, ',', ''), '0'), ',') . '% off no PIX', 'Desconto aplicado no pagamento'];
+    $__beneficios[] = ['qr', rtrim(rtrim(number_format($__pixPct, 2, ',', ''), '0'), ',') . '% de desconto no PIX', 'Desconto aplicado no pagamento'];
 }
 if ($__parcelas['free'] > 1) {
     $__beneficios[] = ['card', 'Até ' . $__parcelas['free'] . 'x sem juros', 'No cartão de crédito'];
 }
 if ($__freteMin !== null && $__freteMin > 0) {
-    $__beneficios[] = ['truck', 'Frete grátis', 'Em compras acima de R$ ' . number_format($__freteMin, 2, ',', '.')];
+    $__beneficios[] = ['truck', 'Frete grátis', 'Em compras acima de R$ ' . number_format($__freteMin, 2, ',', '.')];
 }
 if (store_whatsapp_url($store) !== null) {
     $__beneficios[] = ['chat', 'Atendimento direto', 'WhatsApp ' . $__telefone];
